@@ -113,119 +113,189 @@
         </div>
 
         <!-- Segment Management -->
-        <div class="panel" v-if="selectedSegments.length">
+        <div class="panel" v-if="dentalModel && dentalModel.segments.length > 0">
           <div class="panel-header">
             <span class="panel-icon">🎨</span>
-            <span class="panel-title">Selected Segments</span>
-            <span class="panel-badge">{{ selectedSegments.length }}</span>
+            <span class="panel-title">All Segments</span>
+            <span class="panel-badge">{{ dentalModel.segments.length }}</span>
           </div>
           <div class="panel-content">
             <div class="segment-list">
               <div 
-                v-for="segment in selectedSegments" 
+                v-for="segment in dentalModel.segments" 
                 :key="segment.id"
                 class="segment-item"
+                :class="{ selected: segment.isSelected }"
               >
-                <div class="segment-info">
-                  <span class="segment-name">{{ segment.name }}</span>
-                  <span class="segment-type">{{ segment.toothType }}</span>
+                <div class="segment-header">
+                  <div class="segment-info">
+                    <span class="segment-checkbox">
+                      <input 
+                        type="checkbox" 
+                        :checked="segment.isSelected"
+                        @click.stop="toggleSegmentSelection(segment)"
+                      />
+                    </span>
+                    <span class="segment-name">{{ segment.name }}</span>
+                    <span class="segment-type">{{ segment.toothType }}</span>
+                  </div>
+                  <div class="segment-controls">
+                    <input 
+                      type="color" 
+                      :value="'#' + segment.color.getHexString()"
+                      @change="changeSegmentColor(segment, $event)"
+                      @click.stop
+                      class="color-picker"
+                    />
+                  </div>
                 </div>
-                <input 
-                  type="color" 
-                  :value="'#' + segment.color.getHexString()"
-                  @change="changeSegmentColor(segment, $event)"
-                  class="color-picker"
-                />
+                
+                <!-- Always show segment controls -->
+                <div class="segment-expanded">
+                  <div class="segment-actions">
+                    <button 
+                      class="btn btn-sm btn-secondary" 
+                      @click="resetIndividualPosition(segment)"
+                      :disabled="!segment.isSelected"
+                    >
+                      <span>↩️</span> Reset
+                    </button>
+                    <button 
+                      class="btn btn-sm btn-secondary" 
+                      @click="toggleSegmentVisibility(segment)"
+                    >
+                      <span>{{ segment.mesh.visible ? '👁️' : '🙈' }}</span>
+                    </button>
+                  </div>
+                  
+                  <!-- Individual movement info -->
+                  <div v-if="segment.movementHistory && segment.movementHistory.totalDistance > 0" class="individual-movement-info">
+                    <div class="movement-summary">
+                      <div class="movement-distance">
+                        <span class="distance-label">Total Movement:</span>
+                        <span class="distance-value">{{ segment.movementHistory.totalDistance.toFixed(2) }} mm</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Axis breakdown -->
+                    <div class="axis-breakdown">
+                      <div class="axis-movement-item">
+                        <span class="axis-label">Anteroposterior:</span>
+                        <span class="axis-value" :class="{ positive: segment.movementHistory.axisMovements.anteroposterior > 0, negative: segment.movementHistory.axisMovements.anteroposterior < 0 }">
+                          {{ segment.movementHistory.axisMovements.anteroposterior > 0 ? '+' : '' }}{{ segment.movementHistory.axisMovements.anteroposterior.toFixed(2) }} mm
+                        </span>
+                      </div>
+                      <div class="axis-movement-item">
+                        <span class="axis-label">Vertical:</span>
+                        <span class="axis-value" :class="{ positive: segment.movementHistory.axisMovements.vertical > 0, negative: segment.movementHistory.axisMovements.vertical < 0 }">
+                          {{ segment.movementHistory.axisMovements.vertical > 0 ? '+' : '' }}{{ segment.movementHistory.axisMovements.vertical.toFixed(2) }} mm
+                        </span>
+                      </div>
+                      <div class="axis-movement-item">
+                        <span class="axis-label">Transverse:</span>
+                        <span class="axis-value" :class="{ positive: segment.movementHistory.axisMovements.transverse > 0, negative: segment.movementHistory.axisMovements.transverse < 0 }">
+                          {{ segment.movementHistory.axisMovements.transverse > 0 ? '+' : '' }}{{ segment.movementHistory.axisMovements.transverse.toFixed(2) }} mm
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             
             <!-- Movement Controls -->
             <div class="movement-controls" v-if="selectedSegments.length > 0">
               <div class="movement-header">
-                <span class="movement-icon">📐</span>
-                <span class="movement-title">3D Movement</span>
+                <span class="movement-icon">🎯</span>
+                <span class="movement-title">Movement</span>
               </div>
-              <div class="movement-distance" v-if="totalMovementDistance > 0">
-                <span class="distance-label">Total moved:</span>
-                <span class="distance-value">{{ totalMovementDistance.toFixed(2) }} mm</span>
-              </div>
-              <div class="axis-movement" v-if="movementAxis !== 'None'">
-                <span class="axis-label">Primary axis:</span>
-                <span class="axis-value">{{ movementAxis }}</span>
-              </div>
-              <div class="axis-distances" v-if="totalMovementDistance > 0">
-                <div class="axis-distance-item">
-                  <span class="axis-name">A-P:</span>
-                  <span class="axis-distance">{{ Math.abs(axisMovementDistances.anteroposterior).toFixed(2) }} mm</span>
-                </div>
-                <div class="axis-distance-item">
-                  <span class="axis-name">Vert:</span>
-                  <span class="axis-distance">{{ Math.abs(axisMovementDistances.vertical).toFixed(2) }} mm</span>
-                </div>
-                <div class="axis-distance-item">
-                  <span class="axis-name">Trans:</span>
-                  <span class="axis-distance">{{ Math.abs(axisMovementDistances.transverse).toFixed(2) }} mm</span>
-                </div>
-              </div>
+              
+              <!-- Movement Toggle -->
               <div class="movement-buttons">
-                <button class="btn btn-secondary movement-btn" @click="startMovementMode">
-                  <span>🔄</span> Move Mode
+                <button 
+                  v-if="!isMovingSegment" 
+                  @click="startMovementMode" 
+                  class="btn btn-secondary movement-btn"
+                >
+                  <span>🎯</span> Enable Movement
                 </button>
-                <button class="btn btn-secondary movement-btn" @click="resetSegmentPosition" :disabled="totalMovementDistance === 0">
-                  <span>↩️</span> Reset Position
+                <button 
+                  v-else 
+                  @click="disableMovementMode" 
+                  class="btn btn-secondary movement-btn"
+                >
+                  <span>⏹️</span> Disable Movement
+                </button>
+                <button 
+                  @click="resetSegmentPosition" 
+                  :disabled="totalMovementDistance === 0"
+                  class="btn btn-secondary movement-btn"
+                >
+                  <span>↩️</span> Reset
                 </button>
               </div>
               
-              <!-- Visual Direction Controls -->
-              <div class="direction-controls" v-if="selectedSegments.length > 0">
-                <div class="direction-header">
-                  <span class="direction-icon">🎯</span>
-                  <span class="direction-title">Directional Movement</span>
-                </div>
-                
-                <!-- Anteroposterior Controls -->
+              <!-- Directional Controls -->
+              <div v-if="isMovingSegment" class="direction-controls">
                 <div class="axis-control-group">
-                  <div class="axis-label">Anteroposterior (A-P)</div>
+                  <div class="axis-label">Anteroposterior</div>
                   <div class="axis-buttons">
-                    <button class="direction-btn anterior" @mousedown="startDirectionalMove('Anteroposterior', 1)" @mouseup="stopDirectionalMove" @mouseleave="stopDirectionalMove">
-                      <span class="arrow">←</span>
-                      <span class="label">Anterior</span>
-                    </button>
-                    <button class="direction-btn posterior" @mousedown="startDirectionalMove('Anteroposterior', -1)" @mouseup="stopDirectionalMove" @mouseleave="stopDirectionalMove">
-                      <span class="arrow">→</span>
-                      <span class="label">Posterior</span>
-                    </button>
+                    <button 
+                      class="direction-btn" 
+                      @mousedown="startDirectionalMove('Anteroposterior', -1)" 
+                      @mouseup="stopDirectionalMove" 
+                      @mouseleave="stopDirectionalMove"
+                    >← Post</button>
+                    <button 
+                      class="direction-btn" 
+                      @mousedown="startDirectionalMove('Anteroposterior', 1)" 
+                      @mouseup="stopDirectionalMove" 
+                      @mouseleave="stopDirectionalMove"
+                    >Ant →</button>
                   </div>
                 </div>
                 
-                <!-- Vertical Controls -->
                 <div class="axis-control-group">
                   <div class="axis-label">Vertical</div>
                   <div class="axis-buttons">
-                    <button class="direction-btn superior" @mousedown="startDirectionalMove('Vertical', 1)" @mouseup="stopDirectionalMove" @mouseleave="stopDirectionalMove">
-                      <span class="arrow">↑</span>
-                      <span class="label">Superior</span>
-                    </button>
-                    <button class="direction-btn inferior" @mousedown="startDirectionalMove('Vertical', -1)" @mouseup="stopDirectionalMove" @mouseleave="stopDirectionalMove">
-                      <span class="arrow">↓</span>
-                      <span class="label">Inferior</span>
-                    </button>
+                    <button 
+                      class="direction-btn" 
+                      @mousedown="startDirectionalMove('Vertical', -1)" 
+                      @mouseup="stopDirectionalMove" 
+                      @mouseleave="stopDirectionalMove"
+                    >↓ Inf</button>
+                    <button 
+                      class="direction-btn" 
+                      @mousedown="startDirectionalMove('Vertical', 1)" 
+                      @mouseup="stopDirectionalMove" 
+                      @mouseleave="stopDirectionalMove"
+                    >Sup ↑</button>
                   </div>
                 </div>
                 
-                <!-- Transverse Controls -->
                 <div class="axis-control-group">
-                  <div class="axis-label">Transverse (Lateral)</div>
+                  <div class="axis-label">Transverse</div>
                   <div class="axis-buttons">
-                    <button class="direction-btn left" @mousedown="startDirectionalMove('Transverse', -1)" @mouseup="stopDirectionalMove" @mouseleave="stopDirectionalMove">
-                      <span class="arrow">←</span>
-                      <span class="label">Left</span>
-                    </button>
-                    <button class="direction-btn right" @mousedown="startDirectionalMove('Transverse', 1)" @mouseup="stopDirectionalMove" @mouseleave="stopDirectionalMove">
-                      <span class="arrow">→</span>
-                      <span class="label">Right</span>
-                    </button>
+                    <button 
+                      class="direction-btn" 
+                      @mousedown="startDirectionalMove('Transverse', -1)" 
+                      @mouseup="stopDirectionalMove" 
+                      @mouseleave="stopDirectionalMove"
+                    >← Left</button>
+                    <button 
+                      class="direction-btn" 
+                      @mousedown="startDirectionalMove('Transverse', 1)" 
+                      @mouseup="stopDirectionalMove" 
+                      @mouseleave="stopDirectionalMove"
+                    >Right →</button>
                   </div>
+                </div>
+              </div>
+              
+              <!-- Movement Display -->
+              <div v-if="totalMovementDistance > 0" class="movement-display">
+                <div class="total-distance">
+                  Total: {{ totalMovementDistance.toFixed(1) }} mm
                 </div>
               </div>
             </div>
@@ -890,6 +960,14 @@ function moveSegmentsIn3D(event: MouseEvent) {
     const totalDistance = movementStartPosition.distanceTo(currentPosition)
     totalMovementDistance.value = totalDistance
     
+    // Update individual segment movement distance and history
+    const segment = selectedSegments.value[0]
+    if (segment.originalPosition) {
+      segment.movementDistance = segment.originalPosition.distanceTo(currentPosition)
+      // Update movement history
+      updateSegmentMovementHistory(segment, 'drag')
+    }
+    
     // Calculate axis-specific distances using dental coordinate system
     const deltaPosition = currentPosition.clone().sub(movementStartPosition)
     axisMovementDistances.value = {
@@ -930,6 +1008,69 @@ function resetSegmentPosition() {
   isMovingSegment = false
   
   console.log('Reset segment positions to original location')
+}
+
+function disableMovementMode() {
+  if (!isMovingSegment) return
+  
+  console.log('Disabling 3D movement mode')
+  isMovingSegment = false
+  constrainedAxis = null
+  
+  // Don't reset positions or distances when just disabling move mode
+  // This preserves any movements that were made
+  
+  console.log('3D movement mode disabled (positions preserved)')
+}
+
+// Individual Segment Functions
+function updateSegmentMovementHistory(segment: ToothSegment, movementType: 'drag' | 'directional' | 'manual') {
+  if (!segment.originalPosition || !segment.movementHistory) return
+  
+  const currentPosition = segment.mesh.position
+  const deltaPosition = currentPosition.clone().sub(segment.originalPosition)
+  
+  // Update movement history
+  segment.movementHistory.totalDistance = segment.originalPosition.distanceTo(currentPosition)
+  segment.movementHistory.axisMovements = {
+    anteroposterior: deltaPosition.z,  // Front-back (Z-axis in 3D space)
+    vertical: deltaPosition.y,         // Up-down (Y-axis in 3D space)
+    transverse: deltaPosition.x        // Side-to-side (X-axis in 3D space)
+  }
+  segment.movementHistory.lastMovementType = movementType
+  segment.movementHistory.movementCount += 1
+  
+  // Also update the legacy movementDistance for backward compatibility
+  segment.movementDistance = segment.movementHistory.totalDistance
+  
+  console.log(`Updated movement history for ${segment.name}:`, segment.movementHistory)
+}
+
+function resetIndividualPosition(segment: ToothSegment) {
+  if (!segment.originalPosition || !segment.isSelected) return
+  
+  segment.mesh.position.copy(segment.originalPosition)
+  segment.mesh.updateMatrixWorld()
+  
+  // Reset movement distance and history
+  segment.movementDistance = 0
+  if (segment.movementHistory) {
+    segment.movementHistory.totalDistance = 0
+    segment.movementHistory.axisMovements = {
+      anteroposterior: 0,
+      vertical: 0,
+      transverse: 0
+    }
+    segment.movementHistory.lastMovementType = undefined
+    segment.movementHistory.movementCount = 0
+  }
+  
+  console.log(`Reset position and movement history for segment: ${segment.name}`)
+}
+
+function toggleSegmentVisibility(segment: ToothSegment) {
+  segment.mesh.visible = !segment.mesh.visible
+  console.log(`Segment ${segment.name} ${segment.mesh.visible ? 'shown' : 'hidden'}`)
 }
 
 // Directional Movement Functions
@@ -1008,6 +1149,14 @@ function moveSegmentInDirection(axis: 'Anteroposterior' | 'Vertical' | 'Transver
     const currentPosition = selectedSegments.value[0].mesh.position
     const totalDistance = movementStartPosition.distanceTo(currentPosition)
     totalMovementDistance.value = totalDistance
+    
+    // Update individual segment movement distance and history
+    const segment = selectedSegments.value[0]
+    if (segment.originalPosition) {
+      segment.movementDistance = segment.originalPosition.distanceTo(currentPosition)
+      // Update movement history
+      updateSegmentMovementHistory(segment, 'directional')
+    }
     
     // Calculate axis-specific distances using dental coordinate system
     const deltaPosition = currentPosition.clone().sub(movementStartPosition)
@@ -1165,6 +1314,7 @@ async function performManualSegmentation() {
     const newSegment = await createSegmentFromVertices(selectedVertices, dentalModel.value.originalMesh)
     
     if (newSegment) {
+      // Add new segment to the model
       dentalModel.value.segments.push(newSegment)
       scene.add(newSegment.mesh)
       
@@ -1177,7 +1327,10 @@ async function performManualSegmentation() {
         console.log('Re-added original mesh to scene for continued segmentation')
       }
       
-      selectedSegments.value = [newSegment]
+      // Add to selection instead of replacing it
+      if (!selectedSegments.value.find(s => s.id === newSegment.id)) {
+        selectedSegments.value.push(newSegment)
+      }
       newSegment.isSelected = true
       updateSegmentAppearance(newSegment)
       
@@ -1372,7 +1525,19 @@ async function createSegmentFromVertices(vertexIndices: number[], originalMesh: 
     centroid: centroid,
     color: color,
     toothType: 'molar',
-    isSelected: false
+    isSelected: false,
+    movementDistance: 0,
+    originalPosition: segmentMesh.position.clone(),
+    movementHistory: {
+      totalDistance: 0,
+      axisMovements: {
+        anteroposterior: 0,
+        vertical: 0,
+        transverse: 0
+      },
+      lastMovementType: undefined,
+      movementCount: 0
+    }
   }
   
   console.log(`Created solid segment with ${selectedTriangles.length / 3} triangles`)
@@ -1543,8 +1708,28 @@ function setInteractionMode(mode: InteractionMode['mode']) {
     lassoPoints = []
   }
   
+  // Clean up move mode when switching to another mode (preserves segment positions)
+  if (currentMode.value === 'move' || isMovingSegment) {
+    disableMovementMode()
+  }
+  
   currentMode.value = mode
   console.log(`Interaction mode changed to: ${mode}`)
+  
+  // Set appropriate cursor for the new mode
+  if (renderer?.domElement) {
+    const cursorMap = {
+      lasso: 'crosshair',
+      select: 'pointer',
+      rotate: 'grab',
+      move: 'move',
+      brush: 'crosshair',
+      merge: 'pointer',
+      split: 'pointer'
+    }
+    renderer.domElement.style.cursor = cursorMap[mode] || 'default'
+    console.log(`Cursor set to: ${cursorMap[mode] || 'default'} for mode: ${mode}`)
+  }
 }
 
 function getModeIcon(mode: InteractionMode['mode']): string {
@@ -2055,66 +2240,309 @@ function cleanup() {
 /* Segment List */
 .segment-list {
   margin-bottom: 16px;
-  max-height: 200px;
+  max-height: 320px;
   overflow-y: auto;
+  padding: 4px;
 }
 
 .segment-item {
   display: flex;
+  flex-direction: column;
+  background: linear-gradient(145deg, #2d3748 0%, #1a202c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.segment-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.segment-item.selected {
+  border-color: #3182ce;
+  box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.segment-header {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: #1a202c;
-  border: 1px solid #4a5568;
-  border-radius: 6px;
-  margin-bottom: 6px;
+  padding: 16px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.2s ease;
+}
+
+.segment-header:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .segment-info {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.segment-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.segment-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #3182ce;
+  cursor: pointer;
+  border-radius: 3px;
 }
 
 .segment-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: #e2e8f0;
+  margin-right: 8px;
 }
 
 .segment-type {
   font-size: 11px;
   color: #a0aec0;
-  text-transform: capitalize;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.segment-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.segment-expanded {
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.segment-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.segment-actions .btn {
+  flex: 1;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.segment-actions .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.segment-actions .btn-secondary {
+  background: linear-gradient(145deg, #4a5568 0%, #2d3748 100%);
+  color: #e2e8f0;
+}
+
+.segment-actions .btn-secondary:hover {
+  background: linear-gradient(145deg, #5a6578 0%, #374151 100%);
+}
+
+.individual-movement-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(99, 102, 241, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+}
+
+.movement-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.individual-movement-info .movement-distance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.individual-movement-info .distance-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.individual-movement-info .distance-value {
+  color: #3b82f6;
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.axis-breakdown {
+  margin-bottom: 8px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 4px;
+}
+
+.axis-movement-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.axis-movement-item:last-child {
+  margin-bottom: 0;
+}
+
+.axis-label {
+  color: #4b5563;
+  font-weight: 500;
+  font-size: 10px;
+}
+
+.axis-value {
+  font-weight: 600;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.axis-value.positive {
+  color: #059669;
+  background: rgba(5, 150, 105, 0.1);
+}
+
+.axis-value.negative {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.segment-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .color-picker {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
   cursor: pointer;
   background: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.color-picker:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.segment-button {
+  padding: 4px 8px;
+  margin: 0;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  background: #1a202c;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+}
+
+.segment-button:hover {
+  background: #2d3748;
+  border-color: #5a6578;
+}
+
+.segment-button.primary {
+  background: #3182ce;
+  color: white;
+  border-color: #3182ce;
+}
+
+.segment-button.primary:hover {
+  background: #2c5282;
+  border-color: #2c5282;
+}
+
+.segment-info {
+  font-size: 10px;
+  color: #a0aec0;
+  margin-top: 4px;
+  text-align: center;
 }
 
 /* Action Buttons */
 .action-buttons {
   display: flex;
   gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .action-buttons .btn {
   flex: 1;
   margin: 0;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.action-buttons .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.action-buttons .btn-secondary {
+  background: linear-gradient(145deg, #4a5568 0%, #2d3748 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.action-buttons .btn-secondary:hover {
+  background: linear-gradient(145deg, #5a6578 0%, #374151 100%);
+}
+
+.action-buttons .btn-danger {
+  background: linear-gradient(145deg, #e53e3e 0%, #c53030 100%);
+  border: 1px solid rgba(229, 62, 62, 0.3);
+}
+
+.action-buttons .btn-danger:hover {
+  background: linear-gradient(145deg, #fc8181 0%, #e53e3e 100%);
 }
 
 /* Movement Controls */
 .movement-controls {
-  background: rgba(255, 165, 0, 0.1);
-  border: 1px solid rgba(255, 165, 0, 0.3);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 16px;
+  padding: 8px;
+  margin-bottom: 12px;
 }
 
 .movement-header {
@@ -2123,132 +2551,59 @@ function cleanup() {
   gap: 6px;
   margin-bottom: 8px;
   font-weight: 600;
-  font-size: 13px;
-  color: #ffd700;
+  font-size: 12px;
+  color: #3b82f6;
 }
 
 .movement-icon {
   font-size: 14px;
 }
 
-.movement-distance {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  padding: 6px 8px;
-  margin-bottom: 8px;
-  font-size: 12px;
-}
-
-.distance-label {
-  color: #a0aec0;
-  font-weight: 500;
-}
-
-.distance-value {
-  color: #48bb78;
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.axis-movement {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  padding: 4px 8px;
-  margin-bottom: 6px;
-  font-size: 11px;
-}
-
-.axis-label {
-  color: #a0aec0;
-  font-weight: 500;
-}
-
-.axis-value {
-  color: #ffd700;
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.axis-distances {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  padding: 6px 8px;
-  margin-bottom: 8px;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.axis-distance-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  font-size: 10px;
-}
-
-.axis-name {
-  color: #a0aec0;
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-
-.axis-distance {
-  color: #48bb78;
-  font-weight: 600;
-  font-size: 11px;
-}
-
 .movement-buttons {
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
 .movement-btn {
   flex: 1;
-  font-size: 11px;
-  padding: 6px 8px;
+  font-size: 10px;
+  padding: 4px 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .movement-btn span {
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.movement-display {
+  text-align: center;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.total-distance {
+  color: #48bb78;
+  font-weight: 600;
+  font-size: 11px;
 }
 
 /* Direction Controls */
 .direction-controls {
-  background: rgba(100, 200, 100, 0.1);
-  border: 1px solid rgba(100, 200, 100, 0.3);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 6px;
-  padding: 12px;
-  margin-top: 12px;
-}
-
-.direction-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
-  font-weight: 600;
-  font-size: 13px;
-  color: #90ee90;
-}
-
-.direction-icon {
-  font-size: 14px;
+  padding: 8px;
+  margin-top: 8px;
 }
 
 .axis-control-group {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .axis-control-group:last-child {
@@ -2256,16 +2611,16 @@ function cleanup() {
 }
 
 .axis-label {
-  font-size: 11px;
+  font-size: 10px;
   color: #a0aec0;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   text-align: center;
 }
 
 .axis-buttons {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 
 .direction-btn {
@@ -2274,46 +2629,22 @@ function cleanup() {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   color: white;
-  font-size: 10px;
-  padding: 8px 4px;
+  font-size: 9px;
+  padding: 6px 4px;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  text-align: center;
   transition: all 0.2s ease;
   user-select: none;
 }
 
 .direction-btn:hover {
-  background: rgba(0, 0, 0, 0.6);
-  border-color: rgba(255, 255, 255, 0.4);
-  transform: scale(1.02);
+  background: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.6);
 }
 
 .direction-btn:active {
-  background: rgba(100, 200, 100, 0.3);
-  border-color: #90ee90;
+  background: rgba(16, 185, 129, 0.5);
   transform: scale(0.98);
-}
-
-.direction-btn .arrow {
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.direction-btn .label {
-  font-size: 9px;
-  font-weight: 500;
-}
-
-/* Specific direction button colors */
-.direction-btn.anterior, .direction-btn.posterior {
-  border-color: rgba(255, 165, 0, 0.3);
-}
-
-.direction-btn.anterior:hover, .direction-btn.posterior:hover {
-  border-color: rgba(255, 165, 0, 0.6);
 }
 
 .direction-btn.anterior:active, .direction-btn.posterior:active {

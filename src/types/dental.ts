@@ -1,5 +1,7 @@
 import { Vector3, Mesh, Color } from 'three'
 
+export type ToothType = 'incisor' | 'canine' | 'premolar' | 'molar' | 'wisdom'
+
 export interface ToothSegment {
   id: string
   name: string
@@ -7,8 +9,20 @@ export interface ToothSegment {
   originalVertices: Vector3[]
   centroid: Vector3
   color: Color
-  isSelected: boolean
-  toothType: 'incisor' | 'canine' | 'premolar' | 'molar' | 'gum'
+  toothType: ToothType
+  isSelected?: boolean
+  movementDistance?: number
+  originalPosition?: Vector3
+  movementHistory?: {
+    totalDistance: number
+    axisMovements: {
+      anteroposterior: number  // Front-back movement (Z-axis)
+      vertical: number         // Up-down movement (Y-axis)
+      transverse: number       // Side-to-side movement (X-axis)
+    }
+    lastMovementType?: 'drag' | 'directional' | 'manual'
+    movementCount: number
+  }
 }
 
 export interface DentalModel {
