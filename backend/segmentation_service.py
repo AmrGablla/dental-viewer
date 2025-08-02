@@ -365,26 +365,32 @@ class DentalSegmentationService:
         else:  # partial
             n_arch_regions = max(2, expected_count // 3)
         
-        # Split along dental arch - assuming Z is the arch direction
-        y_center = (min_bound[1] + max_bound[1]) / 2
-        z_splits = np.linspace(min_bound[2], max_bound[2], n_arch_regions + 1)
+        # Automatically determine axes: smallest extent is vertical, largest is width (left/right)
+        extents = max_bound - min_bound
+        axes = np.argsort(extents)  # [vertical, arch, width]
+        arch_axis = axes[1]
+        side_axis = axes[2]
+
+        # Compute splits along the dental arch and side divider
+        side_center = (min_bound[side_axis] + max_bound[side_axis]) / 2
+        arch_splits = np.linspace(min_bound[arch_axis], max_bound[arch_axis], n_arch_regions + 1)
         
         min_triangles = config.get('min_tooth_size', 50)
         
         for side in ["left", "right"]:
             for i in range(n_arch_regions):
-                z_start = z_splits[i]
-                z_end = z_splits[i + 1]
-                
-                # Define region mask
+                arch_start = arch_splits[i]
+                arch_end = arch_splits[i + 1]
+
+                # Define region mask using detected axes
                 if side == "left":
-                    region_mask = (triangle_centers[:, 1] <= y_center) & \
-                                 (triangle_centers[:, 2] >= z_start) & \
-                                 (triangle_centers[:, 2] < z_end)
+                    region_mask = (triangle_centers[:, side_axis] <= side_center) & \
+                                 (triangle_centers[:, arch_axis] >= arch_start) & \
+                                 (triangle_centers[:, arch_axis] < arch_end)
                 else:
-                    region_mask = (triangle_centers[:, 1] > y_center) & \
-                                 (triangle_centers[:, 2] >= z_start) & \
-                                 (triangle_centers[:, 2] < z_end)
+                    region_mask = (triangle_centers[:, side_axis] > side_center) & \
+                                 (triangle_centers[:, arch_axis] >= arch_start) & \
+                                 (triangle_centers[:, arch_axis] < arch_end)
                 
                 if np.sum(region_mask) < min_triangles:
                     continue
