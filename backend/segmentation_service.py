@@ -351,13 +351,19 @@ class DentalSegmentationService:
 
         # Use PCA to determine mesh orientation so slicing follows the dental arch
         centered = triangle_centers - triangle_centers.mean(axis=0)
-        _, _, vh = np.linalg.svd(centered, full_matrices=False)
-        components = vh.T  # principal axes ordered by variance
+        _, singular_values, vh = np.linalg.svd(centered, full_matrices=False)
+        components = vh.T  # principal axes (columns)
         pca_coords = centered @ components
 
-        side_coord = pca_coords[:, 0]
-        arch_coord = pca_coords[:, 1]
-        side_center = side_coord.mean()
+        # Identify vertical, arch and side axes based on spread (singular values)
+        # Smallest spread -> vertical axis, largest -> left/right side
+        order = np.argsort(singular_values)
+        arch_idx = order[1]  # middle spread -> arch front/back
+        side_idx = order[2]  # largest spread -> left/right
+
+        side_coord = pca_coords[:, side_idx]
+        arch_coord = pca_coords[:, arch_idx]
+        side_center = np.median(side_coord)
         
         # Adjust regions based on arch type
         arch_type = config.get('arch_type', 'full')
