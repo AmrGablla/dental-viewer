@@ -344,15 +344,26 @@ class DentalSegmentationService:
         vertices = np.asarray(mesh.vertices)
         triangles = np.asarray(mesh.triangles)
         
-        # Get bounding box
-        bbox = mesh.get_axis_aligned_bounding_box()
-        min_bound = bbox.min_bound
-        max_bound = bbox.max_bound
-        
         segments = []
-        
+
         # Calculate triangle centers
         triangle_centers = np.mean(vertices[triangles], axis=1)
+
+        # Use PCA to determine mesh orientation so slicing follows the dental arch
+        centered = triangle_centers - triangle_centers.mean(axis=0)
+        _, singular_values, vh = np.linalg.svd(centered, full_matrices=False)
+        components = vh.T  # principal axes (columns)
+        pca_coords = centered @ components
+
+        # Identify vertical, arch and side axes based on spread (singular values)
+        # Smallest spread -> vertical axis, largest -> left/right side
+        order = np.argsort(singular_values)
+        arch_idx = order[1]  # middle spread -> arch front/back
+        side_idx = order[2]  # largest spread -> left/right
+
+        side_coord = pca_coords[:, side_idx]
+        arch_coord = pca_coords[:, arch_idx]
+        side_center = np.median(side_coord)
         
         # Adjust regions based on arch type
         arch_type = config.get('arch_type', 'full')
@@ -364,27 +375,26 @@ class DentalSegmentationService:
             n_arch_regions = max(4, expected_count // 2)  # Single arch
         else:  # partial
             n_arch_regions = max(2, expected_count // 3)
-        
-        # Split along dental arch - assuming Z is the arch direction
-        y_center = (min_bound[1] + max_bound[1]) / 2
-        z_splits = np.linspace(min_bound[2], max_bound[2], n_arch_regions + 1)
-        
+
+        # Compute splits along the dental arch using PCA coordinates
+        arch_splits = np.linspace(arch_coord.min(), arch_coord.max(), n_arch_regions + 1)
+
         min_triangles = config.get('min_tooth_size', 50)
-        
+
         for side in ["left", "right"]:
             for i in range(n_arch_regions):
-                z_start = z_splits[i]
-                z_end = z_splits[i + 1]
-                
-                # Define region mask
+                arch_start = arch_splits[i]
+                arch_end = arch_splits[i + 1]
+
+                # Define region mask using detected axes
                 if side == "left":
-                    region_mask = (triangle_centers[:, 1] <= y_center) & \
-                                 (triangle_centers[:, 2] >= z_start) & \
-                                 (triangle_centers[:, 2] < z_end)
+                    region_mask = (side_coord <= side_center) & \
+                                  (arch_coord >= arch_start) & \
+                                  (arch_coord < arch_end)
                 else:
-                    region_mask = (triangle_centers[:, 1] > y_center) & \
-                                 (triangle_centers[:, 2] >= z_start) & \
-                                 (triangle_centers[:, 2] < z_end)
+                    region_mask = (side_coord > side_center) & \
+                                  (arch_coord >= arch_start) & \
+                                  (arch_coord < arch_end)
                 
                 if np.sum(region_mask) < min_triangles:
                     continue
