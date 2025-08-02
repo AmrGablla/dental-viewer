@@ -5,7 +5,7 @@ A FastAPI-based backend service for segmenting STL dental models into individual
 ## Features
 
 - **STL File Processing**: Upload and process STL dental models
-- **Automatic Teeth Segmentation**: Combines connected-components, DBSCAN and voxel-based morphology to identify individual teeth
+- **Automatic Teeth Segmentation**: Combines connected-components, DBSCAN, voxel-based morphology and watershed refinement to identify individual teeth
 - **Point Cloud Analysis**: Converts mesh to point cloud for clustering analysis
 - **RESTful API**: Clean REST endpoints for frontend integration
 - **Session Management**: Track segmentation sessions and results

@@ -256,8 +256,13 @@ class DentalSegmentationService:
             best_segments = self._segment_by_voxelization(mesh, config)
 
         if len(best_segments) == 0:
+            # Try watershed segmentation as an additional strategy
+            print("Voxel segmentation failed, attempting watershed segmentation...")
+            best_segments = self._segment_by_watershed(mesh, config)
+
+        if len(best_segments) == 0:
             # Final fallback: slice the mesh into regions
-            print("Voxel segmentation failed, slicing mesh into regions...")
+            print("Watershed segmentation failed, slicing mesh into regions...")
             best_segments = self._slice_mesh_into_regions(mesh, config)
 
         return best_segments
@@ -399,6 +404,73 @@ class DentalSegmentationService:
                 })
 
         print(f"Voxel segmentation created {len(segments)} segments")
+        return segments
+
+    def _segment_by_watershed(self, mesh: o3d.geometry.TriangleMesh, config: Dict) -> List[Dict]:
+        """Segment the mesh using a distance transform and watershed algorithm"""
+        print("Attempting watershed-based segmentation...")
+
+        voxel_size = config.get('voxel_size', 0.4)
+        min_voxels = config.get('min_voxel_size', 30)
+        min_triangles = config.get('min_tooth_size', 50)
+
+        try:
+            voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh(mesh, voxel_size)
+        except Exception as e:
+            print(f"Voxelization failed: {e}")
+            return []
+
+        voxels = voxel_grid.get_voxels()
+        if len(voxels) == 0:
+            return []
+
+        indices = np.array([v.grid_index for v in voxels])
+        min_idx = indices.min(axis=0)
+        max_idx = indices.max(axis=0) + 1
+        grid_shape = max_idx - min_idx
+        volume = np.zeros(grid_shape, dtype=bool)
+        for v in voxels:
+            volume[tuple(v.grid_index - min_idx)] = True
+
+        try:
+            from scipy.ndimage import distance_transform_edt, label
+            from skimage.feature import peak_local_max
+            from skimage.segmentation import watershed
+        except Exception as e:
+            print(f"Watershed dependencies missing: {e}")
+            return []
+
+        distance = distance_transform_edt(volume)
+        local_max = peak_local_max(distance, indices=False, min_distance=2, labels=volume)
+        markers, _ = label(local_max)
+        labels = watershed(-distance, markers, mask=volume)
+
+        bbox_min = mesh.get_axis_aligned_bounding_box().min_bound
+        segments = []
+
+        for i in range(1, labels.max() + 1):
+            mask = labels == i
+            if np.sum(mask) < min_voxels:
+                continue
+
+            coords = np.argwhere(mask) + min_idx
+            min_bound = bbox_min + coords.min(axis=0) * voxel_size
+            max_bound = bbox_min + (coords.max(axis=0) + 1) * voxel_size
+            aabb = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+            segment_mesh = mesh.crop(aabb)
+
+            segment_mesh.remove_duplicated_vertices()
+            segment_mesh.remove_duplicated_triangles()
+            segment_mesh.remove_degenerate_triangles()
+
+            if len(segment_mesh.triangles) >= min_triangles:
+                segment_mesh.compute_vertex_normals()
+                segments.append({
+                    "mesh": segment_mesh,
+                    "method": "watershed_voxel"
+                })
+
+        print(f"Watershed segmentation created {len(segments)} segments")
         return segments
     
     def _slice_mesh_into_regions(self, mesh: o3d.geometry.TriangleMesh, config: Dict) -> List[Dict]:

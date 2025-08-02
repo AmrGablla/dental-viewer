@@ -53,6 +53,7 @@ npm run dev
 ### 🤖 AI-Powered Segmentation
 - **Automatic Teeth Segmentation**: Upload STL files to backend for automatic segmentation
 - **DBSCAN Clustering**: Uses point cloud clustering to identify individual teeth
+- **Watershed Refinement**: Applies distance-transform watershed on voxel grids to split touching teeth
 - **Session Management**: Track segmentation sessions and results
 - **Segment Download**: Download individual teeth as PLY files
 
