@@ -9,9 +9,6 @@
           <span v-if="currentMode !== 'select'" class="current-mode">
             {{ getModeIcon(currentMode) }} {{ currentMode.toUpperCase() }}
           </span>
-          <span v-if="dentalModel && dentalModel.segments.length === 0 && (currentMode === 'merge' || currentMode === 'split')" class="mode-hint">
-            Create segments first
-          </span>
         </div>
       </div>
       
@@ -45,13 +42,10 @@ const canvasContainer = ref<HTMLDivElement>()
 // Functions
 function getModeIcon(mode: InteractionMode['mode']): string {
   const icons = {
-    select: '◉',
-    lasso: '○',
-    brush: '◎',
-    move: '⧨',
-    rotate: '⟲',
-    merge: '⧻',
-    split: '⧰'
+    select: '🖱️',
+    lasso: '✏️',
+    move: '✋',
+    rotate: '🔄'
   }
   return icons[mode] || '◈'
 }
