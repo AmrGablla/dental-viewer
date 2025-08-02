@@ -22,15 +22,6 @@ npm run backend-setup
 npm run backend
 ```
 
-**Alternative: Using pip/venv**
-```bash
-# Setup backend with pip
-npm run backend-setup-pip
-
-# Start backend server
-npm run backend-pip
-```
-
 ### 2. Frontend Development Server
 
 ```bash
@@ -50,32 +41,8 @@ npm run dev
 - `npm run dev` - Start Vue.js frontend development server
 - `npm run backend` - Start FastAPI backend with conda environment
 - `npm run backend-setup` - Create conda environment with Open3D
-- `npm run backend-pip` - Start backend with pip/venv (fallback)
-- `npm run backend-setup-pip` - Setup backend with pip (fallback)
 - `npm run build` - Build frontend for production
 - `npm run preview` - Preview production build
-npm run backend
-# Backend will be available at http://localhost:8000
-```
-
-### 2. Frontend Setup
-
-```bash
-# Install frontend dependencies
-npm install
-
-# Start development server
-npm run dev
-# Frontend will be available at http://localhost:5173
-```
-
-### 3. Using the Application
-
-1. Open http://localhost:5173 in your browser
-2. Load an STL dental model file
-3. Use the segmentation feature to automatically identify individual teeth
-4. View, interact with, and download individual tooth segments
-
 ## Features
 
 ### 🦷 Core Functionality

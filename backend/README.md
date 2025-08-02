@@ -54,32 +54,6 @@ The easiest way to set up the backend with reliable Open3D installation:
 
 See [CONDA_SETUP.md](./CONDA_SETUP.md) for detailed conda setup instructions.
 
-### Alternative Setup (Pip/Virtual Environment)
-
-If you prefer using pip and virtual environments:
-
-1. **Create and activate virtual environment**:
-   ```bash
-   cd backend
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Install Open3D**:
-   ```bash
-   pip install open3d
-   ```
-
-4. **Start development server**:
-   ```bash
-   ./start_dev.sh
-   ```
-
 The API will be available at:
 - **API**: http://localhost:8000
 - **Interactive Docs**: http://localhost:8000/docs
@@ -224,9 +198,10 @@ backend/
 ├── main.py                    # FastAPI application
 ├── config.py                  # Configuration settings
 ├── segmentation_service.py    # Core segmentation logic
-├── requirements.txt           # Python dependencies
-├── start_dev.sh              # Development server script
-└── README.md                 # This file
+├── environment.yml            # Conda environment definition
+├── setup_conda.sh             # Conda environment setup script
+├── start_conda.sh             # Development server script
+└── README.md                  # This file
 ```
 
 ### Adding Features
@@ -281,7 +256,6 @@ const toothBlob = await toothResponse.blob();
 1. **Open3D installation fails with Python 3.13**:
    - Open3D doesn't support Python 3.13 yet
    - Use Python 3.12: `brew install python@3.12`
-   - See [PYTHON313_SETUP.md](./PYTHON313_SETUP.md) for detailed instructions
 
 2. **Open3D installation fails on other systems**:
    - Ensure Python 3.8+ is installed
