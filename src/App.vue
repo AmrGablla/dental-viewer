@@ -17,7 +17,9 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: radial-gradient(circle at top left, #0f172a, #1e3a8a);
+  color: #e2e8f0;
 }
 
 #app {
