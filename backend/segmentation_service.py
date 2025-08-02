@@ -344,15 +344,20 @@ class DentalSegmentationService:
         vertices = np.asarray(mesh.vertices)
         triangles = np.asarray(mesh.triangles)
         
-        # Get bounding box
-        bbox = mesh.get_axis_aligned_bounding_box()
-        min_bound = bbox.min_bound
-        max_bound = bbox.max_bound
-        
         segments = []
-        
+
         # Calculate triangle centers
         triangle_centers = np.mean(vertices[triangles], axis=1)
+
+        # Use PCA to determine mesh orientation so slicing follows the dental arch
+        centered = triangle_centers - triangle_centers.mean(axis=0)
+        _, _, vh = np.linalg.svd(centered, full_matrices=False)
+        components = vh.T  # principal axes ordered by variance
+        pca_coords = centered @ components
+
+        side_coord = pca_coords[:, 0]
+        arch_coord = pca_coords[:, 1]
+        side_center = side_coord.mean()
         
         # Adjust regions based on arch type
         arch_type = config.get('arch_type', 'full')
@@ -364,19 +369,12 @@ class DentalSegmentationService:
             n_arch_regions = max(4, expected_count // 2)  # Single arch
         else:  # partial
             n_arch_regions = max(2, expected_count // 3)
-        
-        # Automatically determine axes: smallest extent is vertical, largest is width (left/right)
-        extents = max_bound - min_bound
-        axes = np.argsort(extents)  # [vertical, arch, width]
-        arch_axis = axes[1]
-        side_axis = axes[2]
 
-        # Compute splits along the dental arch and side divider
-        side_center = (min_bound[side_axis] + max_bound[side_axis]) / 2
-        arch_splits = np.linspace(min_bound[arch_axis], max_bound[arch_axis], n_arch_regions + 1)
-        
+        # Compute splits along the dental arch using PCA coordinates
+        arch_splits = np.linspace(arch_coord.min(), arch_coord.max(), n_arch_regions + 1)
+
         min_triangles = config.get('min_tooth_size', 50)
-        
+
         for side in ["left", "right"]:
             for i in range(n_arch_regions):
                 arch_start = arch_splits[i]
@@ -384,13 +382,13 @@ class DentalSegmentationService:
 
                 # Define region mask using detected axes
                 if side == "left":
-                    region_mask = (triangle_centers[:, side_axis] <= side_center) & \
-                                 (triangle_centers[:, arch_axis] >= arch_start) & \
-                                 (triangle_centers[:, arch_axis] < arch_end)
+                    region_mask = (side_coord <= side_center) & \
+                                  (arch_coord >= arch_start) & \
+                                  (arch_coord < arch_end)
                 else:
-                    region_mask = (triangle_centers[:, side_axis] > side_center) & \
-                                 (triangle_centers[:, arch_axis] >= arch_start) & \
-                                 (triangle_centers[:, arch_axis] < arch_end)
+                    region_mask = (side_coord > side_center) & \
+                                  (arch_coord >= arch_start) & \
+                                  (arch_coord < arch_end)
                 
                 if np.sum(region_mask) < min_triangles:
                     continue
