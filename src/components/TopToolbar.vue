@@ -123,38 +123,24 @@ function getModeIcon(mode: InteractionMode['mode']): string {
   const icons = {
     select: '◉',
     lasso: '○',
-    brush: '◎',
     move: '⧨',
-    rotate: '⟲',
-    merge: '⧻',
-    split: '⧰'
+    rotate: '⟲'
   }
   return icons[mode] || '◈'
 }
 
-function isInteractionModeDisabled(mode: InteractionMode['mode']): boolean {
-  if (!props.dentalModel) return true
-  
-  const existingSegmentModes: InteractionMode['mode'][] = ['merge', 'split']
-  
-  if (existingSegmentModes.includes(mode)) {
-    return props.dentalModel.segments.length === 0
-  }
-  
-  return false
+function isInteractionModeDisabled(_mode: InteractionMode['mode']): boolean {
+  return !props.dentalModel
 }
 
 function getInteractionModeTitle(mode: InteractionMode['mode']): string {
   const titles = {
     select: 'Click to select individual segments',
-    lasso: props.dentalModel?.segments.length === 0 
-      ? 'Draw lasso to create new segments manually' 
+    lasso: props.dentalModel?.segments.length === 0
+      ? 'Draw lasso to create new segments manually'
       : 'Draw lasso to select multiple segments',
-    brush: 'Brush to paint selection',
     move: 'Move selected segments',
-    rotate: 'Rotate view (drag to orbit camera)',
-    merge: 'Merge selected segments',
-    split: 'Split selected segment'
+    rotate: 'Rotate view (drag to orbit camera)'
   }
   return titles[mode] || mode.charAt(0).toUpperCase() + mode.slice(1)
 }

@@ -126,11 +126,8 @@ const backgroundSegmentationStatus = ref<{
 const interactionModes: InteractionMode["mode"][] = [
   "select",
   "lasso",
-  "brush",
   "move",
   "rotate",
-  "merge",
-  "split",
 ];
 
 // Three.js objects
@@ -362,9 +359,6 @@ function onMouseMove(event: MouseEvent) {
         select: "pointer",
         rotate: "grab",
         move: "move",
-        brush: "crosshair",
-        merge: "pointer",
-        split: "pointer",
       };
       renderer.domElement.style.cursor =
         cursorMap[currentMode.value] || "default";
@@ -478,9 +472,6 @@ function onKeyUp(event: KeyboardEvent) {
       select: "pointer",
       rotate: "grab",
       move: "move",
-      brush: "crosshair",
-      merge: "pointer",
-      split: "pointer",
     };
     renderer.domElement.style.cursor =
       cursorMap[currentMode.value] || "default";
@@ -1080,6 +1071,9 @@ async function performManualSegmentation() {
       dentalModel.value.segments.push(newSegment);
       scene.add(newSegment.mesh);
 
+      // Ensure reactivity for newly added segment
+      dentalModel.value = { ...dentalModel.value };
+
       // IMPORTANT: Keep the original mesh visible for subsequent lasso operations
       dentalModel.value.originalMesh.visible = true;
 
@@ -1528,9 +1522,6 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
       select: "pointer",
       rotate: "grab",
       move: "move",
-      brush: "crosshair",
-      merge: "pointer",
-      split: "pointer",
     };
     renderer.domElement.style.cursor = cursorMap[mode] || "default";
     console.log(
@@ -1708,6 +1699,7 @@ function clearExistingSegments() {
   
   // Clear segments array
   dentalModel.value.segments = [];
+  dentalModel.value = { ...dentalModel.value };
   selectedSegments.value = [];
   
   console.log("Cleared existing manual segments for AI segmentation");
@@ -1729,6 +1721,9 @@ async function createAISegments(result: SegmentationResult): Promise<void> {
         scene.add(segment.mesh);
       }
     }
+
+    // Force reactivity update so sidebar reflects new segments
+    dentalModel.value = { ...dentalModel.value };
 
     console.log(`Created ${result.segments.length} AI-segmented tooth segments`);
     console.log(`Session ID: ${result.sessionId} - Use this to download individual STL files`);

@@ -35,7 +35,7 @@ export interface DentalModel {
 }
 
 export interface InteractionMode {
-  mode: 'select' | 'lasso' | 'brush' | 'move' | 'rotate' | 'merge' | 'split'
+  mode: 'select' | 'lasso' | 'move' | 'rotate'
 }
 
 export interface MovementAxis {
