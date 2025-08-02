@@ -1,7 +1,7 @@
 <template>
   <div class="movement-controls" v-if="selectedSegments.length > 0">
     <div class="movement-header">
-      <span class="movement-icon">◈</span>
+      <span class="movement-icon">🛠️</span>
       <span class="movement-title">Movement</span>
     </div>
     
@@ -12,7 +12,7 @@
         :disabled="totalMovementDistance === 0"
         class="btn btn-secondary movement-btn"
       >
-        <span>⟲</span> Reset
+        <span>🔄</span> Reset
       </button>
     </div>
     
@@ -134,7 +134,7 @@ function stopDirectionalMove() {
 }
 
 .movement-icon {
-  font-size: 16px;
+  font-size: 18px;
   color: #06b6d4;
 }
 

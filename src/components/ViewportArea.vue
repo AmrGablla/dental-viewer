@@ -42,10 +42,10 @@ const canvasContainer = ref<HTMLDivElement>()
 // Functions
 function getModeIcon(mode: InteractionMode['mode']): string {
   const icons = {
-    select: '◉',
-    lasso: '○',
-    move: '⧨',
-    rotate: '⟲'
+    select: '🖱️',
+    lasso: '✏️',
+    move: '✋',
+    rotate: '🔄'
   }
   return icons[mode] || '◈'
 }

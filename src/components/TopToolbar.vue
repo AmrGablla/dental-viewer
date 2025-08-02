@@ -121,10 +121,10 @@ function getUploadButtonText(): string {
 
 function getModeIcon(mode: InteractionMode['mode']): string {
   const icons = {
-    select: '◉',
-    lasso: '○',
-    move: '⧨',
-    rotate: '⟲'
+    select: '🖱️',
+    lasso: '✏️',
+    move: '✋',
+    rotate: '🔄'
   }
   return icons[mode] || '◈'
 }
@@ -295,7 +295,7 @@ function getInteractionModeTitle(mode: InteractionMode['mode']): string {
 }
 
 .btn-icon {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .btn-icon.rotating {
