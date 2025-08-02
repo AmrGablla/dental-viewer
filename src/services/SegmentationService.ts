@@ -1,4 +1,5 @@
-import { Mesh } from 'three'
+import { Mesh, MeshLambertMaterial, DoubleSide } from 'three'
+import { STLLoader } from 'three-stdlib'
 import type { SegmentationResult } from '../types/dental'
 
 export class SegmentationService {
@@ -106,28 +107,29 @@ export class SegmentationService {
   }
 
   /**
-   * Load a PLY segment file as a Three.js mesh
+   * Load a segmented STL file from the backend and create a Three.js mesh
    * @param sessionId - The segmentation session ID
    * @param filename - The segment filename
-   * @returns Promise with Three.js Mesh
+   * @returns Promise resolving to a Three.js Mesh
    */
   async loadSegmentAsMesh(sessionId: string, filename: string): Promise<Mesh> {
     try {
-      // Download the PLY file as blob
+      // Fetch the segment as a blob and convert to ArrayBuffer
       const blob = await this.downloadSegment(sessionId, filename)
-      
-      // For now, we'll throw an error since PLYLoader isn't implemented
-      // TODO: Implement PLY loading using PLYLoader from three-stdlib
-      console.warn('PLY loading not yet implemented. Downloaded blob size:', blob.size)
-      
-      // To implement this properly, you would:
-      // 1. Import PLYLoader from 'three-stdlib'
-      // 2. Convert blob to ArrayBuffer
-      // 3. Parse PLY data using PLYLoader
-      // 4. Create Three.js Mesh from geometry
-      
-      throw new Error('PLY loading not yet implemented - use downloadSegment() instead to get raw PLY data')
-      
+      const arrayBuffer = await blob.arrayBuffer()
+
+      // Parse STL geometry
+      const loader = new STLLoader()
+      const geometry = loader.parse(arrayBuffer)
+
+      // Create a basic material for the segment
+      const material = new MeshLambertMaterial({ color: 0xffffff, side: DoubleSide })
+      const mesh = new Mesh(geometry, material)
+
+      // Prevent Vue from making the mesh reactive
+      Object.defineProperty(mesh, '__v_skip', { value: true })
+
+      return mesh
     } catch (error) {
       console.error('Error loading segment as mesh:', error)
       throw error

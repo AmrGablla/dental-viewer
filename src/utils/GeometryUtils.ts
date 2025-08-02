@@ -39,10 +39,9 @@ export class GeometryUtils {
   static calculateGaussianCurvature(
     vertexIndex: number,
     position: BufferAttribute,
-    normal: BufferAttribute
+    _normal: BufferAttribute
   ): number {
     const vertex = new Vector3().fromBufferAttribute(position, vertexIndex)
-    const vertexNormal = new Vector3().fromBufferAttribute(normal, vertexIndex)
     
     const neighbors = this.getVertexNeighbors(vertexIndex, position, 3.0)
     if (neighbors.length < 3) return 0
@@ -234,8 +233,7 @@ export class GeometryUtils {
     vertices.forEach(v => center.add(v))
     center.divideScalar(vertices.length)
     
-    // Calculate covariance matrix for PCA
-    const covariance = new Matrix3()
+    // Prepare centered vertices for approximate PCA
     const centered = vertices.map(v => v.clone().sub(center))
     
     // This is a simplified implementation

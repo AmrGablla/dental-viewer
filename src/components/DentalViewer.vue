@@ -1718,69 +1718,59 @@ async function createAISegments(result: SegmentationResult): Promise<void> {
 
   try {
     loadingMessage.value = "Creating 3D tooth segments...";
-    
+
     for (let i = 0; i < result.segments.length; i++) {
       const segmentData = result.segments[i];
-      
-      // For now, create placeholder segments since PLY loading isn't implemented
-      // In a full implementation, you would load the PLY files from the backend
-      const placeholderSegment = createPlaceholderSegment(segmentData, i);
-      
-      if (placeholderSegment) {
-        dentalModel.value.segments.push(placeholderSegment);
-        scene.add(placeholderSegment.mesh);
+
+      const segment = await createSegmentFromData(result.sessionId, segmentData);
+
+      if (segment) {
+        dentalModel.value.segments.push(segment);
+        scene.add(segment.mesh);
       }
     }
-    
-    // Store the segmentation session for potential downloads
+
     console.log(`Created ${result.segments.length} AI-segmented tooth segments`);
-    console.log(`Session ID: ${result.sessionId} - Use this to download individual PLY files`);
-    
+    console.log(`Session ID: ${result.sessionId} - Use this to download individual STL files`);
+
   } catch (error) {
     console.error("Error creating AI segments:", error);
     throw error;
   }
 }
 
-function createPlaceholderSegment(segmentData: SegmentData, index: number): ToothSegment | null {
+async function createSegmentFromData(sessionId: string, segmentData: SegmentData): Promise<ToothSegment | null> {
   try {
-    // Create a simple geometric placeholder for the AI-detected tooth
-    // In a full implementation, this would load the actual PLY geometry
-    const geometry = new THREE.SphereGeometry(5, 16, 12);
-    
-    // Position based on segment center from AI
-    const position = new THREE.Vector3(
-      segmentData.center[0] || (index * 15 - 30),
-      segmentData.center[1] || 0,
-      segmentData.center[2] || 0
-    );
-    
-    // Generate color
-    const hue = (index * 0.3) % 1;
-    const color = new THREE.Color().setHSL(hue, 0.7, 0.5);
-    
-    const material = new THREE.MeshLambertMaterial({
-      color: color,
-      side: THREE.DoubleSide,
-    });
-    
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.copy(position);
+    // Load actual segment mesh from backend
+    const mesh = await segmentationService.loadSegmentAsMesh(sessionId, segmentData.filename);
+
+    // Apply color from segmentation result
+    const color = new THREE.Color(segmentData.color);
+    const material = mesh.material as THREE.MeshLambertMaterial;
+    material.color = color;
+    material.side = THREE.DoubleSide;
+
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     markRaw(mesh);
-    
+
+    const centroid = new THREE.Vector3(
+      segmentData.center[0],
+      segmentData.center[1],
+      segmentData.center[2]
+    );
+
     const segment: ToothSegment = {
       id: `ai_tooth_${segmentData.id}`,
       name: segmentData.name || `AI Tooth ${segmentData.id + 1}`,
       mesh: mesh,
-      originalVertices: [], // Would be populated from PLY data
-      centroid: position,
+      originalVertices: [],
+      centroid: centroid,
       color: color,
-      toothType: "molar", // Could be enhanced with AI tooth type detection
+      toothType: 'molar',
       isSelected: false,
       movementDistance: 0,
-      originalPosition: position.clone(),
+      originalPosition: mesh.position.clone(),
       movementHistory: {
         totalDistance: 0,
         axisMovements: {
@@ -1792,12 +1782,12 @@ function createPlaceholderSegment(segmentData: SegmentData, index: number): Toot
         movementCount: 0,
       },
     };
-    
-    console.log(`Created AI segment: ${segment.name} with ${segmentData.pointCount} points`);
+
+    console.log(`Loaded AI segment: ${segment.name} from ${segmentData.filename}`);
     return segment;
-    
+
   } catch (error) {
-    console.error("Error creating placeholder segment:", error);
+    console.error('Error loading segment:', error);
     return null;
   }
 }
