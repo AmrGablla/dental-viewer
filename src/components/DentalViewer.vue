@@ -6,9 +6,17 @@
       :currentMode="currentMode"
       :isLoading="isLoading"
       :interactionModes="interactionModes"
+      :autoSegmentationEnabled="autoSegmentationEnabled"
       @fileUpload="handleFileUpload"
       @exportModel="exportModel"
       @setInteractionMode="setInteractionMode"
+      @toggleAutoSegmentation="toggleAutoSegmentation"
+    />
+
+    <!-- Background Status Indicator -->
+    <BackgroundStatusIndicator 
+      :status="backgroundSegmentationStatus"
+      @dismiss="dismissBackgroundStatus"
     />
 
     <!-- Main Content Area -->
@@ -59,14 +67,18 @@ import {
   disposeBoundsTree,
 } from "three-mesh-bvh";
 import { STLLoaderService } from "../services/STLLoader";
+import { SegmentationService } from "../services/SegmentationService";
 import type {
   DentalModel,
   ToothSegment,
   InteractionMode,
+  SegmentationResult,
+  SegmentData,
 } from "../types/dental";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
 import ViewportArea from "./ViewportArea.vue";
+import BackgroundStatusIndicator from "./BackgroundStatusIndicator.vue";
 
 // Add BVH extensions to THREE.js
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -83,6 +95,7 @@ const canvasContainer = computed(
 
 // Services
 const stlLoader = new STLLoaderService();
+const segmentationService = new SegmentationService();
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
@@ -98,6 +111,16 @@ const axisMovementDistances = ref({
   anteroposterior: 0, // Front-back (Z-axis in 3D space)
   vertical: 0, // Up-down (Y-axis in 3D space)
   transverse: 0, // Side-side (X-axis in 3D space)
+});
+const autoSegmentationEnabled = ref(true); // Auto AI segmentation toggle
+const backgroundSegmentationStatus = ref<{
+  isRunning: boolean;
+  message: string;
+  progress?: number;
+}>({
+  isRunning: false,
+  message: "",
+  progress: undefined,
 });
 
 const interactionModes: InteractionMode["mode"][] = [
@@ -1344,7 +1367,7 @@ function animate() {
 }
 
 // File handling
-async function handleFileUpload(event: Event) {
+async function handleFileUpload(event: Event, autoSegment: boolean = false) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
 
@@ -1355,7 +1378,9 @@ async function handleFileUpload(event: Event) {
       "size:",
       file.size,
       "type:",
-      file.type
+      file.type,
+      "auto-segment:",
+      autoSegment
     );
 
     isLoading.value = true;
@@ -1407,18 +1432,21 @@ async function handleFileUpload(event: Event) {
 
       const vertexCount = geometry.getAttribute("position")?.count || 0;
       console.log(
-        `STL model loaded with ${vertexCount.toLocaleString()} vertices (no segmentation applied)`
+        `STL model loaded with ${vertexCount.toLocaleString()} vertices`
       );
       loadingMessage.value = "Model loaded successfully";
-
-      // Since we have no segments initially, skip segment rendering
-      console.log(
-        "Model loaded without segmentation - ready for user interaction"
-      );
 
       // Focus camera on model
       focusOnModel();
       console.log("Camera focused on model");
+
+      // Start background AI segmentation if enabled
+      if (autoSegment) {
+        console.log("🤖 Starting automatic AI segmentation in background...");
+        startBackgroundAISegmentation(file);
+      } else {
+        console.log("Model loaded without auto-segmentation");
+      }
     } catch (error) {
       console.error("Error loading STL file:", error);
       alert(
@@ -1654,6 +1682,204 @@ function exportModel() {
     a.click();
     URL.revokeObjectURL(url);
   }
+
+// Auto Segmentation & Background Processing Functions
+function toggleAutoSegmentation() {
+  autoSegmentationEnabled.value = !autoSegmentationEnabled.value;
+  console.log(`🔄 Auto AI Segmentation ${autoSegmentationEnabled.value ? 'ENABLED' : 'DISABLED'}`);
+  
+  // Show user feedback
+  const status = autoSegmentationEnabled.value ? "enabled" : "disabled";
+  loadingMessage.value = `Auto AI segmentation ${status}`;
+  setTimeout(() => {
+    if (loadingMessage.value === `Auto AI segmentation ${status}`) {
+      loadingMessage.value = "";
+    }
+  }, 2000);
+}
+
+function clearExistingSegments() {
+  if (!dentalModel.value) return;
+  
+  // Remove all existing segments from scene
+  dentalModel.value.segments.forEach((segment) => {
+    scene.remove(segment.mesh);
+  });
+  
+  // Clear segments array
+  dentalModel.value.segments = [];
+  selectedSegments.value = [];
+  
+  console.log("Cleared existing manual segments for AI segmentation");
+}
+
+async function createAISegments(result: SegmentationResult): Promise<void> {
+  if (!dentalModel.value) return;
+
+  try {
+    loadingMessage.value = "Creating 3D tooth segments...";
+    
+    for (let i = 0; i < result.segments.length; i++) {
+      const segmentData = result.segments[i];
+      
+      // For now, create placeholder segments since PLY loading isn't implemented
+      // In a full implementation, you would load the PLY files from the backend
+      const placeholderSegment = createPlaceholderSegment(segmentData, i);
+      
+      if (placeholderSegment) {
+        dentalModel.value.segments.push(placeholderSegment);
+        scene.add(placeholderSegment.mesh);
+      }
+    }
+    
+    // Store the segmentation session for potential downloads
+    console.log(`Created ${result.segments.length} AI-segmented tooth segments`);
+    console.log(`Session ID: ${result.sessionId} - Use this to download individual PLY files`);
+    
+  } catch (error) {
+    console.error("Error creating AI segments:", error);
+    throw error;
+  }
+}
+
+function createPlaceholderSegment(segmentData: SegmentData, index: number): ToothSegment | null {
+  try {
+    // Create a simple geometric placeholder for the AI-detected tooth
+    // In a full implementation, this would load the actual PLY geometry
+    const geometry = new THREE.SphereGeometry(5, 16, 12);
+    
+    // Position based on segment center from AI
+    const position = new THREE.Vector3(
+      segmentData.center[0] || (index * 15 - 30),
+      segmentData.center[1] || 0,
+      segmentData.center[2] || 0
+    );
+    
+    // Generate color
+    const hue = (index * 0.3) % 1;
+    const color = new THREE.Color().setHSL(hue, 0.7, 0.5);
+    
+    const material = new THREE.MeshLambertMaterial({
+      color: color,
+      side: THREE.DoubleSide,
+    });
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.copy(position);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    markRaw(mesh);
+    
+    const segment: ToothSegment = {
+      id: `ai_tooth_${segmentData.id}`,
+      name: segmentData.name || `AI Tooth ${segmentData.id + 1}`,
+      mesh: mesh,
+      originalVertices: [], // Would be populated from PLY data
+      centroid: position,
+      color: color,
+      toothType: "molar", // Could be enhanced with AI tooth type detection
+      isSelected: false,
+      movementDistance: 0,
+      originalPosition: position.clone(),
+      movementHistory: {
+        totalDistance: 0,
+        axisMovements: {
+          anteroposterior: 0,
+          vertical: 0,
+          transverse: 0,
+        },
+        lastMovementType: undefined,
+        movementCount: 0,
+      },
+    };
+    
+    console.log(`Created AI segment: ${segment.name} with ${segmentData.pointCount} points`);
+    return segment;
+    
+  } catch (error) {
+    console.error("Error creating placeholder segment:", error);
+    return null;
+  }
+}
+
+async function startBackgroundAISegmentation(file: File) {
+  if (!dentalModel.value) return;
+
+  try {
+    // Update background status
+    backgroundSegmentationStatus.value = {
+      isRunning: true,
+      message: "AI analyzing dental structure...",
+      progress: 0,
+    };
+
+    console.log("🤖 Starting background AI segmentation...");
+
+    // Check if backend is available
+    const isHealthy = await segmentationService.checkHealth();
+    if (!isHealthy) {
+      throw new Error("Backend service unavailable");
+    }
+
+    backgroundSegmentationStatus.value.message = "Uploading to AI service...";
+    backgroundSegmentationStatus.value.progress = 25;
+
+    // Perform AI segmentation
+    const result = await segmentationService.segmentSTLFile(file);
+
+    backgroundSegmentationStatus.value.message = "Processing segmentation results...";
+    backgroundSegmentationStatus.value.progress = 75;
+
+    // Wait a bit for the 3D model to be fully loaded and rendered
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Clear existing manual segments (keep original mesh visible)
+    if (dentalModel.value.segments.length > 0) {
+      console.log("🧹 Clearing manual segments for AI results...");
+      clearExistingSegments();
+    }
+
+    // Create AI-segmented tooth segments
+    await createAISegments(result);
+
+    backgroundSegmentationStatus.value.message = "AI segmentation completed!";
+    backgroundSegmentationStatus.value.progress = 100;
+
+    console.log(`✅ Background AI Segmentation completed: ${result.segments.length} teeth found`);
+    
+    // Show success notification
+    setTimeout(() => {
+      backgroundSegmentationStatus.value.isRunning = false;
+      backgroundSegmentationStatus.value.message = "";
+      backgroundSegmentationStatus.value.progress = undefined;
+      
+      // Brief success message
+      loadingMessage.value = `🤖 AI found ${result.segments.length} teeth!`;
+      setTimeout(() => {
+        loadingMessage.value = "";
+      }, 3000);
+    }, 1000);
+
+  } catch (error) {
+    console.error("Background AI Segmentation failed:", error);
+    
+    backgroundSegmentationStatus.value.isRunning = false;
+    backgroundSegmentationStatus.value.message = "";
+    backgroundSegmentationStatus.value.progress = undefined;
+    
+    // Show error message briefly
+    loadingMessage.value = `⚠️ AI segmentation failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    setTimeout(() => {
+      loadingMessage.value = "";
+    }, 5000);
+  }
+}
+
+function dismissBackgroundStatus() {
+  backgroundSegmentationStatus.value.isRunning = false;
+  backgroundSegmentationStatus.value.message = "";
+  backgroundSegmentationStatus.value.progress = undefined;
+}
 </script>
 
 <style scoped>

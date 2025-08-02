@@ -65,28 +65,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Model Information -->
-    <div class="panel" v-if="dentalModel">
-      <div class="panel-header">
-        <span class="panel-icon">◕</span>
-        <span class="panel-title">Model Info</span>
-      </div>
-      <div class="panel-content">
-        <div class="info-item">
-          <span class="info-label">Total Segments:</span>
-          <span class="info-value">{{ dentalModel.segments.length }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Selected:</span>
-          <span class="info-value">{{ selectedSegments.length }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">Method:</span>
-          <span class="info-value">Manual</span>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

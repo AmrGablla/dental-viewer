@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backend": "cd backend && ./start_conda.sh",
+    "backend-setup": "cd backend && ./setup_conda.sh",
+    "backend-pip": "cd backend && ./start_dev.sh",
+    "backend-setup-pip": "cd backend && ./setup.sh"
   },
   "dependencies": {
     "three": "^0.178.0",

@@ -17,8 +17,12 @@
           style="display: none"
         />
         <button @click="triggerFileUpload" :disabled="isLoading" class="toolbar-btn primary">
-          <span class="btn-icon">⬆</span>
-          Load STL
+          <span class="btn-icon" :class="{ 'rotating': isLoading }">{{ isLoading ? '⟳' : '⬆' }}</span>
+          {{ getUploadButtonText() }}
+        </button>
+        <button @click="toggleAutoSegmentation" class="toolbar-btn toggle-btn" :class="{ active: autoSegmentationEnabled }">
+          <span class="btn-icon">{{ autoSegmentationEnabled ? '🤖' : '⚙️' }}</span>
+          Auto AI: {{ autoSegmentationEnabled ? 'ON' : 'OFF' }}
         </button>
         <button @click="exportModel" :disabled="!dentalModel || isLoading" class="toolbar-btn">
           <span class="btn-icon">⬇</span>
@@ -65,15 +69,17 @@ interface Props {
   currentMode: InteractionMode['mode']
   isLoading: boolean
   interactionModes: InteractionMode['mode'][]
+  autoSegmentationEnabled?: boolean
 }
 
 const props = defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
-  fileUpload: [event: Event]
+  fileUpload: [event: Event, autoSegment: boolean]
   exportModel: []
   setInteractionMode: [mode: InteractionMode['mode']]
+  toggleAutoSegmentation: []
 }>()
 
 // Refs
@@ -85,15 +91,32 @@ function triggerFileUpload() {
 }
 
 function handleFileUpload(event: Event) {
-  emit('fileUpload', event)
+  const autoSegment = props.autoSegmentationEnabled || false
+  emit('fileUpload', event, autoSegment)
 }
 
 function exportModel() {
   emit('exportModel')
 }
 
+function toggleAutoSegmentation() {
+  emit('toggleAutoSegmentation')
+}
+
 function setInteractionMode(mode: InteractionMode['mode']) {
   emit('setInteractionMode', mode)
+}
+
+function getUploadButtonText(): string {
+  if (props.isLoading) {
+    return 'Processing...'
+  }
+  
+  if (props.autoSegmentationEnabled) {
+    return 'Load & AI Segment'
+  }
+  
+  return 'Load STL'
 }
 
 function getModeIcon(mode: InteractionMode['mode']): string {
@@ -235,8 +258,36 @@ function getInteractionModeTitle(mode: InteractionMode['mode']): string {
 }
 
 .toolbar-btn.primary:hover {
-  background: linear-gradient(135deg, #0891b2, #0e7490);
-  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+}
+
+.toolbar-btn.ai-btn {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border-color: #10b981;
+  color: white;
+}
+
+.toolbar-btn.ai-btn:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+}
+
+.toolbar-btn.toggle-btn {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  border-color: #9ca3af;
+  color: white;
+}
+
+.toolbar-btn.toggle-btn:hover {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  box-shadow: 0 4px 20px rgba(107, 114, 128, 0.4);
+}
+
+.toolbar-btn.toggle-btn.active {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border-color: #10b981;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .toolbar-btn.active {
@@ -259,6 +310,19 @@ function getInteractionModeTitle(mode: InteractionMode['mode']): string {
 
 .btn-icon {
   font-size: 16px;
+}
+
+.btn-icon.rotating {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .status-info {

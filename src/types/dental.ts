@@ -62,3 +62,28 @@ export interface ExportData {
     exportDate: string
   }
 }
+
+export interface SegmentationResult {
+  sessionId: string
+  originalFile: string
+  segments: SegmentData[]
+  timestamp: Date
+  status: 'processing' | 'completed' | 'failed'
+}
+
+export interface SegmentData {
+  id: number
+  name: string
+  filename: string
+  pointCount: number
+  center: [number, number, number]
+  volume: number
+  boundingBox?: {
+    min: [number, number, number]
+    max: [number, number, number]
+  }
+  downloadUrl: string
+  visible: boolean
+  selected: boolean
+  color: string
+}

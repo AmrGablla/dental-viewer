@@ -1,6 +1,80 @@
 # 3D Dental Viewer App
 
-A comprehensive web-based 3D dental viewer application built with Vue.js 3 and Three.js for loading, visualizing, and segmenting STL files of dental models.
+A comprehensive web-based 3D dental viewer application with AI-powered segmentation capabilities. Built with Vue.js 3 and Three.js for the frontend, and FastAPI with Open3D for the backend segmentation service.
+
+## 🏗️ Architecture
+
+- **Frontend**: Vue.js 3 + Three.js + TypeScript (Port 5173)
+- **Backend**: FastAPI + Open3D + Python (Port 8000)
+- **Segmentation**: DBSCAN clustering with point cloud analysis
+- **File Format**: STL input, PLY segment output
+
+## 🚀 Quick Start
+
+### 1. Backend Setup (Required for Segmentation)
+
+**Recommended: Using Conda (most reliable for Open3D)**
+```bash
+# Setup backend with conda environment
+npm run backend-setup
+
+# Start backend server  
+npm run backend
+```
+
+**Alternative: Using pip/venv**
+```bash
+# Setup backend with pip
+npm run backend-setup-pip
+
+# Start backend server
+npm run backend-pip
+```
+
+### 2. Frontend Development Server
+
+```bash
+# Start frontend development server
+npm run dev
+```
+
+### 3. Using the Application
+
+1. Open http://localhost:5173 in your browser
+2. Backend API will be available at http://localhost:8000
+3. Upload STL files for automatic segmentation
+4. Use 3D controls to navigate and inspect results
+
+## 📦 NPM Scripts
+
+- `npm run dev` - Start Vue.js frontend development server
+- `npm run backend` - Start FastAPI backend with conda environment
+- `npm run backend-setup` - Create conda environment with Open3D
+- `npm run backend-pip` - Start backend with pip/venv (fallback)
+- `npm run backend-setup-pip` - Setup backend with pip (fallback)
+- `npm run build` - Build frontend for production
+- `npm run preview` - Preview production build
+npm run backend
+# Backend will be available at http://localhost:8000
+```
+
+### 2. Frontend Setup
+
+```bash
+# Install frontend dependencies
+npm install
+
+# Start development server
+npm run dev
+# Frontend will be available at http://localhost:5173
+```
+
+### 3. Using the Application
+
+1. Open http://localhost:5173 in your browser
+2. Load an STL dental model file
+3. Use the segmentation feature to automatically identify individual teeth
+4. View, interact with, and download individual tooth segments
 
 ## Features
 
@@ -9,13 +83,18 @@ A comprehensive web-based 3D dental viewer application built with Vue.js 3 and T
 - **3D Visualization**: Real-time 3D rendering with lighting and shadows
 - **Interactive Camera**: Orbit, zoom, and pan controls
 
-### 🔧 Segmentation Capabilities
-- **Automatic Geometric Segmentation**:
+### 🤖 AI-Powered Segmentation
+- **Automatic Teeth Segmentation**: Upload STL files to backend for automatic segmentation
+- **DBSCAN Clustering**: Uses point cloud clustering to identify individual teeth
+- **Session Management**: Track segmentation sessions and results
+- **Segment Download**: Download individual teeth as PLY files
+
+### 🔧 Manual Segmentation Tools (Frontend)
+- **Geometric Segmentation**:
   - Curvature-based segmentation
   - Concavity detection
   - K-means clustering
   - Region growing algorithms
-  - DBSCAN clustering
 
 ### 🎨 Manual Refinement Tools
 - **Selection Methods**:
