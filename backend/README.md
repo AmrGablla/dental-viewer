@@ -1,11 +1,11 @@
 # 3D Dental Segmentation API Backend
 
-A FastAPI-based backend service for segmenting STL dental models into individual teeth using Open3D and DBSCAN clustering.
+A FastAPI-based backend service for segmenting STL dental models into individual teeth using Open3D and advanced clustering strategies.
 
 ## Features
 
 - **STL File Processing**: Upload and process STL dental models
-- **Automatic Teeth Segmentation**: Uses DBSCAN clustering to identify individual teeth
+- **Automatic Teeth Segmentation**: Combines connected-components, DBSCAN and voxel-based morphology to identify individual teeth
 - **Point Cloud Analysis**: Converts mesh to point cloud for clustering analysis
 - **RESTful API**: Clean REST endpoints for frontend integration
 - **Session Management**: Track segmentation sessions and results
