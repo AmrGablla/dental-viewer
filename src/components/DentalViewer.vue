@@ -1511,9 +1511,9 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
   }
 }
 
-  function setViewPreset(
-    view: "top" | "bottom" | "front" | "back" | "left" | "right"
-  ) {
+function setViewPreset(
+  view: "top" | "bottom" | "front" | "back" | "left" | "right"
+) {
     if (!dentalModel.value) return;
 
     const box = dentalModel.value.boundingBox;
@@ -1551,7 +1551,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
     animateCameraToPosition(position, center);
   }
 
-  function animateCameraToPosition(
+function animateCameraToPosition(
     targetPosition: THREE.Vector3,
     lookAtTarget: THREE.Vector3
   ) {
@@ -1580,7 +1580,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
     animate();
   }
 
-  function changeSegmentColor(segment: ToothSegment, event: Event) {
+function changeSegmentColor(segment: ToothSegment, event: Event) {
     const input = event.target as HTMLInputElement;
     const color = new THREE.Color(input.value);
 
@@ -1589,7 +1589,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
     material.color = color;
   }
 
-  function mergeSelectedSegments() {
+function mergeSelectedSegments() {
     if (selectedSegments.value.length < 2) {
       alert("Select at least 2 segments to merge");
       return;
@@ -1599,7 +1599,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
     console.log("Merging segments:", selectedSegments.value);
   }
 
-  function splitSelectedSegment() {
+function splitSelectedSegment() {
     if (selectedSegments.value.length !== 1) {
       alert("Select exactly one segment to split");
       return;
@@ -1609,7 +1609,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
     console.log("Splitting segment:", selectedSegments.value[0]);
   }
 
-  function deleteSelectedSegments() {
+function deleteSelectedSegments() {
     if (!dentalModel.value || selectedSegments.value.length === 0) return;
 
     selectedSegments.value.forEach((segment) => {
@@ -1625,7 +1625,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
     selectedSegments.value = [];
   }
 
-  function exportModel() {
+function exportModel() {
     if (!dentalModel.value) return;
 
     const exportData = {
