@@ -197,7 +197,16 @@ These parameters may need adjustment based on:
 backend/
 ├── main.py                    # FastAPI application
 ├── config.py                  # Configuration settings
-├── segmentation_service.py    # Core segmentation logic
+├── services/                  # Core segmentation modules
+│   ├── segmentation_service.py
+│   ├── algorithms/            # Segmentation strategies
+│   │   ├── connected_components.py
+│   │   ├── curvature_sampling.py
+│   │   ├── voxelization.py
+│   │   ├── watershed.py
+│   │   └── spatial_slice.py
+│   ├── mesh_utils.py
+│   └── config_utils.py
 ├── environment.yml            # Conda environment definition
 ├── setup_conda.sh             # Conda environment setup script
 ├── start_conda.sh             # Development server script
@@ -208,7 +217,7 @@ backend/
 
 The modular structure makes it easy to add features:
 
-- **New clustering algorithms**: Extend `segmentation_service.py`
+- **New clustering algorithms**: Add modules under `services/algorithms/`
 - **Additional file formats**: Add loaders to handle other 3D formats
 - **Advanced post-processing**: Add mesh reconstruction, smoothing, etc.
 - **Database integration**: Store segmentation history and metadata

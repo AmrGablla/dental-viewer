@@ -9,7 +9,7 @@ import os
 from typing import Dict
 
 from config import settings
-from segmentation_service import DentalSegmentationService
+from services.segmentation_service import DentalSegmentationService
 
 app = FastAPI(
     title=settings.API_TITLE,
