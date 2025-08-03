@@ -46,6 +46,7 @@ class DentalSegmentationService:
             mesh = load_mesh(file_path)
             processed_mesh = sample_mesh(mesh)
             segments_data = segment_mesh(processed_mesh, config)
+            segments_data = self._filter_segments(segments_data, config)
             output_dir = self._create_output_directory(session_id)
             segments = self._export_mesh_segments(segments_data, output_dir, session_id)
             self.active_sessions[session_id] = output_dir
@@ -91,6 +92,23 @@ class DentalSegmentationService:
             segment_info_list.append(segment_info)
         print(f"Successfully exported {len(segment_info_list)} segments")
         return segment_info_list
+
+    def _filter_segments(self, segments: List[Dict], config: Dict) -> List[Dict]:
+        """Filter segments based on size and expected count."""
+        expected_count = config.get("expected_tooth_count", 28)
+        min_triangles = config.get("min_tooth_size", 50)
+        filtered: List[Dict] = [
+            s for s in segments
+            if len(np.asarray(s["mesh"].triangles)) >= min_triangles
+        ]
+        if len(filtered) > expected_count:
+            filtered.sort(
+                key=lambda s: len(np.asarray(s["mesh"].triangles)),
+                reverse=True,
+            )
+            print(f"Filtering {len(filtered)} segments down to {expected_count}")
+            filtered = filtered[:expected_count]
+        return filtered
 
     def _create_output_directory(self, session_id: str) -> str:
         output_dir = os.path.join(tempfile.gettempdir(), f"dental_segments_{session_id}")
