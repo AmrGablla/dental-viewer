@@ -20,10 +20,6 @@
           <span class="btn-icon" :class="{ 'rotating': isLoading }">{{ isLoading ? '⟳' : '⬆' }}</span>
           {{ getUploadButtonText() }}
         </button>
-        <button @click="toggleAutoSegmentation" class="toolbar-btn toggle-btn" :class="{ active: autoSegmentationEnabled }">
-          <span class="btn-icon">{{ autoSegmentationEnabled ? '🤖' : '⚙️' }}</span>
-          Auto AI: {{ autoSegmentationEnabled ? 'ON' : 'OFF' }}
-        </button>
         <button @click="exportModel" :disabled="!dentalModel || isLoading" class="toolbar-btn">
           <span class="btn-icon">⬇</span>
           Export
@@ -69,7 +65,6 @@ interface Props {
   currentMode: InteractionMode['mode']
   isLoading: boolean
   interactionModes: InteractionMode['mode'][]
-  autoSegmentationEnabled?: boolean
 }
 
 const props = defineProps<Props>()
@@ -79,7 +74,6 @@ const emit = defineEmits<{
   fileUpload: [event: Event, autoSegment: boolean]
   exportModel: []
   setInteractionMode: [mode: InteractionMode['mode']]
-  toggleAutoSegmentation: []
 }>()
 
 // Refs
@@ -91,16 +85,12 @@ function triggerFileUpload() {
 }
 
 function handleFileUpload(event: Event) {
-  const autoSegment = props.autoSegmentationEnabled || false
+  const autoSegment = true;
   emit('fileUpload', event, autoSegment)
 }
 
 function exportModel() {
   emit('exportModel')
-}
-
-function toggleAutoSegmentation() {
-  emit('toggleAutoSegmentation')
 }
 
 function setInteractionMode(mode: InteractionMode['mode']) {
@@ -110,10 +100,6 @@ function setInteractionMode(mode: InteractionMode['mode']) {
 function getUploadButtonText(): string {
   if (props.isLoading) {
     return 'Processing...'
-  }
-  
-  if (props.autoSegmentationEnabled) {
-    return 'Load & AI Segment'
   }
   
   return 'Load STL'
@@ -257,23 +243,6 @@ function getInteractionModeTitle(mode: InteractionMode['mode']): string {
 .toolbar-btn.ai-btn:hover {
   background: linear-gradient(135deg, #047857 0%, #065f46 100%);
   box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
-}
-
-.toolbar-btn.toggle-btn {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-  border-color: #9ca3af;
-  color: white;
-}
-
-.toolbar-btn.toggle-btn:hover {
-  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
-  box-shadow: 0 4px 20px rgba(107, 114, 128, 0.4);
-}
-
-.toolbar-btn.toggle-btn.active {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  border-color: #10b981;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 .toolbar-btn.active {

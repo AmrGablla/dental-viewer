@@ -6,11 +6,9 @@
       :currentMode="currentMode"
       :isLoading="isLoading"
       :interactionModes="interactionModes"
-      :autoSegmentationEnabled="autoSegmentationEnabled"
       @fileUpload="handleFileUpload"
       @exportModel="exportModel"
       @setInteractionMode="setInteractionMode"
-      @toggleAutoSegmentation="toggleAutoSegmentation"
     />
 
     <!-- Background Status Indicator -->
@@ -110,7 +108,6 @@ const axisMovementDistances = ref({
   vertical: 0, // Up-down (Y-axis in 3D space)
   transverse: 0, // Side-side (X-axis in 3D space)
 });
-const autoSegmentationEnabled = ref(true); // Auto AI segmentation toggle
 const backgroundSegmentationStatus = ref<{
   isRunning: boolean;
   message: string;
@@ -1706,21 +1703,6 @@ function exportModel() {
     a.click();
     URL.revokeObjectURL(url);
   }
-
-// Auto Segmentation & Background Processing Functions
-function toggleAutoSegmentation() {
-  autoSegmentationEnabled.value = !autoSegmentationEnabled.value;
-  console.log(`🔄 Auto AI Segmentation ${autoSegmentationEnabled.value ? 'ENABLED' : 'DISABLED'}`);
-  
-  // Show user feedback
-  const status = autoSegmentationEnabled.value ? "enabled" : "disabled";
-  loadingMessage.value = `Auto AI segmentation ${status}`;
-  setTimeout(() => {
-    if (loadingMessage.value === `Auto AI segmentation ${status}`) {
-      loadingMessage.value = "";
-    }
-  }, 2000);
-}
 
 function clearExistingSegments() {
   if (!dentalModel.value) return;
