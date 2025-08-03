@@ -1,5 +1,5 @@
 import { STLLoader } from 'three-stdlib'
-import { Mesh, Vector3, MeshLambertMaterial, DoubleSide } from 'three'
+import { Mesh, Vector3, MeshStandardMaterial, DoubleSide } from 'three'
 import * as THREE from 'three'
 
 export class STLLoaderService {
@@ -33,10 +33,17 @@ export class STLLoaderService {
           const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
           geometry.translate(-center.x, -center.y, -center.z)
           
-          // Create mesh with basic material
-          const material = new MeshLambertMaterial({ 
-            color: 0xffffff,
-            side: DoubleSide
+          // Create mesh with enhanced material for better lighting
+          const material = new MeshStandardMaterial({ 
+            color: 0xf8f8f8,        // Slightly off-white for better visual appeal
+            side: DoubleSide,
+            roughness: 0.3,         // Slight shininess for dental material
+            metalness: 0.1,         // Very slight metallic quality
+            transparent: false,
+            opacity: 1.0,
+            flatShading: false,     // Smooth shading for better quality
+            emissive: 0x000000,     // No emissive color
+            emissiveIntensity: 0.0
           })
           
           const mesh = new Mesh(geometry, material)
@@ -73,9 +80,16 @@ export class STLLoaderService {
           const center = geometry.boundingBox?.getCenter(new THREE.Vector3()) || new THREE.Vector3()
           geometry.translate(-center.x, -center.y, -center.z)
           
-          const material = new THREE.MeshLambertMaterial({ 
-            color: 0xffffff,
-            side: THREE.DoubleSide
+          const material = new THREE.MeshStandardMaterial({ 
+            color: 0xf8f8f8,        // Slightly off-white for better visual appeal
+            side: THREE.DoubleSide,
+            roughness: 0.3,         // Slight shininess for dental material
+            metalness: 0.1,         // Very slight metallic quality
+            transparent: false,
+            opacity: 1.0,
+            flatShading: false,     // Smooth shading for better quality
+            emissive: 0x000000,     // No emissive color
+            emissiveIntensity: 0.0
           })
           
           const mesh = new Mesh(geometry, material)
