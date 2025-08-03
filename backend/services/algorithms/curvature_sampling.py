@@ -2,7 +2,7 @@ import numpy as np
 import open3d as o3d
 from typing import Dict, List
 
-from ...config import settings
+from config import settings
 from .voxelization import segment_by_voxelization
 from .watershed import segment_by_watershed
 from .spatial_slice import slice_mesh_into_regions

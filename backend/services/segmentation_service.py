@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import open3d as o3d
 
-from ..config import settings
+from config import settings
 from .config_utils import apply_user_config
 from .mesh_utils import load_mesh, sample_mesh
 from .algorithms import segment_mesh
