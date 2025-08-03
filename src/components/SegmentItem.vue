@@ -28,16 +28,23 @@
       <div class="segment-actions">
         <button 
           class="btn btn-sm btn-secondary" 
-          @click="resetIndividualPosition"
+          @click.stop="resetIndividualPosition"
           :disabled="!isSelected"
         >
           <span>↩️</span> Reset
         </button>
         <button 
           class="btn btn-sm btn-secondary" 
-          @click="toggleSegmentVisibility"
+          @click.stop="toggleSegmentVisibility"
         >
           <span>{{ segment.mesh.visible ? '👁️' : '🙈' }}</span>
+        </button>
+        <button 
+          class="btn btn-sm btn-danger" 
+          @click.stop="deleteSegment"
+          title="Delete segment"
+        >
+          <span>🗑️</span>
         </button>
       </div>
       
@@ -99,6 +106,7 @@ const emit = defineEmits<{
   changeSegmentColor: [segment: ToothSegment, event: Event]
   resetIndividualPosition: [segment: ToothSegment]
   toggleSegmentVisibility: [segment: ToothSegment]
+  deleteSegment: [segment: ToothSegment]
 }>()
 
 function toggleSegmentSelection() {
@@ -115,6 +123,10 @@ function resetIndividualPosition() {
 
 function toggleSegmentVisibility() {
   emit('toggleSegmentVisibility', props.segment)
+}
+
+function deleteSegment() {
+  emit('deleteSegment', props.segment)
 }
 </script>
 
@@ -311,6 +323,19 @@ function toggleSegmentVisibility() {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 0%, rgba(220, 38, 38, 0.8) 100%);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.9) 0%, rgba(185, 28, 28, 0.9) 100%);
+  border-color: rgba(239, 68, 68, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .individual-movement-info {

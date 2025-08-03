@@ -6,31 +6,32 @@
         <span class="panel-icon">◑</span>
         <span class="panel-title">Visibility</span>
       </div>
-      <div class="panel-content">
-        <button 
-          @click="toggleOriginalMesh" 
-          class="btn btn-secondary full-width"
-          style="margin-bottom: 8px;"
-        >
-          {{ dentalModel?.originalMesh?.visible ? 'Hide Original' : 'Show Original' }}
-        </button>
-        <button 
-          @click="toggleAllSegments" 
-          class="btn btn-secondary full-width"
-        >
-          {{ areAllSegmentsVisible() ? 'Hide All' : 'Show All' }}
-        </button>
+      <div class="panel-content compact">
+        <div class="visibility-buttons">
+          <button 
+            @click="toggleOriginalMesh" 
+            class="btn btn-secondary btn-compact"
+          >
+            {{ dentalModel?.originalMesh?.visible ? 'Hide' : 'Show' }} Original
+          </button>
+          <button 
+            @click="toggleAllSegments" 
+            class="btn btn-secondary btn-compact"
+          >
+            {{ areAllSegmentsVisible() ? 'Hide All' : 'Show All' }}
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- Segment Management -->
-    <div class="panel" v-if="dentalModel && dentalModel.segments.length > 0">
+    <div class="panel segment-panel" v-if="dentalModel && dentalModel.segments.length > 0">
       <div class="panel-header">
         <span class="panel-icon">◉</span>
         <span class="panel-title">All Segments</span>
         <span class="panel-badge">{{ dentalModel.segments.length }}</span>
       </div>
-      <div class="panel-content">
+      <div class="panel-content segment-content">
         <div class="segment-list">
           <SegmentItem
             v-for="segment in dentalModel.segments"
@@ -41,27 +42,8 @@
             @changeSegmentColor="handleChangeSegmentColor"
             @resetIndividualPosition="handleResetIndividualPosition"
             @toggleSegmentVisibility="handleToggleSegmentVisibility"
+            @deleteSegment="handleDeleteSegment"
           />
-        </div>
-        
-        <MovementControls
-          :selectedSegments="selectedSegments"
-          :totalMovementDistance="totalMovementDistance"
-          @resetSegmentPosition="handleResetSegmentPosition"
-          @startDirectionalMove="handleStartDirectionalMove"
-          @stopDirectionalMove="handleStopDirectionalMove"
-        />
-        
-        <div class="action-buttons">
-          <button @click="mergeSelectedSegments" class="btn btn-secondary" :disabled="selectedSegments.length < 2">
-            Merge
-          </button>
-          <button @click="splitSelectedSegment" class="btn btn-secondary" :disabled="selectedSegments.length !== 1">
-            Split
-          </button>
-          <button @click="deleteSelectedSegments" class="btn btn-danger">
-            Delete
-          </button>
         </div>
       </div>
     </div>
@@ -70,14 +52,12 @@
 
 <script setup lang="ts">
 import SegmentItem from './SegmentItem.vue'
-import MovementControls from './MovementControls.vue'
 import type { DentalModel, ToothSegment } from '../types/dental'
 
 // Props
 interface Props {
   dentalModel: DentalModel | null
   selectedSegments: ToothSegment[]
-  totalMovementDistance: number
 }
 
 const props = defineProps<Props>()
@@ -90,12 +70,7 @@ const emit = defineEmits<{
   changeSegmentColor: [segment: ToothSegment, event: Event]
   resetIndividualPosition: [segment: ToothSegment]
   toggleSegmentVisibility: [segment: ToothSegment]
-  resetSegmentPosition: []
-  startDirectionalMove: [axis: 'Anteroposterior' | 'Vertical' | 'Transverse', direction: number]
-  stopDirectionalMove: []
-  mergeSelectedSegments: []
-  splitSelectedSegment: []
-  deleteSelectedSegments: []
+  deleteSegment: [segment: ToothSegment]
 }>()
 
 function toggleOriginalMesh() {
@@ -127,28 +102,8 @@ function handleToggleSegmentVisibility(segment: ToothSegment) {
   emit('toggleSegmentVisibility', segment)
 }
 
-function handleResetSegmentPosition() {
-  emit('resetSegmentPosition')
-}
-
-function handleStartDirectionalMove(axis: 'Anteroposterior' | 'Vertical' | 'Transverse', direction: number) {
-  emit('startDirectionalMove', axis, direction)
-}
-
-function handleStopDirectionalMove() {
-  emit('stopDirectionalMove')
-}
-
-function mergeSelectedSegments() {
-  emit('mergeSelectedSegments')
-}
-
-function splitSelectedSegment() {
-  emit('splitSelectedSegment')
-}
-
-function deleteSelectedSegments() {
-  emit('deleteSelectedSegments')
+function handleDeleteSegment(segment: ToothSegment) {
+  emit('deleteSegment', segment)
 }
 </script>
 
@@ -158,15 +113,15 @@ function deleteSelectedSegments() {
   width: 320px;
   min-width: 320px;
   max-width: 320px;
-  height: 100vh;
+  height: calc(100vh - 64px); /* Subtract toolbar height */
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   border-right: 1px solid rgba(148, 163, 184, 0.2);
-  padding: 16px;
+  padding: 12px;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -174,10 +129,10 @@ function deleteSelectedSegments() {
 .panel {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(51, 65, 85, 0.8) 100%);
   border: 1px solid rgba(6, 182, 212, 0.2);
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: visible;
   backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
   position: relative;
   flex-shrink: 0;
 }
@@ -196,7 +151,7 @@ function deleteSelectedSegments() {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(8, 145, 178, 0.1) 100%);
   border-bottom: 1px solid rgba(6, 182, 212, 0.2);
 }
@@ -225,27 +180,63 @@ function deleteSelectedSegments() {
 }
 
 .panel-content {
-  padding: 14px;
+  padding: 12px;
+}
+
+.panel-content.compact {
+  padding: 8px;
+}
+
+.visibility-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-compact {
+  padding: 8px 12px;
+  font-size: 12px;
+  flex: 1;
 }
 
 .segment-list {
-  max-height: none;
-  overflow-y: visible;
-  margin-bottom: 16px;
-}
-
-.action-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(6, 182, 212, 0.2);
-}
-
-.action-buttons .btn {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
   flex: 1;
-  min-width: 80px;
+  min-height: 0; /* Important for flexbox to work properly */
+}
+
+.segment-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flexbox to work properly */
+}
+
+.segment-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flexbox to work properly */
+  padding: 8px 12px;
+}
+
+.segment-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.segment-list::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 2px;
+}
+
+.segment-list::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.3);
+  border-radius: 2px;
+}
+
+.segment-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.5);
 }
 
 .info-item {
@@ -274,8 +265,8 @@ function deleteSelectedSegments() {
 
 /* Button styles */
 .btn {
-  padding: 12px 16px;
-  border-radius: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -284,7 +275,7 @@ function deleteSelectedSegments() {
   position: relative;
   overflow: visible;
   white-space: nowrap;
-  min-height: 40px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;

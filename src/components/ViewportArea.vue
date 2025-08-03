@@ -3,6 +3,15 @@
     <div ref="canvasContainer" class="canvas-container">
       <LoadingOverlay :isLoading="isLoading" :loadingMessage="loadingMessage" />
       
+      <!-- Movement Controls -->
+      <MovementControls
+        v-if="dentalModel && selectedSegments.length > 0"
+        :selectedSegments="selectedSegments"
+        :totalMovementDistance="totalMovementDistance"
+        @startDirectionalMove="handleStartDirectionalMove"
+        @stopDirectionalMove="handleStopDirectionalMove"
+      />
+      
       <!-- Viewport Controls -->
       <div class="viewport-controls">
         <div class="viewport-info">
@@ -19,19 +28,24 @@
 
 <script setup lang="ts">
 import { ref, defineExpose } from 'vue'
-import type { DentalModel, InteractionMode } from '../types/dental'
+import type { DentalModel, InteractionMode, ToothSegment } from '../types/dental'
 import LoadingOverlay from './LoadingOverlay.vue'
 import ViewPresets from './ViewPresets.vue'
+import MovementControls from './MovementControls.vue'
 
 interface Props {
   dentalModel: DentalModel | null
   currentMode: InteractionMode['mode']
   isLoading: boolean
   loadingMessage: string
+  selectedSegments: ToothSegment[]
+  totalMovementDistance: number
 }
 
 interface Emits {
   (e: 'setViewPreset', preset: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right'): void
+  (e: 'startDirectionalMove', axis: 'Anteroposterior' | 'Vertical' | 'Transverse', direction: number): void
+  (e: 'stopDirectionalMove'): void
 }
 
 defineProps<Props>()
@@ -52,6 +66,14 @@ function getModeIcon(mode: InteractionMode['mode']): string {
 
 function handleSetViewPreset(preset: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right') {
   emit('setViewPreset', preset)
+}
+
+function handleStartDirectionalMove(axis: 'Anteroposterior' | 'Vertical' | 'Transverse', direction: number) {
+  emit('startDirectionalMove', axis, direction)
+}
+
+function handleStopDirectionalMove() {
+  emit('stopDirectionalMove')
 }
 
 // Expose the canvas container ref to parent component

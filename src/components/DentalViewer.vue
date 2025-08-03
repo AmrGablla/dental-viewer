@@ -24,19 +24,13 @@
       <LeftSidebar
         :dentalModel="dentalModel"
         :selectedSegments="selectedSegments"
-        :totalMovementDistance="totalMovementDistance"
         @toggleOriginalMesh="toggleOriginalMesh"
         @toggleAllSegments="toggleAllSegments"
         @toggleSegmentSelection="toggleSegmentSelection"
         @changeSegmentColor="changeSegmentColor"
         @resetIndividualPosition="resetIndividualPosition"
         @toggleSegmentVisibility="toggleSegmentVisibility"
-        @resetSegmentPosition="resetSegmentPosition"
-        @startDirectionalMove="startDirectionalMove"
-        @stopDirectionalMove="stopDirectionalMove"
-        @mergeSelectedSegments="mergeSelectedSegments"
-        @splitSelectedSegment="splitSelectedSegment"
-        @deleteSelectedSegments="deleteSelectedSegments"
+        @deleteSegment="deleteSegment"
       />
 
       <ViewportArea
@@ -45,7 +39,11 @@
         :currentMode="currentMode"
         :isLoading="isLoading"
         :loadingMessage="loadingMessage"
+        :selectedSegments="selectedSegments"
+        :totalMovementDistance="totalMovementDistance"
         @setViewPreset="setViewPreset"
+        @startDirectionalMove="startDirectionalMove"
+        @stopDirectionalMove="stopDirectionalMove"
       />
     </div>
   </div>
@@ -769,26 +767,6 @@ function moveSegmentsIn3D(event: MouseEvent) {
       movementAxis.value = "Combined";
     }
   }
-}
-
-function resetSegmentPosition() {
-  if (selectedSegments.value.length === 0) return;
-
-  selectedSegments.value.forEach((segment) => {
-    segment.mesh.position.copy(movementStartPosition);
-    segment.mesh.updateMatrixWorld();
-  });
-
-  totalMovementDistance.value = 0;
-  movementAxis.value = "None";
-  axisMovementDistances.value = {
-    anteroposterior: 0,
-    vertical: 0,
-    transverse: 0,
-  };
-  constrainedAxis = null;
-
-  console.log("Reset segment positions to original location");
 }
 
 // Individual Segment Functions
@@ -1673,40 +1651,30 @@ function changeSegmentColor(segment: ToothSegment, event: Event) {
     material.color = color;
   }
 
-function mergeSelectedSegments() {
-    if (selectedSegments.value.length < 2) {
-      alert("Select at least 2 segments to merge");
-      return;
+function deleteSegment(segment: ToothSegment) {
+    if (!dentalModel.value) return;
+
+    // Remove from scene
+    scene.remove(segment.mesh);
+    
+    // Remove from dentalModel segments array
+    const index = dentalModel.value.segments.findIndex(
+      (s) => s.id === segment.id
+    );
+    if (index >= 0) {
+      dentalModel.value.segments.splice(index, 1);
     }
 
-    // Implementation for merging segments
-    console.log("Merging segments:", selectedSegments.value);
-  }
-
-function splitSelectedSegment() {
-    if (selectedSegments.value.length !== 1) {
-      alert("Select exactly one segment to split");
-      return;
+    // Remove from selected segments if it was selected
+    const selectedIndex = selectedSegments.value.findIndex(
+      (s) => s.id === segment.id
+    );
+    if (selectedIndex >= 0) {
+      selectedSegments.value.splice(selectedIndex, 1);
     }
 
-    // Implementation for splitting segment
-    console.log("Splitting segment:", selectedSegments.value[0]);
-  }
-
-function deleteSelectedSegments() {
-    if (!dentalModel.value || selectedSegments.value.length === 0) return;
-
-    selectedSegments.value.forEach((segment) => {
-      scene.remove(segment.mesh);
-      const index = dentalModel.value!.segments.findIndex(
-        (s) => s.id === segment.id
-      );
-      if (index >= 0) {
-        dentalModel.value!.segments.splice(index, 1);
-      }
-    });
-
-    selectedSegments.value = [];
+    // Trigger reactivity by creating a new reference since we're using shallowRef
+    dentalModel.value = markRaw({ ...dentalModel.value });
   }
 
 function exportModel() {

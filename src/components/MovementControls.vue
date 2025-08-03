@@ -1,83 +1,81 @@
 <template>
   <div class="movement-controls" v-if="selectedSegments.length > 0">
-    <div class="movement-header">
-      <span class="movement-icon">🛠️</span>
-      <span class="movement-title">Movement</span>
-    </div>
-    
-    <!-- Movement Reset Button -->
-    <div class="movement-buttons">
-      <button 
-        @click="resetSegmentPosition" 
-        :disabled="totalMovementDistance === 0"
-        class="btn btn-secondary movement-btn"
-      >
-        <span>🔄</span> Reset
-      </button>
-    </div>
-    
-    <!-- Directional Controls -->
-    <div class="direction-controls">
-      <div class="axis-control-group">
-        <div class="axis-label">Anteroposterior</div>
-        <div class="axis-buttons">
+    <!-- 3D Directional Tool -->
+    <div class="direction-tool">
+      <!-- Vertical Controls (Top/Bottom) -->
+      <div class="vertical-row">
+        <button 
+          class="control-btn vertical-btn top-btn" 
+          @mousedown="startDirectionalMove('Vertical', 1)" 
+          @mouseup="stopDirectionalMove" 
+          @mouseleave="stopDirectionalMove"
+          title="Move Superior"
+        >
+          <span class="btn-icon">⬆️</span>
+        </button>
+      </div>
+      
+      <!-- Horizontal Controls (Left/Center/Right) -->
+      <div class="horizontal-row">
+        <button 
+          class="control-btn horizontal-btn left-btn" 
+          @mousedown="startDirectionalMove('Transverse', -1)" 
+          @mouseup="stopDirectionalMove" 
+          @mouseleave="stopDirectionalMove"
+          title="Move Left"
+        >
+          <span class="btn-icon">⬅️</span>
+        </button>
+        
+        <div class="center-control">
           <button 
-            class="direction-btn" 
+            class="control-btn center-btn back-btn" 
             @mousedown="startDirectionalMove('Anteroposterior', -1)" 
             @mouseup="stopDirectionalMove" 
             @mouseleave="stopDirectionalMove"
-          >← Post</button>
+            title="Move Posterior"
+          >
+            <span class="btn-icon">🔙</span>
+          </button>
           <button 
-            class="direction-btn" 
+            class="control-btn center-btn forward-btn" 
             @mousedown="startDirectionalMove('Anteroposterior', 1)" 
             @mouseup="stopDirectionalMove" 
             @mouseleave="stopDirectionalMove"
-          >Ant →</button>
+            title="Move Anterior"
+          >
+            <span class="btn-icon">🔜</span>
+          </button>
         </div>
+        
+        <button 
+          class="control-btn horizontal-btn right-btn" 
+          @mousedown="startDirectionalMove('Transverse', 1)" 
+          @mouseup="stopDirectionalMove" 
+          @mouseleave="stopDirectionalMove"
+          title="Move Right"
+        >
+          <span class="btn-icon">➡️</span>
+        </button>
       </div>
       
-      <div class="axis-control-group">
-        <div class="axis-label">Vertical</div>
-        <div class="axis-buttons">
-          <button 
-            class="direction-btn" 
-            @mousedown="startDirectionalMove('Vertical', -1)" 
-            @mouseup="stopDirectionalMove" 
-            @mouseleave="stopDirectionalMove"
-          >↓ Inf</button>
-          <button 
-            class="direction-btn" 
-            @mousedown="startDirectionalMove('Vertical', 1)" 
-            @mouseup="stopDirectionalMove" 
-            @mouseleave="stopDirectionalMove"
-          >Sup ↑</button>
-        </div>
-      </div>
-      
-      <div class="axis-control-group">
-        <div class="axis-label">Transverse</div>
-        <div class="axis-buttons">
-          <button 
-            class="direction-btn" 
-            @mousedown="startDirectionalMove('Transverse', -1)" 
-            @mouseup="stopDirectionalMove" 
-            @mouseleave="stopDirectionalMove"
-          >← Left</button>
-          <button 
-            class="direction-btn" 
-            @mousedown="startDirectionalMove('Transverse', 1)" 
-            @mouseup="stopDirectionalMove" 
-            @mouseleave="stopDirectionalMove"
-          >Right →</button>
-        </div>
+      <!-- Vertical Controls (Bottom) -->
+      <div class="vertical-row">
+        <button 
+          class="control-btn vertical-btn bottom-btn" 
+          @mousedown="startDirectionalMove('Vertical', -1)" 
+          @mouseup="stopDirectionalMove" 
+          @mouseleave="stopDirectionalMove"
+          title="Move Inferior"
+        >
+          <span class="btn-icon">⬇️</span>
+        </button>
       </div>
     </div>
     
     <!-- Movement Display -->
     <div v-if="totalMovementDistance > 0" class="movement-display">
-      <div class="total-distance">
-        Total: {{ totalMovementDistance.toFixed(1) }} mm
-      </div>
+      <span class="distance-text">{{ totalMovementDistance.toFixed(1) }}mm</span>
     </div>
   </div>
 </template>
@@ -95,14 +93,9 @@ defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
-  resetSegmentPosition: []
   startDirectionalMove: [axis: 'Anteroposterior' | 'Vertical' | 'Transverse', direction: number]
   stopDirectionalMove: []
 }>()
-
-function resetSegmentPosition() {
-  emit('resetSegmentPosition')
-}
 
 function startDirectionalMove(axis: 'Anteroposterior' | 'Vertical' | 'Transverse', direction: number) {
   emit('startDirectionalMove', axis, direction)
@@ -115,162 +108,193 @@ function stopDirectionalMove() {
 
 <style scoped>
 .movement-controls {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%);
-  border: 1px solid rgba(6, 182, 212, 0.2);
-  border-radius: 16px;
-  padding: 16px;
-  margin-top: 16px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
-.movement-header {
+  position: absolute;
+  top: 16px;
+  left: 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
-}
-
-.movement-icon {
-  font-size: 18px;
-  color: #06b6d4;
-}
-
-.movement-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #f1f5f9;
-}
-
-.movement-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.movement-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: center;
-  width: 100%;
-}
-
-.direction-controls {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 16px;
+  padding: 12px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  transition: all 0.3s ease;
 }
 
-.axis-control-group {
+.direction-tool {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.3) 0%, rgba(51, 65, 85, 0.3) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  backdrop-filter: blur(8px);
 }
 
-.axis-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.axis-buttons {
+.vertical-row {
   display: flex;
+  justify-content: center;
+}
+
+.horizontal-row {
+  display: flex;
+  align-items: center;
   gap: 4px;
 }
 
-.direction-btn {
-  flex: 1;
-  padding: 8px 12px;
+.center-control {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 4px;
+}
+
+.control-btn {
   background: linear-gradient(135deg, rgba(51, 65, 85, 0.8) 0%, rgba(71, 85, 105, 0.8) 100%);
   border: 1px solid rgba(6, 182, 212, 0.3);
   border-radius: 8px;
   color: #f1f5f9;
-  font-size: 11px;
-  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.direction-btn:hover {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(8, 145, 178, 0.2) 100%);
+.control-btn:hover {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.3) 0%, rgba(8, 145, 178, 0.3) 100%);
   border-color: rgba(6, 182, 212, 0.6);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
 }
 
-.direction-btn:active {
+.control-btn:active {
   transform: translateY(0);
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.3) 0%, rgba(8, 145, 178, 0.3) 100%);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.4) 0%, rgba(8, 145, 178, 0.4) 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Vertical buttons (up/down) */
+.vertical-btn {
+  width: 32px;
+  height: 28px;
+}
+
+.top-btn {
+  border-radius: 12px 12px 6px 6px;
+}
+
+.bottom-btn {
+  border-radius: 6px 6px 12px 12px;
+}
+
+/* Horizontal buttons (left/right) */
+.horizontal-btn {
+  width: 28px;
+  height: 32px;
+}
+
+.left-btn {
+  border-radius: 12px 6px 6px 12px;
+}
+
+.right-btn {
+  border-radius: 6px 12px 12px 6px;
+}
+
+/* Center buttons (forward/back) */
+.center-btn {
+  width: 24px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.back-btn {
+  border-radius: 6px 6px 2px 2px;
+}
+
+.forward-btn {
+  border-radius: 2px 2px 6px 6px;
+}
+
+.btn-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.center-btn .btn-icon {
+  font-size: 12px;
 }
 
 .movement-display {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(6, 182, 212, 0.2);
+  padding-left: 12px;
+  border-left: 1px solid rgba(6, 182, 212, 0.2);
 }
 
-.total-distance {
-  text-align: center;
-  font-size: 13px;
+.distance-text {
+  font-size: 11px;
   font-weight: 600;
   color: #06b6d4;
   background: rgba(6, 182, 212, 0.1);
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid rgba(6, 182, 212, 0.3);
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-/* Button styles */
-.btn {
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.6s ease;
-}
-
-.btn:hover::before {
-  left: 100%;
-}
-
-.btn-secondary {
-  background: linear-gradient(135deg, rgba(51, 65, 85, 0.8) 0%, rgba(71, 85, 105, 0.8) 100%);
-  border-color: rgba(148, 163, 184, 0.3);
-  color: #f1f5f9;
-}
-
-.btn-secondary:hover {
-  background: linear-gradient(135deg, rgba(71, 85, 105, 0.9) 0%, rgba(100, 116, 139, 0.9) 100%);
-  border-color: rgba(148, 163, 184, 0.5);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .movement-controls {
+    top: 8px;
+    left: 8px;
+    gap: 8px;
+    padding: 8px;
+  }
+  
+  .direction-tool {
+    padding: 6px;
+    gap: 3px;
+  }
+  
+  .vertical-btn {
+    width: 28px;
+    height: 24px;
+  }
+  
+  .horizontal-btn {
+    width: 24px;
+    height: 28px;
+  }
+  
+  .center-btn {
+    width: 20px;
+    height: 14px;
+  }
+  
+  .btn-icon {
+    font-size: 12px;
+  }
+  
+  .center-btn .btn-icon {
+    font-size: 10px;
+  }
+  
+  .movement-display {
+    padding-left: 8px;
+  }
+  
+  .distance-text {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
 }
 </style>
