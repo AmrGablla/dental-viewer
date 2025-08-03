@@ -195,7 +195,7 @@ function initThreeJS() {
 
   // Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf0f0f0);
+  scene.background = new THREE.Color(0xf8f9fa); // Softer, warmer background
 
   // Get container dimensions
   const containerWidth = canvasContainer.value.clientWidth;
@@ -233,20 +233,8 @@ function initThreeJS() {
   // Set initial canvas mode attribute
   renderer.domElement.setAttribute("data-mode", currentMode.value);
 
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-  scene.add(ambientLight);
-
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(50, 50, 50);
-  directionalLight.castShadow = true;
-  directionalLight.shadow.mapSize.width = 2048;
-  directionalLight.shadow.mapSize.height = 2048;
-  scene.add(directionalLight);
-
-  const pointLight = new THREE.PointLight(0xffffff, 0.5);
-  pointLight.position.set(-50, -50, 50);
-  scene.add(pointLight);
+  // Enhanced Multi-Directional Lighting System
+  setupEnhancedLighting();
 
   // Raycaster for picking
   raycaster = new THREE.Raycaster();
@@ -283,6 +271,73 @@ function setupEventListeners() {
     });
     resizeObserver.observe(canvasContainer.value);
   }
+}
+
+function setupEnhancedLighting() {
+  // Clear any existing lights
+  const lightsToRemove = scene.children.filter(child => 
+    child instanceof THREE.Light || 
+    child.type.includes('Light')
+  );
+  lightsToRemove.forEach(light => scene.remove(light));
+
+  // Enhanced ambient lighting for overall base illumination
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambientLight);
+
+  // Main directional light (key light) - from top-front
+  const mainDirectionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  mainDirectionalLight.position.set(40, 60, 40);
+  mainDirectionalLight.castShadow = true;
+  mainDirectionalLight.shadow.mapSize.width = 4096;
+  mainDirectionalLight.shadow.mapSize.height = 4096;
+  mainDirectionalLight.shadow.camera.near = 0.1;
+  mainDirectionalLight.shadow.camera.far = 200;
+  mainDirectionalLight.shadow.camera.left = -100;
+  mainDirectionalLight.shadow.camera.right = 100;
+  mainDirectionalLight.shadow.camera.top = 100;
+  mainDirectionalLight.shadow.camera.bottom = -100;
+  mainDirectionalLight.shadow.bias = -0.0001;
+  scene.add(mainDirectionalLight);
+
+  // Fill light - from opposite side to reduce harsh shadows
+  const fillLight = new THREE.DirectionalLight(0xe6f3ff, 0.6);
+  fillLight.position.set(-30, 20, -30);
+  scene.add(fillLight);
+
+  // Back light - subtle rim lighting effect
+  const backLight = new THREE.DirectionalLight(0xfff5e6, 0.4);
+  backLight.position.set(0, -20, -40);
+  scene.add(backLight);
+
+  // Multiple point lights for comprehensive coverage
+  const pointLights = [
+    { position: [50, 50, 50], color: 0xffffff, intensity: 0.8 },
+    { position: [-50, 50, 50], color: 0xf0f8ff, intensity: 0.6 },
+    { position: [50, -50, 50], color: 0xfff8f0, intensity: 0.6 },
+    { position: [-50, -50, 50], color: 0xf8f0ff, intensity: 0.6 },
+    { position: [0, 0, -50], color: 0xffffff, intensity: 0.5 },
+    { position: [0, 80, 0], color: 0xffffff, intensity: 0.7 },
+    { position: [0, -80, 0], color: 0xffffff, intensity: 0.5 }
+  ];
+
+  pointLights.forEach(({ position, color, intensity }) => {
+    const pointLight = new THREE.PointLight(color, intensity, 200, 2);
+    pointLight.position.set(position[0], position[1], position[2]);
+    scene.add(pointLight);
+  });
+
+  // Hemisphere light for natural sky/ground lighting
+  const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x8b7355, 0.3);
+  hemisphereLight.position.set(0, 100, 0);
+  scene.add(hemisphereLight);
+
+  // Enhanced renderer settings for better lighting
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+  
+  // Modern Three.js color space settings
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
 }
 
 function onMouseDown(event: MouseEvent) {
@@ -521,16 +576,22 @@ function toggleSegmentSelection(segment: ToothSegment) {
 }
 
 function updateSegmentAppearance(segment: ToothSegment) {
-  const material = segment.mesh.material as THREE.MeshLambertMaterial;
+  const material = segment.mesh.material as THREE.MeshStandardMaterial;
 
   if (segment.isSelected) {
-    material.emissive.setHex(0x444444);
+    material.emissive.setHex(0x333333);
+    material.emissiveIntensity = 0.2;
     material.transparent = true;
-    material.opacity = 0.8;
+    material.opacity = 0.85;
+    material.roughness = 0.2; // More reflective when selected
+    material.metalness = 0.15;
   } else {
     material.emissive.setHex(0x000000);
-    material.transparent = false;
-    material.opacity = 1.0;
+    material.emissiveIntensity = 0.0;
+    material.transparent = true;
+    material.opacity = 0.95;
+    material.roughness = 0.4; // Default roughness
+    material.metalness = 0.05;
   }
 }
 
@@ -1285,9 +1346,13 @@ async function createSegmentFromVertices(
   // Create material with proper shading
   const hue = (dentalModel.value?.segments.length || 0) * 0.3;
   const color = new THREE.Color().setHSL(hue, 0.7, 0.5);
-  const material = new THREE.MeshLambertMaterial({
+  const material = new THREE.MeshStandardMaterial({
     color: color,
     side: THREE.DoubleSide, // Ensure both sides are rendered
+    roughness: 0.4,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.95
   });
 
   // Create mesh
@@ -1604,7 +1669,7 @@ function changeSegmentColor(segment: ToothSegment, event: Event) {
     const color = new THREE.Color(input.value);
 
     segment.color = color;
-    const material = segment.mesh.material as THREE.MeshLambertMaterial;
+    const material = segment.mesh.material as THREE.MeshStandardMaterial;
     material.color = color;
   }
 
@@ -1741,7 +1806,7 @@ async function createSegmentFromData(sessionId: string, segmentData: SegmentData
 
     // Apply color from segmentation result
     const color = new THREE.Color(segmentData.color);
-    const material = mesh.material as THREE.MeshLambertMaterial;
+    const material = mesh.material as THREE.MeshStandardMaterial;
     material.color = color;
     material.side = THREE.DoubleSide;
 

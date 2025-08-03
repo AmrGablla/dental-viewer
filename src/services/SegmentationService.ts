@@ -1,4 +1,4 @@
-import { Mesh, MeshLambertMaterial, DoubleSide } from 'three'
+import { Mesh, MeshStandardMaterial, DoubleSide } from 'three'
 import { STLLoader } from 'three-stdlib'
 import type { SegmentationResult } from '../types/dental'
 
@@ -122,8 +122,16 @@ export class SegmentationService {
       const loader = new STLLoader()
       const geometry = loader.parse(arrayBuffer)
 
-      // Create a basic material for the segment
-      const material = new MeshLambertMaterial({ color: 0xffffff, side: DoubleSide })
+      // Create a enhanced material for the segment
+      const material = new MeshStandardMaterial({ 
+        color: 0xffffff, 
+        side: DoubleSide,
+        roughness: 0.4,
+        metalness: 0.05,
+        transparent: true,
+        opacity: 0.95,
+        flatShading: false
+      })
       const mesh = new Mesh(geometry, material)
 
       // Prevent Vue from making the mesh reactive
