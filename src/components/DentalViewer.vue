@@ -56,14 +56,7 @@ import {
   watch,
   computed,
 } from "vue";
-import * as THREE from "three";
-import {
-  acceleratedRaycast,
-  computeBoundsTree,
-  disposeBoundsTree,
-} from "three-mesh-bvh";
-import { STLLoaderService } from "../services/STLLoader";
-import { SegmentationService } from "../services/SegmentationService";
+import { useThreeJS } from "../composables/useThreeJS";
 import type {
   DentalModel,
   ToothSegment,
@@ -76,11 +69,13 @@ import LeftSidebar from "./LeftSidebar.vue";
 import ViewportArea from "./ViewportArea.vue";
 import BackgroundStatusIndicator from "./BackgroundStatusIndicator.vue";
 
-// Add BVH extensions to THREE.js
-THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
-THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
-THREE.Mesh.prototype.raycast = acceleratedRaycast;
+// Use the lazy loading composable
+const { loadThreeJS, loadServices } = useThreeJS()
 
+// Dynamic imports will be stored here
+let THREE: any
+let STLLoaderService: any
+let SegmentationService: any
 // Refs
 const viewportRef = ref<typeof ViewportArea>();
 
@@ -89,9 +84,9 @@ const canvasContainer = computed(
   () => viewportRef.value?.canvasContainer as HTMLDivElement
 );
 
-// Services
-const stlLoader = new STLLoaderService();
-const segmentationService = new SegmentationService();
+// Services - will be initialized after lazy loading
+let stlLoader: any = null;
+let segmentationService: any = null;
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
@@ -125,32 +120,65 @@ const interactionModes: InteractionMode["mode"][] = [
   "rotate",
 ];
 
-// Three.js objects
-let scene: THREE.Scene;
-let camera: THREE.PerspectiveCamera;
-let renderer: THREE.WebGLRenderer;
-let raycaster: THREE.Raycaster;
-let mouse: THREE.Vector2;
+// Three.js objects - will be initialized after lazy loading
+let scene: any;
+let camera: any;
+let renderer: any;
+let raycaster: any;
+let mouse: any;
 let resizeObserver: ResizeObserver | null = null;
 
 // Interaction state
 let isDragging = false;
 let isLassoActive = false;
 let isPanning = false;
-let movementStartPosition = new THREE.Vector3();
-let lastMousePosition = new THREE.Vector2();
-let lassoPoints: THREE.Vector2[] = [];
+let movementStartPosition: any;
+let lastMousePosition: any;
+let lassoPoints: any[] = [];
 let lassoPath: SVGPathElement | null = null;
-let movementStartMousePosition = new THREE.Vector2();
+let movementStartMousePosition: any;
 let constrainedAxis: "Anteroposterior" | "Vertical" | "Transverse" | null =
   null;
 let directionalMoveInterval: number | null = null;
 let isDirectionalMoving = false;
 
-onMounted(() => {
-  initThreeJS();
-  setupEventListeners();
+onMounted(async () => {
+  await initializeApp();
 });
+
+async function initializeApp() {
+  try {
+    isLoading.value = true;
+    loadingMessage.value = "Loading 3D Engine...";
+
+    // Load Three.js and services
+    const { THREE: ThreeJS, BVH } = await loadThreeJS();
+    const { STLLoaderService: STLLoader, SegmentationService: SegService } = await loadServices();
+
+    // Set the loaded modules to global variables
+    THREE = ThreeJS;
+    STLLoaderService = STLLoader;
+    SegmentationService = SegService;
+
+    // Add BVH extensions to THREE.js
+    THREE.BufferGeometry.prototype.computeBoundsTree = BVH.computeBoundsTree;
+    THREE.BufferGeometry.prototype.disposeBoundsTree = BVH.disposeBoundsTree;
+    THREE.Mesh.prototype.raycast = BVH.acceleratedRaycast;
+
+    // Initialize services
+    stlLoader = new STLLoaderService();
+    segmentationService = new SegmentationService();
+
+    // Initialize Three.js scene
+    initThreeJS();
+    setupEventListeners();
+
+    isLoading.value = false;
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
+    loadingMessage.value = "Failed to load 3D engine";
+  }
+}
 
 // Watch for mode changes to update canvas cursor
 watch(currentMode, (newMode) => {
@@ -270,11 +298,11 @@ function setupEventListeners() {
 
 function setupEnhancedLighting() {
   // Clear any existing lights
-  const lightsToRemove = scene.children.filter(child => 
+  const lightsToRemove = scene.children.filter((child: any) => 
     child instanceof THREE.Light || 
     child.type.includes('Light')
   );
-  lightsToRemove.forEach(light => scene.remove(light));
+  lightsToRemove.forEach((light: any) => scene.remove(light));
 
   // Enhanced ambient lighting for overall base illumination
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -543,7 +571,7 @@ function selectSegment() {
   const intersects = raycaster.intersectObjects(meshes);
 
   if (intersects.length > 0) {
-    const intersectedMesh = intersects[0].object as THREE.Mesh;
+    const intersectedMesh = intersects[0].object as any;
     const segment = dentalModel.value.segments.find(
       (s) => s.mesh === intersectedMesh
     );
@@ -571,7 +599,7 @@ function toggleSegmentSelection(segment: ToothSegment) {
 }
 
 function updateSegmentAppearance(segment: ToothSegment) {
-  const material = segment.mesh.material as THREE.MeshStandardMaterial;
+  const material = segment.mesh.material as any;
 
   if (segment.isSelected) {
     material.emissive.setHex(0x333333);
@@ -1144,8 +1172,8 @@ async function performManualSegmentation() {
 }
 
 function isPointInPolygon(
-  point: THREE.Vector2,
-  polygon: THREE.Vector2[]
+  point: any,
+  polygon: any[]
 ): boolean {
   let inside = false;
 
@@ -1167,7 +1195,7 @@ function isPointInPolygon(
   return inside;
 }
 
-function getVerticesInsideLasso(mesh: THREE.Mesh): number[] {
+function getVerticesInsideLasso(mesh: any): number[] {
   const geometry = mesh.geometry;
   const positions = geometry.getAttribute("position");
   const selectedIndices: number[] = [];
@@ -1223,7 +1251,7 @@ function getVerticesInsideLasso(mesh: THREE.Mesh): number[] {
 
 async function createSegmentFromVertices(
   vertexIndices: number[],
-  originalMesh: THREE.Mesh
+  originalMesh: any
 ): Promise<ToothSegment | null> {
   if (vertexIndices.length === 0) return null;
 
@@ -1287,7 +1315,7 @@ async function createSegmentFromVertices(
 
   // Create new geometry with proper triangles
   const newPositions = new Float32Array(selectedTriangles.length * 3);
-  const newVertices: THREE.Vector3[] = [];
+  const newVertices: any[] = [];
 
   for (let i = 0; i < selectedTriangles.length; i++) {
     const vertexIndex = selectedTriangles[i];
@@ -1581,7 +1609,7 @@ function setViewPreset(
     const maxDim = Math.max(size.x, size.y, size.z);
     const distance = maxDim * 2; // Distance from center
 
-    let position: THREE.Vector3;
+    let position: any;
 
     switch (view) {
       case "top":
@@ -1611,8 +1639,8 @@ function setViewPreset(
   }
 
 function animateCameraToPosition(
-    targetPosition: THREE.Vector3,
-    lookAtTarget: THREE.Vector3
+    targetPosition: any,
+    lookAtTarget: any
   ) {
     const startPosition = camera.position.clone();
     const startTime = performance.now();
@@ -1644,7 +1672,7 @@ function changeSegmentColor(segment: ToothSegment, event: Event) {
     const color = new THREE.Color(input.value);
 
     segment.color = color;
-    const material = segment.mesh.material as THREE.MeshStandardMaterial;
+    const material = segment.mesh.material as any;
     material.color = color;
   }
 
@@ -1756,7 +1784,7 @@ async function createSegmentFromData(sessionId: string, segmentData: SegmentData
 
     // Apply color from segmentation result
     const color = new THREE.Color(segmentData.color);
-    const material = mesh.material as THREE.MeshStandardMaterial;
+    const material = mesh.material as any;
     material.color = color;
     material.side = THREE.DoubleSide;
 
