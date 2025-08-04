@@ -29,34 +29,175 @@
       </div>
     </div>
 
-    <!-- Step Timeline -->
-    <div class="timeline-section">
-      <h5>Treatment Timeline</h5>
-      <div class="timeline">
-        <div 
-          v-for="step in plan.totalSteps" 
-          :key="step"
-          class="timeline-step"
-          :class="{ 
-            active: step === plan.currentStep,
-            completed: step < plan.currentStep 
-          }"
-          @click="setCurrentStep(step)"
-        >
-          <div class="step-number">{{ step }}</div>
-          <div class="step-info">
-            <div class="step-duration">2 weeks</div>
-            <div class="step-teeth">
-              {{ getTeethInStep(step).length }} teeth
+    <!-- View Mode Selector -->
+    <div class="view-mode-selector">
+      <button 
+        v-for="mode in viewModes" 
+        :key="mode.value"
+        @click="currentViewMode = mode.value"
+        class="view-mode-btn"
+        :class="{ active: currentViewMode === mode.value }"
+      >
+        <Icon :name="mode.icon" :size="16" color="currentColor" />
+        {{ mode.label }}
+      </button>
+    </div>
+
+    <!-- Gantt Chart View -->
+    <div v-if="currentViewMode === 'gantt'" class="gantt-chart-section">
+      <h5>Treatment Gantt Chart</h5>
+      <div class="gantt-container">
+        <!-- Timeline Header -->
+        <div class="gantt-header">
+          <div class="gantt-sidebar-header">Tooth</div>
+          <div class="gantt-timeline-header">
+            <div 
+              v-for="week in totalWeeks" 
+              :key="week"
+              class="week-header"
+              :class="{ current: isCurrentWeek(week) }"
+            >
+              Week {{ week }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Gantt Chart Body -->
+        <div class="gantt-body">
+          <div 
+            v-for="tooth in plan.teethMovements" 
+            :key="tooth.toothId"
+            class="gantt-row"
+          >
+            <!-- Tooth Info Sidebar -->
+            <div class="gantt-sidebar">
+              <div class="tooth-info">
+                <span class="tooth-name">{{ tooth.toothName }}</span>
+                <span class="movement-count">{{ tooth.movements.length }} movements</span>
+              </div>
+            </div>
+
+            <!-- Timeline Bar -->
+            <div class="gantt-timeline">
+              <div 
+                class="timeline-bar"
+                :style="getTimelineBarStyle(tooth)"
+              >
+                <div class="bar-content">
+                  <span class="bar-label">{{ tooth.totalSteps }} steps</span>
+                  <div class="movement-indicators">
+                    <div 
+                      v-for="movement in tooth.movements" 
+                      :key="movement.direction"
+                      class="movement-indicator"
+                      :class="getMovementColor(movement.direction)"
+                      :title="`${formatDirection(movement.direction)}: ${Math.abs(movement.distance).toFixed(2)}mm`"
+                    ></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Teeth Movement Chart -->
-    <div class="movement-chart">
-      <h5>Teeth Movement Overview</h5>
+    <!-- Project Timeline View -->
+    <div v-if="currentViewMode === 'timeline'" class="project-timeline-section">
+      <h5>Project Timeline</h5>
+      <div class="timeline-container">
+        <div class="timeline-track">
+          <div 
+            v-for="step in plan.totalSteps" 
+            :key="step"
+            class="timeline-milestone"
+            :class="{ 
+              active: step === plan.currentStep,
+              completed: step < plan.currentStep,
+              future: step > plan.currentStep
+            }"
+            @click="setCurrentStep(step)"
+          >
+            <div class="milestone-marker">
+              <div class="milestone-number">{{ step }}</div>
+            </div>
+            <div class="milestone-details">
+              <div class="milestone-title">Step {{ step }}</div>
+              <div class="milestone-info">
+                <span class="teeth-count">{{ getTeethInStep(step).length }} teeth</span>
+                <span class="duration">2 weeks</span>
+              </div>
+              <div class="milestone-teeth">
+                <div 
+                  v-for="tooth in getTeethInStep(step).slice(0, 3)" 
+                  :key="tooth.toothId"
+                  class="milestone-tooth"
+                >
+                  {{ tooth.toothName }}
+                </div>
+                <div v-if="getTeethInStep(step).length > 3" class="more-teeth">
+                  +{{ getTeethInStep(step).length - 3 }} more
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kanban Board View -->
+    <div v-if="currentViewMode === 'kanban'" class="kanban-board-section">
+      <h5>Treatment Progress Board</h5>
+      <div class="kanban-container">
+        <div 
+          v-for="status in kanbanColumns" 
+          :key="status.key"
+          class="kanban-column"
+        >
+          <div class="column-header">
+            <Icon :name="status.icon" :size="16" :color="status.color" />
+            <h6>{{ status.title }}</h6>
+            <span class="column-count">{{ getTeethByStatus(status.key).length }}</span>
+          </div>
+          <div class="column-content">
+            <div 
+              v-for="tooth in getTeethByStatus(status.key)" 
+              :key="tooth.toothId"
+              class="kanban-card"
+              @click="selectTooth(tooth)"
+            >
+              <div class="card-header">
+                <span class="tooth-name">{{ tooth.toothName }}</span>
+                <span class="steps-badge">{{ tooth.totalSteps }}</span>
+              </div>
+              <div class="card-movements">
+                <div 
+                  v-for="movement in tooth.movements" 
+                  :key="movement.direction"
+                  class="movement-chip"
+                  :class="getMovementColor(movement.direction)"
+                >
+                  {{ formatDirection(movement.direction) }}
+                </div>
+              </div>
+              <div class="card-progress">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill"
+                    :style="{ width: getToothProgress(tooth) + '%' }"
+                  ></div>
+                </div>
+                <span class="progress-text">{{ Math.round(getToothProgress(tooth)) }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Movement Chart (Original) -->
+    <div v-if="currentViewMode === 'detailed'" class="movement-chart">
+      <h5>Detailed Teeth Movement</h5>
       <div class="teeth-grid">
         <div 
           v-for="tooth in plan.teethMovements" 
@@ -147,6 +288,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
 import type { OrthodonticTreatmentPlan, ToothSegment, MovementDirection } from '../types/dental'
 import { STLExportService } from '../services/STLExportService'
@@ -165,6 +307,80 @@ const emit = defineEmits<{
 
 const exportService = new STLExportService()
 const planService = new OrthodonticPlanService()
+
+// View mode management
+const currentViewMode = ref<'gantt' | 'timeline' | 'kanban' | 'detailed'>('gantt')
+
+const viewModes = [
+  { value: 'gantt' as const, label: 'Gantt Chart', icon: 'grid' },
+  { value: 'timeline' as const, label: 'Timeline', icon: 'layers' },
+  { value: 'kanban' as const, label: 'Progress Board', icon: 'file-text' },
+  { value: 'detailed' as const, label: 'Detailed View', icon: 'maximize-2' }
+]
+
+// Kanban board columns
+const kanbanColumns = [
+  { key: 'not-started', title: 'Not Started', icon: 'info', color: '#6c757d' },
+  { key: 'in-progress', title: 'In Progress', icon: 'arrow-right', color: '#0d6efd' },
+  { key: 'completed', title: 'Completed', icon: 'check-circle', color: '#198754' }
+]
+
+// Computed properties for Gantt chart
+const totalWeeks = computed(() => Math.ceil(props.plan.totalSteps * 2 / 7))
+
+const isCurrentWeek = (week: number) => {
+  const currentStepWeek = Math.ceil(props.plan.currentStep * 2 / 7)
+  return week === currentStepWeek
+}
+
+const getTimelineBarStyle = (tooth: any) => {
+  const startWeek = Math.ceil(tooth.startStep * 2 / 7)
+  const durationWeeks = Math.ceil(tooth.totalSteps * 2 / 7)
+  const leftPercent = ((startWeek - 1) / totalWeeks.value) * 100
+  const widthPercent = (durationWeeks / totalWeeks.value) * 100
+  
+  return {
+    left: `${leftPercent}%`,
+    width: `${widthPercent}%`
+  }
+}
+
+// Kanban board functions
+const getTeethByStatus = (status: string) => {
+  const currentStep = props.plan.currentStep
+  
+  return props.plan.teethMovements.filter(tooth => {
+    const toothStartStep = tooth.startStep
+    const toothEndStep = tooth.startStep + tooth.totalSteps - 1
+    
+    switch (status) {
+      case 'not-started':
+        return currentStep < toothStartStep
+      case 'in-progress':
+        return currentStep >= toothStartStep && currentStep <= toothEndStep
+      case 'completed':
+        return currentStep > toothEndStep
+      default:
+        return false
+    }
+  })
+}
+
+const getToothProgress = (tooth: any) => {
+  const currentStep = props.plan.currentStep
+  const toothStartStep = tooth.startStep
+  const toothEndStep = tooth.startStep + tooth.totalSteps - 1
+  
+  if (currentStep < toothStartStep) return 0
+  if (currentStep > toothEndStep) return 100
+  
+  return ((currentStep - toothStartStep + 1) / tooth.totalSteps) * 100
+}
+
+const selectTooth = (tooth: any) => {
+  // Emit tooth selection event or navigate to tooth details
+  console.log('Selected tooth:', tooth.toothName)
+}
 
 const formatDirection = (direction: string) => {
   switch (direction) {
@@ -598,5 +814,445 @@ const exportAllSteps = async () => {
   font-size: 13px;
   color: #666;
   margin-bottom: 2px;
+}
+
+/* View Mode Selector */
+.view-mode-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 25px;
+  padding: 8px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.view-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.view-mode-btn:hover {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.view-mode-btn.active {
+  background: #007bff;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+/* Gantt Chart Styles */
+.gantt-chart-section {
+  margin-bottom: 25px;
+}
+
+.gantt-chart-section h5 {
+  margin: 0 0 15px 0;
+  color: #212529;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.gantt-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.gantt-header {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.gantt-sidebar-header {
+  width: 200px;
+  padding: 15px 20px;
+  font-weight: 600;
+  color: #495057;
+  border-right: 1px solid #e9ecef;
+}
+
+.gantt-timeline-header {
+  flex: 1;
+  display: flex;
+  border-right: 1px solid #e9ecef;
+}
+
+.week-header {
+  flex: 1;
+  padding: 15px 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6c757d;
+  border-right: 1px solid #e9ecef;
+}
+
+.week-header.current {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.gantt-body {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.gantt-row {
+  display: flex;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.gantt-row:hover {
+  background: #f8f9fa;
+}
+
+.gantt-sidebar {
+  width: 200px;
+  padding: 15px 20px;
+  border-right: 1px solid #e9ecef;
+}
+
+.tooth-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tooth-info .tooth-name {
+  font-weight: 600;
+  color: #212529;
+}
+
+.movement-count {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.gantt-timeline {
+  flex: 1;
+  position: relative;
+  padding: 10px 0;
+  min-height: 60px;
+}
+
+.timeline-bar {
+  position: absolute;
+  top: 15px;
+  height: 30px;
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.movement-indicators {
+  display: flex;
+  gap: 2px;
+}
+
+.movement-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.5);
+}
+
+/* Project Timeline Styles */
+.project-timeline-section {
+  margin-bottom: 25px;
+}
+
+.project-timeline-section h5 {
+  margin: 0 0 15px 0;
+  color: #212529;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.timeline-container {
+  background: white;
+  border-radius: 8px;
+  padding: 30px 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-track {
+  position: relative;
+  padding: 20px 0;
+}
+
+.timeline-track::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e9ecef;
+  transform: translateY(-50%);
+}
+
+.timeline-milestone {
+  position: relative;
+  display: inline-block;
+  width: calc(100% / var(--total-steps, 10));
+  text-align: center;
+  cursor: pointer;
+}
+
+.milestone-marker {
+  position: relative;
+  display: inline-block;
+  z-index: 2;
+}
+
+.milestone-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0 auto 10px;
+  transition: all 0.3s ease;
+  border: 3px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-milestone.active .milestone-number {
+  background: #007bff;
+  color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+}
+
+.timeline-milestone.completed .milestone-number {
+  background: #28a745;
+  color: white;
+}
+
+.timeline-milestone.future .milestone-number {
+  background: #f8f9fa;
+  color: #adb5bd;
+}
+
+.milestone-details {
+  text-align: center;
+  padding: 0 5px;
+}
+
+.milestone-title {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 5px;
+}
+
+.milestone-info {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6c757d;
+  margin-bottom: 8px;
+}
+
+.milestone-teeth {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+}
+
+.milestone-tooth {
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 8px;
+  color: #495057;
+}
+
+.more-teeth {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Kanban Board Styles */
+.kanban-board-section {
+  margin-bottom: 25px;
+}
+
+.kanban-board-section h5 {
+  margin: 0 0 15px 0;
+  color: #212529;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.kanban-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.kanban-column {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.column-header h6 {
+  margin: 0;
+  flex: 1;
+  color: #495057;
+  font-weight: 600;
+}
+
+.column-count {
+  background: #e9ecef;
+  color: #6c757d;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.column-content {
+  padding: 15px;
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.kanban-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.kanban-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.card-header .tooth-name {
+  font-weight: 600;
+  color: #212529;
+}
+
+.steps-badge {
+  background: #007bff;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.card-movements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.movement-chip {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: white;
+}
+
+.card-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #007bff, #0056b3);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6c757d;
+  min-width: 30px;
+}
+
+@media (max-width: 768px) {
+  .kanban-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .gantt-container {
+    overflow-x: auto;
+  }
+  
+  .view-mode-selector {
+    flex-wrap: wrap;
+  }
 }
 </style>

@@ -34,6 +34,12 @@
       <polyline points="19,12 12,19 5,12"></polyline>
     </g>
     
+    <!-- ArrowRight -->
+    <g v-if="name === 'arrow-right'">
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+      <polyline points="12,5 19,12 12,19"></polyline>
+    </g>
+    
     <!-- Eye -->
     <g v-if="name === 'eye'">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
