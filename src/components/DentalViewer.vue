@@ -23,6 +23,7 @@
         v-show="!isTreatmentPlanFullScreen"
         :dentalModel="dentalModel"
         :selectedSegments="selectedSegments"
+        :currentTreatmentPlan="currentTreatmentPlan"
         @toggleOriginalMesh="toggleOriginalMesh"
         @toggleAllSegments="toggleAllSegments"
         @toggleSegmentSelection="toggleSegmentSelection"
@@ -57,6 +58,7 @@
         :segments="dentalModel?.segments || []"
         :isVisible="true"
         :isFullScreenMode="true"
+        :currentTreatmentPlan="currentTreatmentPlan"
         @planCreated="handlePlanCreated"
         @planUpdated="handlePlanUpdated"
         @stepChanged="handleStepChanged"
@@ -135,6 +137,7 @@ const backgroundSegmentationStatus = ref<{
   progress: undefined,
 });
 const isTreatmentPlanFullScreen = ref(false);
+const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 
 const interactionModes: InteractionMode["mode"][] = [
   "select",
@@ -1748,13 +1751,13 @@ function deleteSegment(segment: ToothSegment) {
 
 // Treatment Plan Handlers
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
+  currentTreatmentPlan.value = plan;
   console.log('Treatment plan created:', plan);
-  // You can add additional logic here if needed
 }
 
-function handlePlanUpdated(plan: OrthodonticTreatmentPlan) {
+function handlePlanUpdated(plan: OrthodonticTreatmentPlan | null) {
+  currentTreatmentPlan.value = plan;
   console.log('Treatment plan updated:', plan);
-  // You can add additional logic here if needed
 }
 
 function handleStepChanged(stepNumber: number) {

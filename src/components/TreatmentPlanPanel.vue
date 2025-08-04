@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, withDefaults } from 'vue'
+import { computed, watch, onUnmounted, withDefaults } from 'vue'
 import Icon from './Icon.vue'
 import TreatmentPlanView from './TreatmentPlanView.vue'
 import { OrthodonticPlanService } from '../services/OrthodonticPlanService'
@@ -69,20 +69,23 @@ interface Props {
   segments: ToothSegment[]
   isVisible: boolean
   isFullScreenMode?: boolean
+  currentTreatmentPlan?: OrthodonticTreatmentPlan | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isFullScreenMode: false
+  isFullScreenMode: false,
+  currentTreatmentPlan: null
 })
 const emit = defineEmits<{
   planCreated: [plan: OrthodonticTreatmentPlan]
-  planUpdated: [plan: OrthodonticTreatmentPlan]
+  planUpdated: [plan: OrthodonticTreatmentPlan | null]
   stepChanged: [stepNumber: number]
   toggleFullScreen: [isFullScreen: boolean]
 }>()
 
 const planService = new OrthodonticPlanService()
-const currentPlan = ref<OrthodonticTreatmentPlan | null>(null)
+// Use the current plan from props instead of internal state
+const currentPlan = computed(() => props.currentTreatmentPlan)
 
 // Use prop to determine if we're in full screen mode
 const isFullScreen = computed(() => props.isFullScreenMode)
@@ -121,6 +124,14 @@ const hasMovedSegments = computed(() => {
   })
 })
 
+// Force re-evaluation when tab becomes visible
+watch(() => props.isVisible, (isVisible) => {
+  if (isVisible) {
+    // Trigger re-evaluation of computed properties
+    hasMovedSegments.value
+  }
+})
+
 const movedTeethCount = computed(() => {
   return props.segments.filter(segment => {
     if (!segment.movementHistory) return false
@@ -142,12 +153,11 @@ const createPlan = () => {
     `Treatment Plan - ${new Date().toLocaleDateString()}`
   )
   
-  currentPlan.value = plan
   emit('planCreated', plan)
 }
 
 const clearPlan = () => {
-  currentPlan.value = null
+  emit('planUpdated', null)
 }
 
 const toggleFullScreen = () => {
@@ -155,7 +165,6 @@ const toggleFullScreen = () => {
 }
 
 const handlePlanUpdate = (plan: OrthodonticTreatmentPlan) => {
-  currentPlan.value = plan
   emit('planUpdated', plan)
 }
 
@@ -195,7 +204,6 @@ watch(() => props.segments, (newSegments) => {
       }
     })
     
-    currentPlan.value = updatedPlan
     emit('planUpdated', updatedPlan)
   }
 }, { deep: true })

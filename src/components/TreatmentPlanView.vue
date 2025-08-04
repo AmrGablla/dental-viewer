@@ -29,35 +29,21 @@
       </div>
     </div>
 
-    <!-- View Mode Selector -->
-    <div class="view-mode-selector">
-      <button 
-        v-for="mode in viewModes" 
-        :key="mode.value"
-        @click="currentViewMode = mode.value"
-        class="view-mode-btn"
-        :class="{ active: currentViewMode === mode.value }"
-      >
-        <Icon :name="mode.icon" :size="16" color="currentColor" />
-        {{ mode.label }}
-      </button>
-    </div>
-
     <!-- Gantt Chart View -->
-    <div v-if="currentViewMode === 'gantt'" class="gantt-chart-section">
-      <h5>Treatment Gantt Chart</h5>
+    <div class="gantt-chart-section">
+      <h5>Treatment Timeline - Gantt Chart</h5>
       <div class="gantt-container">
         <!-- Timeline Header -->
         <div class="gantt-header">
           <div class="gantt-sidebar-header">Tooth</div>
           <div class="gantt-timeline-header">
             <div 
-              v-for="week in totalWeeks" 
-              :key="week"
-              class="week-header"
-              :class="{ current: isCurrentWeek(week) }"
+              v-for="step in plan.totalSteps" 
+              :key="step"
+              class="step-header"
+              :class="{ current: step === plan.currentStep }"
             >
-              Week {{ week }}
+              {{ step }}
             </div>
           </div>
         </div>
@@ -68,191 +54,68 @@
             v-for="tooth in plan.teethMovements" 
             :key="tooth.toothId"
             class="gantt-row"
+            :class="{ 'has-conflicts': hasIntersectionConflicts(tooth) }"
           >
             <!-- Tooth Info Sidebar -->
             <div class="gantt-sidebar">
               <div class="tooth-info">
                 <span class="tooth-name">{{ tooth.toothName }}</span>
                 <span class="movement-count">{{ tooth.movements.length }} movements</span>
+                <div v-if="hasIntersectionConflicts(tooth)" class="conflict-indicator">
+                  <Icon name="alert-triangle" :size="14" color="#ef4444" />
+                  <span>Conflicts</span>
+                </div>
               </div>
             </div>
 
             <!-- Timeline Bar -->
             <div class="gantt-timeline">
+              <!-- Individual Movement Bars -->
               <div 
-                class="timeline-bar"
-                :style="getTimelineBarStyle(tooth)"
+                v-for="(movement, movementIndex) in tooth.movements" 
+                :key="movement.direction"
+                class="movement-timeline-bar"
+                :class="{ 
+                  'has-intersection': hasMovementIntersection(tooth, movement),
+                  [`color-${movement.direction}`]: true,
+                  'dragging': isDragging && draggedMovement?.toothId === tooth.toothId && draggedMovement?.movementIndex === movementIndex
+                }"
+                :style="getMovementTimelineStyle(tooth, movement)"
+                :title="`${formatDirection(movement.direction)}: ${Math.abs(movement.distance).toFixed(2)}mm (Steps ${movement.startStep || tooth.startStep} - ${(movement.startStep || tooth.startStep) + (movement.userSteps || movement.recommendedSteps) - 1})`"
+                @mousedown="startDragMovement($event, tooth.toothId, movementIndex)"
               >
-                <div class="bar-content">
-                  <span class="bar-label">{{ tooth.totalSteps }} steps</span>
-                  <div class="movement-indicators">
+                <div class="movement-bar-content">
+                  <span class="movement-bar-label">{{ formatDirection(movement.direction) }}</span>
+                  <span class="movement-bar-distance">{{ Math.abs(movement.distance).toFixed(1) }}mm</span>
+                </div>
+                
+                <!-- Intersection indicator and controls -->
+                <div v-if="hasMovementIntersection(tooth, movement)" class="intersection-indicator">
+                  <Icon name="alert-triangle" :size="12" color="#fff" />
+                  
+                  <!-- Intersection warnings -->
+                  <div class="intersection-popup">
                     <div 
-                      v-for="movement in tooth.movements" 
-                      :key="movement.direction"
-                      class="movement-indicator"
-                      :class="getMovementColor(movement.direction)"
-                      :title="`${formatDirection(movement.direction)}: ${Math.abs(movement.distance).toFixed(2)}mm`"
-                    ></div>
+                      v-for="intersection in getMovementIntersections(tooth, movement)" 
+                      :key="intersection.conflictToothId"
+                      class="intersection-warning"
+                      :class="`severity-${intersection.severity}`"
+                    >
+                      <Icon 
+                        name="alert-triangle" 
+                        :size="12" 
+                        :color="intersection.severity === 'high' ? '#ef4444' : intersection.severity === 'medium' ? '#f59e0b' : '#10b981'" 
+                        style="margin-right: 4px; flex-shrink: 0;" 
+                      />
+                      <span>Conflicts with {{ intersection.conflictToothName }} in steps {{ intersection.conflictSteps.join(', ') }}</span>
+                      <button 
+                        @click="resolveIntersection(tooth.toothId, intersection)"
+                        class="resolve-btn"
+                      >
+                        Auto-resolve
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Project Timeline View -->
-    <div v-if="currentViewMode === 'timeline'" class="project-timeline-section">
-      <h5>Project Timeline</h5>
-      <div class="timeline-container">
-        <div class="timeline-track">
-          <div 
-            v-for="step in plan.totalSteps" 
-            :key="step"
-            class="timeline-milestone"
-            :class="{ 
-              active: step === plan.currentStep,
-              completed: step < plan.currentStep,
-              future: step > plan.currentStep
-            }"
-            @click="setCurrentStep(step)"
-          >
-            <div class="milestone-marker">
-              <div class="milestone-number">{{ step }}</div>
-            </div>
-            <div class="milestone-details">
-              <div class="milestone-title">Step {{ step }}</div>
-              <div class="milestone-info">
-                <span class="teeth-count">{{ getTeethInStep(step).length }} teeth</span>
-                <span class="duration">2 weeks</span>
-              </div>
-              <div class="milestone-teeth">
-                <div 
-                  v-for="tooth in getTeethInStep(step).slice(0, 3)" 
-                  :key="tooth.toothId"
-                  class="milestone-tooth"
-                >
-                  {{ tooth.toothName }}
-                </div>
-                <div v-if="getTeethInStep(step).length > 3" class="more-teeth">
-                  +{{ getTeethInStep(step).length - 3 }} more
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Kanban Board View -->
-    <div v-if="currentViewMode === 'kanban'" class="kanban-board-section">
-      <h5>Treatment Progress Board</h5>
-      <div class="kanban-container">
-        <div 
-          v-for="status in kanbanColumns" 
-          :key="status.key"
-          class="kanban-column"
-        >
-          <div class="column-header">
-            <Icon :name="status.icon" :size="16" :color="status.color" />
-            <h6>{{ status.title }}</h6>
-            <span class="column-count">{{ getTeethByStatus(status.key).length }}</span>
-          </div>
-          <div class="column-content">
-            <div 
-              v-for="tooth in getTeethByStatus(status.key)" 
-              :key="tooth.toothId"
-              class="kanban-card"
-              @click="selectTooth(tooth)"
-            >
-              <div class="card-header">
-                <span class="tooth-name">{{ tooth.toothName }}</span>
-                <span class="steps-badge">{{ tooth.totalSteps }}</span>
-              </div>
-              <div class="card-movements">
-                <div 
-                  v-for="movement in tooth.movements" 
-                  :key="movement.direction"
-                  class="movement-chip"
-                  :class="getMovementColor(movement.direction)"
-                >
-                  {{ formatDirection(movement.direction) }}
-                </div>
-              </div>
-              <div class="card-progress">
-                <div class="progress-bar">
-                  <div 
-                    class="progress-fill"
-                    :style="{ width: getToothProgress(tooth) + '%' }"
-                  ></div>
-                </div>
-                <span class="progress-text">{{ Math.round(getToothProgress(tooth)) }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Detailed Movement Chart (Original) -->
-    <div v-if="currentViewMode === 'detailed'" class="movement-chart">
-      <h5>Detailed Teeth Movement</h5>
-      <div class="teeth-grid">
-        <div 
-          v-for="tooth in plan.teethMovements" 
-          :key="tooth.toothId"
-          class="tooth-card"
-        >
-          <div class="tooth-header">
-            <span class="tooth-name">{{ tooth.toothName }}</span>
-            <span class="tooth-steps">{{ tooth.totalSteps }} steps</span>
-          </div>
-          
-          <div class="movement-bars">
-            <div 
-              v-for="movement in tooth.movements" 
-              :key="movement.direction"
-              class="movement-bar"
-            >
-              <div class="movement-label">
-                {{ formatDirection(movement.direction) }}
-                <span class="movement-distance">{{ Math.abs(movement.distance).toFixed(2) }}mm</span>
-              </div>
-              
-              <div class="bar-container">
-                <div 
-                  class="bar-fill"
-                  :class="getMovementColor(movement.direction)"
-                  :style="{ width: getBarWidth(movement) + '%' }"
-                ></div>
-              </div>
-              
-              <div class="movement-controls">
-                <label>Steps:</label>
-                <input 
-                  type="number" 
-                  :value="movement.userSteps || movement.recommendedSteps"
-                  :min="movement.recommendedSteps"
-                  @input="updateMovementSteps(tooth.toothId, movement, $event)"
-                  class="steps-input"
-                />
-                <span class="recommended">(rec: {{ movement.recommendedSteps }})</span>
-              </div>
-              
-              <div v-if="movement.warnings.length > 0" class="warnings">
-                <div 
-                  v-for="warning in movement.warnings" 
-                  :key="warning"
-                  class="warning"
-                >
-                  <Icon 
-                    name="alert-triangle" 
-                    :size="16" 
-                    color="#d63384" 
-                    style="margin-right: 4px; flex-shrink: 0;" 
-                  />
-                  {{ warning }}
                 </div>
               </div>
             </div>
@@ -288,11 +151,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import Icon from './Icon.vue'
-import type { OrthodonticTreatmentPlan, ToothSegment, MovementDirection } from '../types/dental'
+import type { OrthodonticTreatmentPlan, ToothSegment, ToothIntersection } from '../types/dental'
 import { STLExportService } from '../services/STLExportService'
-import { OrthodonticPlanService } from '../services/OrthodonticPlanService'
 
 interface Props {
   plan: OrthodonticTreatmentPlan
@@ -306,80 +168,32 @@ const emit = defineEmits<{
 }>()
 
 const exportService = new STLExportService()
-const planService = new OrthodonticPlanService()
 
-// View mode management
-const currentViewMode = ref<'gantt' | 'timeline' | 'kanban' | 'detailed'>('gantt')
-
-const viewModes = [
-  { value: 'gantt' as const, label: 'Gantt Chart', icon: 'grid' },
-  { value: 'timeline' as const, label: 'Timeline', icon: 'layers' },
-  { value: 'kanban' as const, label: 'Progress Board', icon: 'file-text' },
-  { value: 'detailed' as const, label: 'Detailed View', icon: 'maximize-2' }
-]
-
-// Kanban board columns
-const kanbanColumns = [
-  { key: 'not-started', title: 'Not Started', icon: 'info', color: '#6c757d' },
-  { key: 'in-progress', title: 'In Progress', icon: 'arrow-right', color: '#0d6efd' },
-  { key: 'completed', title: 'Completed', icon: 'check-circle', color: '#198754' }
-]
+// Drag state
+const isDragging = ref(false)
+const draggedMovement = ref<{ toothId: string, movementIndex: number } | null>(null)
+const dragStartX = ref(0)
+const dragStartStep = ref(0)
 
 // Computed properties for Gantt chart
-const totalWeeks = computed(() => Math.ceil(props.plan.totalSteps * 2 / 7))
+const totalSteps = computed(() => props.plan.totalSteps)
 
-const isCurrentWeek = (week: number) => {
-  const currentStepWeek = Math.ceil(props.plan.currentStep * 2 / 7)
-  return week === currentStepWeek
-}
-
-const getTimelineBarStyle = (tooth: any) => {
-  const startWeek = Math.ceil(tooth.startStep * 2 / 7)
-  const durationWeeks = Math.ceil(tooth.totalSteps * 2 / 7)
-  const leftPercent = ((startWeek - 1) / totalWeeks.value) * 100
-  const widthPercent = (durationWeeks / totalWeeks.value) * 100
+const getMovementTimelineStyle = (tooth: any, movement: any) => {
+  const movementStartStep = movement.startStep || tooth.startStep
+  const movementDuration = movement.userSteps || movement.recommendedSteps
+  const leftPercent = ((movementStartStep - 1) / totalSteps.value) * 100
+  const widthPercent = (movementDuration / totalSteps.value) * 100
+  
+  // Stack movements vertically within the same tooth row
+  const movementIndex = tooth.movements.findIndex((m: any) => m.direction === movement.direction)
+  const topOffset = movementIndex * 12 // 12px per movement bar
   
   return {
     left: `${leftPercent}%`,
-    width: `${widthPercent}%`
+    width: `${widthPercent}%`,
+    top: `${10 + topOffset}px`,
+    height: '10px'
   }
-}
-
-// Kanban board functions
-const getTeethByStatus = (status: string) => {
-  const currentStep = props.plan.currentStep
-  
-  return props.plan.teethMovements.filter(tooth => {
-    const toothStartStep = tooth.startStep
-    const toothEndStep = tooth.startStep + tooth.totalSteps - 1
-    
-    switch (status) {
-      case 'not-started':
-        return currentStep < toothStartStep
-      case 'in-progress':
-        return currentStep >= toothStartStep && currentStep <= toothEndStep
-      case 'completed':
-        return currentStep > toothEndStep
-      default:
-        return false
-    }
-  })
-}
-
-const getToothProgress = (tooth: any) => {
-  const currentStep = props.plan.currentStep
-  const toothStartStep = tooth.startStep
-  const toothEndStep = tooth.startStep + tooth.totalSteps - 1
-  
-  if (currentStep < toothStartStep) return 0
-  if (currentStep > toothEndStep) return 100
-  
-  return ((currentStep - toothStartStep + 1) / tooth.totalSteps) * 100
-}
-
-const selectTooth = (tooth: any) => {
-  // Emit tooth selection event or navigate to tooth details
-  console.log('Selected tooth:', tooth.toothName)
 }
 
 const formatDirection = (direction: string) => {
@@ -391,20 +205,6 @@ const formatDirection = (direction: string) => {
   }
 }
 
-const getMovementColor = (direction: string) => {
-  switch (direction) {
-    case 'anteroposterior': return 'color-ap'
-    case 'vertical': return 'color-vertical'
-    case 'transverse': return 'color-transverse'
-    default: return 'color-default'
-  }
-}
-
-const getBarWidth = (movement: MovementDirection) => {
-  const maxDistance = 10 // Normalize to 10mm max for display
-  return Math.min((Math.abs(movement.distance) / maxDistance) * 100, 100)
-}
-
 const getTeethInStep = (stepNumber: number) => {
   return props.plan.teethMovements.filter(tooth => 
     stepNumber >= tooth.startStep && 
@@ -414,28 +214,6 @@ const getTeethInStep = (stepNumber: number) => {
 
 const getActiveTeethInCurrentStep = () => {
   return getTeethInStep(props.plan.currentStep)
-}
-
-const setCurrentStep = (stepNumber: number) => {
-  const updatedPlan = { ...props.plan, currentStep: stepNumber }
-  emit('planUpdated', updatedPlan)
-  emit('stepChanged', stepNumber)
-}
-
-const updateMovementSteps = (toothId: string, movement: MovementDirection, event: Event) => {
-  const target = event.target as HTMLInputElement
-  const newSteps = parseInt(target.value)
-  
-  if (newSteps > 0) {
-    const tooth = props.plan.teethMovements.find(t => t.toothId === toothId)
-    if (tooth) {
-      const movementIndex = tooth.movements.findIndex(m => m.direction === movement.direction)
-      if (movementIndex >= 0) {
-        const updatedPlan = planService.updateMovementSteps(props.plan, toothId, movementIndex, newSteps)
-        emit('planUpdated', updatedPlan)
-      }
-    }
-  }
 }
 
 const exportCurrentStep = async () => {
@@ -459,6 +237,227 @@ const exportAllSteps = async () => {
     console.error('Export failed:', error)
   }
 }
+
+// Movement timing and intersection functions
+const startDragMovement = (event: MouseEvent, toothId: string, movementIndex: number) => {
+  event.preventDefault()
+  isDragging.value = true
+  draggedMovement.value = { toothId, movementIndex }
+  dragStartX.value = event.clientX
+  
+  // Get current start step
+  const tooth = props.plan.teethMovements.find(t => t.toothId === toothId)
+  const movement = tooth?.movements[movementIndex]
+  dragStartStep.value = movement?.startStep || tooth?.startStep || 1
+  
+  // Add global mouse event listeners
+  document.addEventListener('mousemove', handleDragMovement)
+  document.addEventListener('mouseup', stopDragMovement)
+}
+
+const handleDragMovement = (event: MouseEvent) => {
+  if (!isDragging.value || !draggedMovement.value) return
+  
+  // Calculate step change based on mouse movement
+  const ganttTimeline = document.querySelector('.gantt-timeline')
+  if (!ganttTimeline) return
+  
+  const timelineRect = ganttTimeline.getBoundingClientRect()
+  const stepWidth = timelineRect.width / totalSteps.value
+  const deltaX = event.clientX - dragStartX.value
+  const stepChange = Math.round(deltaX / stepWidth)
+  
+  // Allow dragging beyond current total steps - we'll expand the plan automatically
+  const newStartStep = Math.max(1, dragStartStep.value + stepChange)
+  
+  // Update the movement start step
+  updateMovementStartStep(draggedMovement.value.toothId, draggedMovement.value.movementIndex, newStartStep)
+}
+
+const stopDragMovement = () => {
+  isDragging.value = false
+  draggedMovement.value = null
+  dragStartX.value = 0
+  dragStartStep.value = 0
+  
+  // Remove global mouse event listeners
+  document.removeEventListener('mousemove', handleDragMovement)
+  document.removeEventListener('mouseup', stopDragMovement)
+}
+
+const updateMovementStartStep = (toothId: string, movementIndex: number, newStartStep: number) => {
+  if (newStartStep >= 1) {
+    const tooth = props.plan.teethMovements.find(t => t.toothId === toothId)
+    if (tooth && tooth.movements[movementIndex]) {
+      const movement = tooth.movements[movementIndex]
+      const movementEndStep = newStartStep + (movement.userSteps || movement.recommendedSteps) - 1
+      
+      // Calculate new total steps needed
+      const maxStepNeeded = Math.max(
+        movementEndStep,
+        ...props.plan.teethMovements.flatMap(t => 
+          t.movements.map(m => {
+            const startStep = m.startStep || t.startStep
+            return startStep + (m.userSteps || m.recommendedSteps) - 1
+          })
+        )
+      )
+      
+      const updatedMovement = { ...movement, startStep: newStartStep }
+      const updatedMovements = [...tooth.movements]
+      updatedMovements[movementIndex] = updatedMovement
+      
+      const updatedTooth = { ...tooth, movements: updatedMovements }
+      const updatedTeethMovements = props.plan.teethMovements.map(t => 
+        t.toothId === toothId ? updatedTooth : t
+      )
+      
+      // Update the plan with new total steps if needed
+      const updatedPlan = { 
+        ...props.plan, 
+        teethMovements: updatedTeethMovements,
+        totalSteps: Math.max(props.plan.totalSteps, maxStepNeeded)
+      }
+      emit('planUpdated', updatedPlan)
+    }
+  }
+}
+
+const hasIntersectionConflicts = (tooth: any): boolean => {
+  return tooth.movements.some((movement: any) => hasMovementIntersection(tooth, movement))
+}
+
+const hasMovementIntersection = (tooth: any, movement: any): boolean => {
+  const movementStartStep = movement.startStep || tooth.startStep
+  const movementEndStep = movementStartStep + (movement.userSteps || movement.recommendedSteps) - 1
+  
+  return props.plan.teethMovements.some(otherTooth => {
+    if (otherTooth.toothId === tooth.toothId) return false
+    
+    return otherTooth.movements.some(otherMovement => {
+      const otherStartStep = otherMovement.startStep || otherTooth.startStep
+      const otherEndStep = otherStartStep + (otherMovement.userSteps || otherMovement.recommendedSteps) - 1
+      
+      // Check if time ranges overlap
+      const timeOverlap = !(movementEndStep < otherStartStep || movementStartStep > otherEndStep)
+      
+      if (timeOverlap) {
+        // Check if movements are in conflicting directions or too close spatially
+        return isMovementConflicting(tooth, movement, otherTooth, otherMovement)
+      }
+      
+      return false
+    })
+  })
+}
+
+const isMovementConflicting = (tooth1: any, movement1: any, tooth2: any, movement2: any): boolean => {
+  // Simple heuristic: teeth are conflicting if they're adjacent and moving toward each other
+  const adjacentTeeth = getAdjacentTeeth(tooth1.toothName, tooth2.toothName)
+  if (!adjacentTeeth) return false
+  
+  // Check if movements are in opposite directions
+  if (movement1.direction === movement2.direction) {
+    // Same direction movements can conflict if distances are large
+    return Math.abs(movement1.distance) > 2 || Math.abs(movement2.distance) > 2
+  }
+  
+  // Different directions - check for spatial conflicts
+  return true
+}
+
+const getAdjacentTeeth = (tooth1: string, tooth2: string): boolean => {
+  // Simplified tooth adjacency map (in real app, this would be more comprehensive)
+  const adjacencyMap: { [key: string]: string[] } = {
+    'Upper_Central_Incisor_1': ['Upper_Central_Incisor_2', 'Upper_Lateral_Incisor_1'],
+    'Upper_Central_Incisor_2': ['Upper_Central_Incisor_1', 'Upper_Lateral_Incisor_2'],
+    'Upper_Lateral_Incisor_1': ['Upper_Central_Incisor_1', 'Upper_Canine_1'],
+    'Upper_Lateral_Incisor_2': ['Upper_Central_Incisor_2', 'Upper_Canine_2'],
+    'Upper_Canine_1': ['Upper_Lateral_Incisor_1', 'Upper_Premolar_1_1'],
+    'Upper_Canine_2': ['Upper_Lateral_Incisor_2', 'Upper_Premolar_1_2'],
+  }
+  
+  return adjacencyMap[tooth1]?.includes(tooth2) || adjacencyMap[tooth2]?.includes(tooth1) || false
+}
+
+const getMovementIntersections = (tooth: any, movement: any): ToothIntersection[] => {
+  const intersections: ToothIntersection[] = []
+  const movementStartStep = movement.startStep || tooth.startStep
+  const movementEndStep = movementStartStep + (movement.userSteps || movement.recommendedSteps) - 1
+  
+  props.plan.teethMovements.forEach(otherTooth => {
+    if (otherTooth.toothId === tooth.toothId) return
+    
+    otherTooth.movements.forEach(otherMovement => {
+      const otherStartStep = otherMovement.startStep || otherTooth.startStep
+      const otherEndStep = otherStartStep + (otherMovement.userSteps || otherMovement.recommendedSteps) - 1
+      
+      // Check for time overlap
+      const overlapStart = Math.max(movementStartStep, otherStartStep)
+      const overlapEnd = Math.min(movementEndStep, otherEndStep)
+      
+      if (overlapStart <= overlapEnd) {
+        if (isMovementConflicting(tooth, movement, otherTooth, otherMovement)) {
+          const conflictSteps = []
+          for (let step = overlapStart; step <= overlapEnd; step++) {
+            conflictSteps.push(step)
+          }
+          
+          intersections.push({
+            conflictToothId: otherTooth.toothId,
+            conflictToothName: otherTooth.toothName,
+            conflictSteps,
+            severity: getSeverity(movement, otherMovement),
+            intersectionType: getIntersectionType(movement, otherMovement)
+          })
+        }
+      }
+    })
+  })
+  
+  return intersections
+}
+
+const getSeverity = (movement1: any, movement2: any): 'low' | 'medium' | 'high' => {
+  const totalDistance = Math.abs(movement1.distance) + Math.abs(movement2.distance)
+  if (totalDistance > 5) return 'high'
+  if (totalDistance > 2) return 'medium'
+  return 'low'
+}
+
+const getIntersectionType = (movement1: any, movement2: any): 'contact' | 'overlap' | 'collision' => {
+  const totalDistance = Math.abs(movement1.distance) + Math.abs(movement2.distance)
+  if (totalDistance > 4) return 'collision'
+  if (totalDistance > 2) return 'overlap'
+  return 'contact'
+}
+
+const resolveIntersection = (toothId: string, intersection: ToothIntersection) => {
+  // Auto-resolve by adjusting timing
+  const tooth = props.plan.teethMovements.find(t => t.toothId === toothId)
+  const conflictTooth = props.plan.teethMovements.find(t => t.toothId === intersection.conflictToothId)
+  
+  if (tooth && conflictTooth) {
+    // Simple resolution: delay the second tooth's movement
+    const updatedConflictTooth = {
+      ...conflictTooth,
+      startStep: Math.max(...intersection.conflictSteps) + 1
+    }
+    
+    const updatedTeethMovements = props.plan.teethMovements.map(t => 
+      t.toothId === intersection.conflictToothId ? updatedConflictTooth : t
+    )
+    
+    const updatedPlan = { ...props.plan, teethMovements: updatedTeethMovements }
+    emit('planUpdated', updatedPlan)
+  }
+}
+
+// Cleanup drag listeners on unmount
+onUnmounted(() => {
+  document.removeEventListener('mousemove', handleDragMovement)
+  document.removeEventListener('mouseup', stopDragMovement)
+})
 </script>
 
 <style scoped>
@@ -892,7 +891,7 @@ const exportAllSteps = async () => {
   border-right: 1px solid #e9ecef;
 }
 
-.week-header {
+.step-header {
   flex: 1;
   padding: 15px 8px;
   text-align: center;
@@ -902,7 +901,7 @@ const exportAllSteps = async () => {
   border-right: 1px solid #e9ecef;
 }
 
-.week-header.current {
+.step-header.current {
   background: #e3f2fd;
   color: #1976d2;
   font-weight: 600;
@@ -920,6 +919,15 @@ const exportAllSteps = async () => {
 
 .gantt-row:hover {
   background: #f8f9fa;
+}
+
+.gantt-row.has-conflicts {
+  background: rgba(239, 68, 68, 0.05);
+  border-left: 3px solid #ef4444;
+}
+
+.gantt-row.has-conflicts:hover {
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .gantt-sidebar {
@@ -944,11 +952,166 @@ const exportAllSteps = async () => {
   color: #6c757d;
 }
 
+.conflict-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #dc3545;
+  font-weight: 500;
+}
+
 .gantt-timeline {
   flex: 1;
   position: relative;
   padding: 10px 0;
-  min-height: 60px;
+  min-height: 80px; /* Increased to accommodate multiple movement bars */
+}
+
+.movement-timeline-bar {
+  position: absolute;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  color: white;
+  font-size: 10px;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  cursor: grab;
+  user-select: none;
+}
+
+.movement-timeline-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.movement-timeline-bar.dragging {
+  cursor: grabbing;
+  z-index: 1000;
+  opacity: 0.8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.movement-timeline-bar.has-intersection {
+  border: 2px solid #dc3545;
+  box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.movement-timeline-bar.color-anteroposterior {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.movement-timeline-bar.color-vertical {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+}
+
+.movement-timeline-bar.color-transverse {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.movement-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+}
+
+.movement-bar-label {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.movement-bar-distance {
+  font-size: 9px;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.intersection-indicator {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #dc3545;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid white;
+}
+
+.intersection-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #dc3545;
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 200px;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+}
+
+.intersection-indicator:hover .intersection-popup {
+  opacity: 1;
+  visibility: visible;
+}
+
+.intersection-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.intersection-warning:last-child {
+  margin-bottom: 0;
+}
+
+.intersection-warning.severity-high {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+}
+
+.intersection-warning.severity-medium {
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid #f59e0b;
+}
+
+.intersection-warning.severity-low {
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+}
+
+.resolve-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.resolve-btn:hover {
+  background: #0056b3;
 }
 
 .timeline-bar {
@@ -1254,5 +1417,253 @@ const exportAllSteps = async () => {
   .view-mode-selector {
     flex-wrap: wrap;
   }
+  
+  .step-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Intersection and Movement Control Styles */
+.has-conflicts {
+  border: 2px solid #dc3545 !important;
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.05), rgba(255, 255, 255, 1));
+}
+
+.conflict-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #dc3545;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(220, 53, 69, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.movement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.movement-timing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.movement-timing label {
+  color: #495057;
+  font-weight: 500;
+}
+
+.step-input {
+  width: 50px;
+  padding: 2px 6px;
+  border: 1px solid #ced4da;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #212529;
+}
+
+.step-input:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 1px rgba(0, 123, 255, 0.25);
+}
+
+.to-step {
+  color: #6c757d;
+  font-size: 11px;
+}
+
+.has-intersection {
+  border-left: 3px solid #dc3545;
+  background: rgba(220, 53, 69, 0.02);
+}
+
+.intersection-warnings {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(220, 53, 69, 0.05);
+  border-radius: 4px;
+  border-left: 3px solid #dc3545;
+}
+
+.intersection-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #dc3545;
+  margin-bottom: 4px;
+  padding: 4px 0;
+}
+
+.intersection-warning:last-child {
+  margin-bottom: 0;
+}
+
+.resolve-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.resolve-btn:hover {
+  background: #c82333;
+}
+
+/* Step Analysis Styles */
+.intersection-analysis {
+  margin-bottom: 25px;
+}
+
+.intersection-analysis h5 {
+  margin: 0 0 15px 0;
+  color: #212529;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.step-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.step-analysis-card {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  transition: all 0.2s ease;
+}
+
+.step-analysis-card.has-intersections {
+  border-color: #dc3545;
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.02), white);
+}
+
+.step-analysis-card.current-step {
+  border-color: #007bff;
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.05), white);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.step-header h6 {
+  margin: 0;
+  color: #212529;
+  font-weight: 600;
+}
+
+.step-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: right;
+}
+
+.active-teeth {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.intersection-count {
+  font-size: 11px;
+  color: #dc3545;
+  font-weight: 500;
+  background: rgba(220, 53, 69, 0.1);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.step-intersections {
+  margin-bottom: 12px;
+}
+
+.step-intersection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #dc3545;
+  margin-bottom: 4px;
+  padding: 4px 6px;
+  background: rgba(220, 53, 69, 0.05);
+  border-radius: 4px;
+}
+
+.severity {
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.severity.low {
+  background: #d4edda;
+  color: #155724;
+}
+
+.severity.medium {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.severity.high {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.no-intersections {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #28a745;
+  margin-bottom: 12px;
+  padding: 6px;
+  background: rgba(40, 167, 69, 0.05);
+  border-radius: 4px;
+}
+
+.step-teeth {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.step-tooth-item {
+  font-size: 10px;
+  background: #e9ecef;
+  color: #495057;
+  padding: 2px 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.step-tooth-item.has-conflict {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  border: 1px solid rgba(220, 53, 69, 0.2);
 }
 </style>

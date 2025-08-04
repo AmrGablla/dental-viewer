@@ -95,8 +95,27 @@ export interface MovementDirection {
   distance: number // in mm
   recommendedSteps: number
   userSteps?: number
+  startStep?: number // when this movement starts
   safetyFactor: number
   warnings: string[]
+}
+
+export interface ToothIntersection {
+  conflictToothId: string
+  conflictToothName: string
+  conflictSteps: number[]
+  severity: 'low' | 'medium' | 'high'
+  intersectionType: 'contact' | 'overlap' | 'collision'
+}
+
+export interface StepIntersection {
+  step: number
+  tooth1: string
+  tooth1Name: string
+  tooth2: string
+  tooth2Name: string
+  severity: 'low' | 'medium' | 'high'
+  intersectionType: 'contact' | 'overlap' | 'collision'
 }
 
 export interface ToothMovementPlan {

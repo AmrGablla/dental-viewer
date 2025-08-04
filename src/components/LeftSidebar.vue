@@ -105,6 +105,7 @@
         :segments="dentalModel?.segments || []"
         :isVisible="activeTab === 'treatment'"
         :isFullScreenMode="false"
+        :currentTreatmentPlan="currentTreatmentPlan"
         @planCreated="handlePlanCreated"
         @planUpdated="handlePlanUpdated"
         @stepChanged="handleStepChanged"
@@ -125,6 +126,7 @@ import type { DentalModel, ToothSegment, OrthodonticTreatmentPlan } from '../typ
 interface Props {
   dentalModel: DentalModel | null
   selectedSegments: ToothSegment[]
+  currentTreatmentPlan?: OrthodonticTreatmentPlan | null
 }
 
 const props = defineProps<Props>()
@@ -139,7 +141,7 @@ const emit = defineEmits<{
   toggleSegmentVisibility: [segment: ToothSegment]
   deleteSegment: [segment: ToothSegment]
   planCreated: [plan: OrthodonticTreatmentPlan]
-  planUpdated: [plan: OrthodonticTreatmentPlan]
+  planUpdated: [plan: OrthodonticTreatmentPlan | null]
   stepChanged: [stepNumber: number]
   treatmentPlanFullScreen: [isFullScreen: boolean]
 }>()
@@ -184,7 +186,7 @@ function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
   emit('planCreated', plan)
 }
 
-function handlePlanUpdated(plan: OrthodonticTreatmentPlan) {
+function handlePlanUpdated(plan: OrthodonticTreatmentPlan | null) {
   emit('planUpdated', plan)
 }
 
