@@ -88,3 +88,24 @@ export interface SegmentData {
   color: string
   toothType?: string
 }
+
+export type MovementDirection =
+  | 'anteroposterior'
+  | 'vertical'
+  | 'transverse'
+
+export interface MovementSchedule {
+  direction: MovementDirection
+  startStep: number
+  steps: number
+}
+
+export interface ToothMovementPlan {
+  toothId: string
+  toothName: string
+  schedules: MovementSchedule[]
+}
+
+export interface TreatmentPlan {
+  teeth: ToothMovementPlan[]
+}
