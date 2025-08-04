@@ -2,7 +2,9 @@
 <template>
   <div class="ai-segmentation-panel">
     <div class="panel-header">
-      <span class="panel-icon">🤖</span>
+      <span class="panel-icon">
+        <Icon name="bot" :size="16" color="currentColor" />
+      </span>
       <span class="panel-title">AI Segmentation</span>
     </div>
     
@@ -15,7 +17,9 @@
           :disabled="isProcessing || !backendHealthy"
           class="ai-btn"
         >
-          <span class="btn-icon">🤖</span>
+          <span class="btn-icon">
+            <Icon name="bot" :size="16" color="currentColor" />
+          </span>
           {{ isProcessing ? 'Processing...' : 'AI Segment STL' }}
         </button>
         
@@ -200,6 +204,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import Icon from './Icon.vue'
 import { SegmentationService } from '../services/SegmentationService'
 import type { SegmentationResult, SegmentData } from '../types/dental'
 

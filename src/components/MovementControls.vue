@@ -11,7 +11,7 @@
           @mouseleave="stopDirectionalMove"
           title="Move Superior"
         >
-          <span class="btn-icon">⬆️</span>
+          <Icon name="chevron-up" :size="16" color="#f1f5f9" class="btn-icon" />
         </button>
       </div>
       
@@ -24,7 +24,7 @@
           @mouseleave="stopDirectionalMove"
           title="Move Left"
         >
-          <span class="btn-icon">⬅️</span>
+          <Icon name="chevron-left" :size="16" color="#f1f5f9" class="btn-icon" />
         </button>
         
         <div class="center-control">
@@ -35,7 +35,7 @@
             @mouseleave="stopDirectionalMove"
             title="Move Posterior"
           >
-            <span class="btn-icon">🔙</span>
+            <Icon name="arrow-up" :size="14" color="#f1f5f9" class="btn-icon" />
           </button>
           <button 
             class="control-btn center-btn forward-btn" 
@@ -44,7 +44,7 @@
             @mouseleave="stopDirectionalMove"
             title="Move Anterior"
           >
-            <span class="btn-icon">🔜</span>
+            <Icon name="arrow-down" :size="14" color="#f1f5f9" class="btn-icon" />
           </button>
         </div>
         
@@ -55,7 +55,7 @@
           @mouseleave="stopDirectionalMove"
           title="Move Right"
         >
-          <span class="btn-icon">➡️</span>
+          <Icon name="chevron-right" :size="16" color="#f1f5f9" class="btn-icon" />
         </button>
       </div>
       
@@ -68,7 +68,7 @@
           @mouseleave="stopDirectionalMove"
           title="Move Inferior"
         >
-          <span class="btn-icon">⬇️</span>
+          <Icon name="chevron-down" :size="16" color="#f1f5f9" class="btn-icon" />
         </button>
       </div>
     </div>
@@ -81,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import Icon from './Icon.vue'
 import type { ToothSegment } from '../types/dental'
 
 // Props

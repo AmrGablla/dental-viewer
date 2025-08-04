@@ -88,3 +88,77 @@ export interface SegmentData {
   color: string
   toothType?: string
 }
+
+// Orthodontic Treatment Plan Types
+export interface MovementDirection {
+  direction: 'anteroposterior' | 'vertical' | 'transverse'
+  distance: number // in mm
+  recommendedSteps: number
+  userSteps?: number
+  safetyFactor: number
+  warnings: string[]
+}
+
+export interface ToothMovementPlan {
+  toothId: string
+  toothName: string
+  startStep: number
+  movements: MovementDirection[]
+  totalSteps: number
+  isCompleted: boolean
+}
+
+export interface TreatmentStep {
+  stepNumber: number
+  description: string
+  teethInvolved: string[]
+  estimatedDuration: number // in days
+  movements: {
+    toothId: string
+    movement: MovementDirection
+  }[]
+}
+
+export interface MovementStandards {
+  maxMovementPerStep: {
+    anteroposterior: number // mm
+    vertical: number // mm
+    transverse: number // mm
+  }
+  safetyFactors: {
+    normal: number
+    complex: number
+  }
+  minStepsForDistance: {
+    small: number // < 2mm
+    medium: number // 2-5mm
+    large: number // > 5mm
+  }
+}
+
+export interface OrthodonticTreatmentPlan {
+  id: string
+  name: string
+  createdDate: Date
+  lastModified: Date
+  totalSteps: number
+  currentStep: number
+  estimatedDuration: number // in days
+  teethMovements: ToothMovementPlan[]
+  treatmentSteps: TreatmentStep[]
+  metadata: {
+    patientId?: string
+    doctorId?: string
+    notes?: string
+    complexity: 'simple' | 'moderate' | 'complex'
+  }
+}
+
+export interface TreatmentPlanExport {
+  plan: OrthodonticTreatmentPlan
+  stepSTLs: {
+    stepNumber: number
+    stlData: string
+    format: 'ascii' | 'binary'
+  }[]
+}

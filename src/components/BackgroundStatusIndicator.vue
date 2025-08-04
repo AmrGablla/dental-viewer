@@ -6,10 +6,18 @@
   >
     <div class="status-content">
       <div class="status-icon">
-        <div v-if="status.isRunning" class="loading-spinner">🤖</div>
-        <div v-else-if="status.message.includes('completed')" class="success-icon">✅</div>
-        <div v-else-if="status.message.includes('failed')" class="error-icon">⚠️</div>
-        <div v-else class="info-icon">ℹ️</div>
+        <div v-if="status.isRunning" class="loading-spinner">
+          <Icon name="bot" :size="16" color="currentColor" />
+        </div>
+        <div v-else-if="status.message.includes('completed')" class="success-icon">
+          <Icon name="check-circle" :size="16" color="#10b981" />
+        </div>
+        <div v-else-if="status.message.includes('failed')" class="error-icon">
+          <Icon name="alert-triangle" :size="16" color="#ef4444" />
+        </div>
+        <div v-else class="info-icon">
+          <Icon name="info" :size="16" color="#06b6d4" />
+        </div>
       </div>
       
       <div class="status-text">
@@ -38,6 +46,8 @@
 </template>
 
 <script setup lang="ts">
+import Icon from './Icon.vue'
+
 interface BackgroundStatus {
   isRunning: boolean
   message: string

@@ -18,8 +18,9 @@
     />
 
     <!-- Main Content Area -->
-    <div class="main-content">
+    <div class="main-content" :class="{ 'treatment-fullscreen': isTreatmentPlanFullScreen }">
       <LeftSidebar
+        v-show="!isTreatmentPlanFullScreen"
         :dentalModel="dentalModel"
         :selectedSegments="selectedSegments"
         @toggleOriginalMesh="toggleOriginalMesh"
@@ -29,9 +30,14 @@
         @resetIndividualPosition="resetIndividualPosition"
         @toggleSegmentVisibility="toggleSegmentVisibility"
         @deleteSegment="deleteSegment"
+        @planCreated="handlePlanCreated"
+        @planUpdated="handlePlanUpdated"
+        @stepChanged="handleStepChanged"
+        @treatmentPlanFullScreen="handleTreatmentPlanFullScreen"
       />
 
       <ViewportArea
+        v-show="!isTreatmentPlanFullScreen"
         ref="viewportRef"
         :dentalModel="dentalModel"
         :currentMode="currentMode"
@@ -42,6 +48,19 @@
         @setViewPreset="setViewPreset"
         @startDirectionalMove="startDirectionalMove"
         @stopDirectionalMove="stopDirectionalMove"
+      />
+    </div>
+
+    <!-- Full-screen Treatment Plan -->
+    <div v-if="isTreatmentPlanFullScreen" class="fullscreen-treatment-plan">
+      <TreatmentPlanPanel
+        :segments="dentalModel?.segments || []"
+        :isVisible="true"
+        :isFullScreenMode="true"
+        @planCreated="handlePlanCreated"
+        @planUpdated="handlePlanUpdated"
+        @stepChanged="handleStepChanged"
+        @toggleFullScreen="handleTreatmentPlanFullScreen"
       />
     </div>
   </div>
@@ -64,11 +83,13 @@ import type {
   SegmentationResult,
   SegmentData,
   ToothType,
+  OrthodonticTreatmentPlan,
 } from "../types/dental";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
 import ViewportArea from "./ViewportArea.vue";
 import BackgroundStatusIndicator from "./BackgroundStatusIndicator.vue";
+import TreatmentPlanPanel from "./TreatmentPlanPanel.vue";
 
 // Use the lazy loading composable
 const { loadThreeJS, loadServices } = useThreeJS()
@@ -113,6 +134,7 @@ const backgroundSegmentationStatus = ref<{
   message: "",
   progress: undefined,
 });
+const isTreatmentPlanFullScreen = ref(false);
 
 const interactionModes: InteractionMode["mode"][] = [
   "select",
@@ -263,6 +285,11 @@ function initThreeJS() {
   // Raycaster for picking
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
+
+  // Initialize movement tracking variables
+  movementStartPosition = new THREE.Vector3();
+  lastMousePosition = new THREE.Vector2();
+  movementStartMousePosition = new THREE.Vector2();
 
   // Start render loop
   animate();
@@ -819,6 +846,11 @@ function updateSegmentMovementHistory(
   // Also update the legacy movementDistance for backward compatibility
   segment.movementDistance = segment.movementHistory.totalDistance;
 
+  // Force reactivity update by creating a new dentalModel reference
+  if (dentalModel.value) {
+    dentalModel.value = { ...dentalModel.value };
+  }
+
   console.log(
     `Updated movement history for ${segment.name}:`,
     segment.movementHistory
@@ -844,6 +876,11 @@ function resetIndividualPosition(segment: ToothSegment) {
     segment.movementHistory.movementCount = 0;
   }
 
+  // Force reactivity update by creating a new dentalModel reference
+  if (dentalModel.value) {
+    dentalModel.value = { ...dentalModel.value };
+  }
+
   console.log(
     `Reset position and movement history for segment: ${segment.name}`
   );
@@ -851,6 +888,12 @@ function resetIndividualPosition(segment: ToothSegment) {
 
 function toggleSegmentVisibility(segment: ToothSegment) {
   segment.mesh.visible = !segment.mesh.visible;
+  
+  // Force reactivity update by creating a new dentalModel reference
+  if (dentalModel.value) {
+    dentalModel.value = { ...dentalModel.value };
+  }
+  
   console.log(
     `Segment ${segment.name} ${segment.mesh.visible ? "shown" : "hidden"}`
   );
@@ -1703,6 +1746,27 @@ function deleteSegment(segment: ToothSegment) {
     dentalModel.value = markRaw({ ...dentalModel.value });
   }
 
+// Treatment Plan Handlers
+function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
+  console.log('Treatment plan created:', plan);
+  // You can add additional logic here if needed
+}
+
+function handlePlanUpdated(plan: OrthodonticTreatmentPlan) {
+  console.log('Treatment plan updated:', plan);
+  // You can add additional logic here if needed
+}
+
+function handleStepChanged(stepNumber: number) {
+  console.log('Treatment step changed to:', stepNumber);
+  // You can add additional logic here if needed
+}
+
+function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
+  isTreatmentPlanFullScreen.value = isFullScreen;
+  console.log('Treatment plan full screen:', isFullScreen);
+}
+
 function exportModel() {
     if (!dentalModel.value) return;
 
@@ -1883,7 +1947,7 @@ async function startBackgroundAISegmentation(file: File) {
       backgroundSegmentationStatus.value.progress = undefined;
       
       // Brief success message
-      loadingMessage.value = `🤖 AI found ${result.segments.length} teeth!`;
+      loadingMessage.value = `AI found ${result.segments.length} teeth!`;
       setTimeout(() => {
         loadingMessage.value = "";
       }, 3000);
@@ -1897,7 +1961,7 @@ async function startBackgroundAISegmentation(file: File) {
     backgroundSegmentationStatus.value.progress = undefined;
     
     // Show error message briefly
-    loadingMessage.value = `⚠️ AI segmentation failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    loadingMessage.value = `AI segmentation failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
     setTimeout(() => {
       loadingMessage.value = "";
     }, 5000);
@@ -1928,6 +1992,33 @@ function dismissBackgroundStatus() {
   display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+.main-content.treatment-fullscreen {
+  display: none;
+}
+
+.fullscreen-treatment-plan {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(2px);
+  animation: fadeInBackdrop 0.3s ease;
+}
+
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(2px);
+  }
 }
 
 @media (max-width: 768px) {

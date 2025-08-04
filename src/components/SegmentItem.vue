@@ -31,20 +31,32 @@
           @click.stop="resetIndividualPosition"
           :disabled="!isSelected"
         >
-          <span>↩️</span> Reset
+          <Icon name="rotate-ccw" :size="14" color="currentColor" />
+          Reset
         </button>
         <button 
           class="btn btn-sm btn-secondary" 
           @click.stop="toggleSegmentVisibility"
         >
-          <span>{{ segment.mesh.visible ? '👁️' : '🙈' }}</span>
+          <Icon 
+            v-if="segment.mesh.visible"
+            name="eye" 
+            :size="14" 
+            color="currentColor" 
+          />
+          <Icon 
+            v-else
+            name="eye-off" 
+            :size="14" 
+            color="currentColor" 
+          />
         </button>
         <button 
           class="btn btn-sm btn-danger" 
           @click.stop="deleteSegment"
           title="Delete segment"
         >
-          <span>🗑️</span>
+          <Icon name="trash-2" :size="14" color="currentColor" />
         </button>
       </div>
       
@@ -85,6 +97,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import Icon from './Icon.vue'
 import type { ToothSegment } from '../types/dental'
 
 // Props

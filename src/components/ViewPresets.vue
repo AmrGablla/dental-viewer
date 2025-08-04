@@ -3,28 +3,30 @@
     <div class="view-presets-title">Views</div>
     <div class="view-presets-grid">
       <button class="preset-btn" @click="setViewPreset('top')" title="Top View">
-        <span>⬆️</span>
+        <Icon name="chevron-up" :size="16" color="#f1f5f9" />
       </button>
       <button class="preset-btn" @click="setViewPreset('bottom')" title="Bottom View">
-        <span>⬇️</span>
+        <Icon name="chevron-down" :size="16" color="#f1f5f9" />
       </button>
       <button class="preset-btn" @click="setViewPreset('front')" title="Front View">
-        <span>👁️</span>
+        <Icon name="eye" :size="16" color="#f1f5f9" />
       </button>
       <button class="preset-btn" @click="setViewPreset('back')" title="Back View">
-        <span>👁️‍🗨️</span>
+        <Icon name="rotate-ccw" :size="16" color="#f1f5f9" />
       </button>
       <button class="preset-btn" @click="setViewPreset('left')" title="Left View">
-        <span>⬅️</span>
+        <Icon name="chevron-left" :size="16" color="#f1f5f9" />
       </button>
       <button class="preset-btn" @click="setViewPreset('right')" title="Right View">
-        <span>➡️</span>
+        <Icon name="chevron-right" :size="16" color="#f1f5f9" />
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import Icon from './Icon.vue'
+
 // Emits
 const emit = defineEmits<{
   setViewPreset: [view: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right']
