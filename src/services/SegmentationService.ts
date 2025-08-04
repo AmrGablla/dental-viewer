@@ -58,7 +58,7 @@ export class SegmentationService {
         originalFile: file.name,
         segments: result.segments.map((segment: any) => ({
           id: segment.id,
-          name: `Tooth ${segment.id + 1}`,
+          name: segment.tooth_type === 'gum' ? 'Gum' : `Tooth ${segment.tooth_number}`,
           filename: segment.filename,
           pointCount: segment.point_count || segment.vertex_count,
           center: segment.center,
@@ -67,7 +67,8 @@ export class SegmentationService {
           downloadUrl: segment.download_url,
           visible: true,
           selected: false,
-          color: this.generateSegmentColor(segment.id)
+          color: segment.tooth_type === 'gum' ? '#FFC0CB' : this.generateSegmentColor(segment.id),
+          toothType: segment.tooth_type
         })),
         timestamp: new Date(),
         status: 'completed'

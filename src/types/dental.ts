@@ -1,6 +1,6 @@
 import { Vector3, Mesh, Color } from 'three'
 
-export type ToothType = 'incisor' | 'canine' | 'premolar' | 'molar' | 'wisdom'
+export type ToothType = 'incisor' | 'canine' | 'premolar' | 'molar' | 'wisdom' | 'gum'
 
 export interface ToothSegment {
   id: string
@@ -86,4 +86,5 @@ export interface SegmentData {
   visible: boolean
   selected: boolean
   color: string
+  toothType?: string
 }
