@@ -47,11 +47,17 @@
         </div>
       </div>
     </div>
+
+    <TreatmentPlanPanel
+      v-if="dentalModel && dentalModel.segments.length > 0"
+      :segments="dentalModel.segments"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import SegmentItem from './SegmentItem.vue'
+import TreatmentPlanPanel from './TreatmentPlanPanel.vue'
 import type { DentalModel, ToothSegment } from '../types/dental'
 
 // Props
