@@ -58,21 +58,32 @@ class DentalSegmentationService:
         """Export each mesh segment as a separate STL file."""
         segment_info_list: List[Dict] = []
         print(f"Exporting {len(segments)} mesh segments...")
+        tooth_counter = 0
         for i, segment_data in enumerate(segments):
             segment_mesh = segment_data["mesh"]
             method = segment_data["method"]
-            tooth_number = i + 1
-            filename = f"tooth_{tooth_number:02d}_{method}.stl"
+
+            vertices = np.asarray(segment_mesh.vertices)
+            bbox = segment_mesh.get_axis_aligned_bounding_box()
+            center = vertices.mean(axis=0)
+            volume = bbox.volume()
+
+            if method == "gum":
+                filename = "gum.stl"
+                tooth_number = 0
+                tooth_type = "gum"
+            else:
+                tooth_counter += 1
+                tooth_number = tooth_counter
+                filename = f"tooth_{tooth_number:02d}_{method}.stl"
+                tooth_type = self._classify_tooth_type(center, volume)
+
             file_path = os.path.join(output_dir, filename)
             success = o3d.io.write_triangle_mesh(file_path, segment_mesh)
             if not success:
                 print(f"Warning: Failed to save segment {i}")
                 continue
-            vertices = np.asarray(segment_mesh.vertices)
-            bbox = segment_mesh.get_axis_aligned_bounding_box()
-            center = vertices.mean(axis=0)
-            volume = bbox.volume()
-            tooth_type = self._classify_tooth_type(center, volume)
+
             segment_info = {
                 "id": i,
                 "tooth_number": tooth_number,

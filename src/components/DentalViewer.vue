@@ -63,6 +63,7 @@ import type {
   InteractionMode,
   SegmentationResult,
   SegmentData,
+  ToothType,
 } from "../types/dental";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
@@ -1799,13 +1800,13 @@ async function createSegmentFromData(sessionId: string, segmentData: SegmentData
     );
 
     const segment: ToothSegment = {
-      id: `ai_tooth_${segmentData.id}`,
-      name: segmentData.name || `AI Tooth ${segmentData.id + 1}`,
+      id: `ai_segment_${segmentData.id}`,
+      name: segmentData.name || (segmentData.toothType === 'gum' ? 'Gum' : `AI Tooth ${segmentData.id + 1}`),
       mesh: mesh,
       originalVertices: [],
       centroid: centroid,
       color: color,
-      toothType: 'molar',
+      toothType: (segmentData.toothType as ToothType) || 'molar',
       isSelected: false,
       movementDistance: 0,
       originalPosition: mesh.position.clone(),
