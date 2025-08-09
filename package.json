@@ -11,6 +11,10 @@
     "backend-setup": "cd backend && ./setup_conda.sh"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.2.1",
+    "@gltf-transform/extensions": "^4.2.1",
+    "@gltf-transform/functions": "^4.2.1",
+    "gltf-pipeline": "^4.3.0",
     "three": "^0.178.0",
     "three-mesh-bvh": "^0.9.1",
     "three-stdlib": "^2.36.0",

@@ -1,0 +1,295 @@
+import { STLLoader } from 'three-stdlib'
+import { GLTFExporter, GLTFLoader } from 'three-stdlib'
+import { 
+  Mesh, 
+  Vector3, 
+  MeshStandardMaterial, 
+  DoubleSide, 
+  BufferGeometry,
+  Scene,
+  Object3D
+} from 'three'
+
+export interface ConversionOptions {
+  binary?: boolean // true for GLB, false for glTF
+  embedImages?: boolean
+  includeCustomExtensions?: boolean
+}
+
+export interface ConvertedModel {
+  data: ArrayBuffer | string
+  format: 'glb' | 'gltf'
+  size: number
+  vertexCount: number
+  triangleCount: number
+  originalFileName: string
+}
+
+export class GLTFConverterService {
+  private stlLoader: STLLoader
+  private gltfExporter: GLTFExporter
+  private gltfLoader: GLTFLoader
+
+  constructor() {
+    this.stlLoader = new STLLoader()
+    this.gltfExporter = new GLTFExporter()
+    this.gltfLoader = new GLTFLoader()
+  }
+
+  /**
+   * Convert STL file to glTF/GLB format
+   */
+  async convertSTLToGLTF(
+    file: File, 
+    options: ConversionOptions = { binary: true }
+  ): Promise<ConvertedModel> {
+    try {
+      console.log(`Converting ${file.name} from STL to ${options.binary ? 'GLB' : 'glTF'}...`)
+      
+      // First, load the STL file
+      const mesh = await this.loadSTLFile(file)
+      
+      // Create a scene to export
+      const scene = new Scene()
+      scene.add(mesh)
+
+      // Convert to glTF/GLB
+      const result = await new Promise<ArrayBuffer | string>((resolve, reject) => {
+        this.gltfExporter.parse(
+          scene,
+          (gltf) => resolve(gltf as ArrayBuffer | string),
+          (error) => reject(error),
+          {
+            binary: options.binary,
+            embedImages: options.embedImages ?? true,
+            includeCustomExtensions: options.includeCustomExtensions ?? false
+          }
+        )
+      })
+
+      const geometry = mesh.geometry as BufferGeometry
+      const vertexCount = geometry.getAttribute('position')?.count || 0
+      const triangleCount = geometry.index ? geometry.index.count / 3 : vertexCount / 3
+
+      return {
+        data: result,
+        format: options.binary ? 'glb' : 'gltf',
+        size: result instanceof ArrayBuffer ? result.byteLength : new Blob([result]).size,
+        vertexCount,
+        triangleCount,
+        originalFileName: file.name
+      }
+
+    } catch (error) {
+      console.error('Error converting STL to glTF:', error)
+      throw new Error(`Failed to convert STL to glTF: ${error}`)
+    }
+  }
+
+  /**
+   * Load glTF/GLB file and return the mesh
+   */
+  async loadGLTF(data: ArrayBuffer | string): Promise<Mesh> {
+    try {
+      const url = data instanceof ArrayBuffer 
+        ? URL.createObjectURL(new Blob([data], { type: 'application/octet-stream' }))
+        : `data:application/json;base64,${btoa(data)}`
+
+      const gltf = await new Promise<any>((resolve, reject) => {
+        this.gltfLoader.load(
+          url,
+          (gltf) => resolve(gltf),
+          undefined,
+          (error) => reject(error)
+        )
+      })
+
+      // Clean up object URL if created
+      if (data instanceof ArrayBuffer) {
+        URL.revokeObjectURL(url)
+      }
+
+      // Extract the first mesh from the glTF scene
+      let mesh: Mesh | null = null
+      
+      gltf.scene.traverse((child: Object3D) => {
+        if ((child as any).isMesh && !mesh) {
+          mesh = child as Mesh
+        }
+      })
+
+      if (!mesh) {
+        throw new Error('No mesh found in glTF file')
+      }
+
+      // Ensure the mesh has proper material for dental visualization
+      const meshMaterial = (mesh as any).material
+      if (!meshMaterial || !meshMaterial.isMeshStandardMaterial) {
+        (mesh as any).material = this.createDentalMaterial()
+      }
+
+      // Mark the mesh as raw to prevent Vue reactivity issues
+      Object.defineProperty(mesh, '__v_skip', { value: true })
+      
+      console.log('glTF loaded successfully:', mesh)
+      return mesh
+
+    } catch (error) {
+      console.error('Error loading glTF:', error)
+      throw new Error(`Failed to load glTF: ${error}`)
+    }
+  }
+
+  /**
+   * Convert glTF/GLB back to STL format (for export)
+   */
+  async convertGLTFToSTL(mesh: Mesh): Promise<ArrayBuffer> {
+    try {
+      // Get the geometry from the mesh
+      const geometry = mesh.geometry as BufferGeometry
+      
+      // Create STL content
+      const vertices = geometry.getAttribute('position').array
+      const normals = geometry.getAttribute('normal')?.array
+      
+      if (!normals) {
+        geometry.computeVertexNormals()
+      }
+
+      // Generate STL binary format
+      const triangleCount = geometry.index ? geometry.index.count / 3 : vertices.length / 9
+      const bufferSize = 80 + 4 + (triangleCount * 50) // STL header + triangle count + triangles
+      const buffer = new ArrayBuffer(bufferSize)
+      const view = new DataView(buffer)
+      
+      // Write STL header (80 bytes)
+      const header = 'Generated by Dental Viewer'
+      for (let i = 0; i < 80; i++) {
+        view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0)
+      }
+      
+      // Write triangle count
+      view.setUint32(80, triangleCount, true)
+      
+      let offset = 84
+      const positionArray = vertices as Float32Array
+      const normalArray = geometry.getAttribute('normal').array as Float32Array
+      
+      for (let i = 0; i < triangleCount; i++) {
+        const baseIndex = i * 3
+        
+        // Write normal (3 floats)
+        view.setFloat32(offset, normalArray[baseIndex * 3], true)
+        view.setFloat32(offset + 4, normalArray[baseIndex * 3 + 1], true)
+        view.setFloat32(offset + 8, normalArray[baseIndex * 3 + 2], true)
+        offset += 12
+        
+        // Write vertices (9 floats for 3 vertices)
+        for (let j = 0; j < 3; j++) {
+          const vertexIndex = (baseIndex + j) * 3
+          view.setFloat32(offset, positionArray[vertexIndex], true)
+          view.setFloat32(offset + 4, positionArray[vertexIndex + 1], true)
+          view.setFloat32(offset + 8, positionArray[vertexIndex + 2], true)
+          offset += 12
+        }
+        
+        // Write attribute byte count (2 bytes, usually 0)
+        view.setUint16(offset, 0, true)
+        offset += 2
+      }
+      
+      return buffer
+
+    } catch (error) {
+      console.error('Error converting glTF to STL:', error)
+      throw new Error(`Failed to convert glTF to STL: ${error}`)
+    }
+  }
+
+  /**
+   * Load STL file using the existing STL loader
+   */
+  private async loadSTLFile(file: File): Promise<Mesh> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      
+      reader.onload = (event) => {
+        try {
+          const arrayBuffer = event.target?.result as ArrayBuffer
+          console.log('STL file read successfully, size:', arrayBuffer.byteLength)
+          
+          const geometry = this.stlLoader.parse(arrayBuffer)
+          const vertexCount = geometry.getAttribute('position')?.count || 0
+          console.log('STL parsed successfully, vertices:', vertexCount.toLocaleString())
+          
+          // Center the geometry
+          geometry.computeBoundingBox()
+          const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
+          geometry.translate(-center.x, -center.y, -center.z)
+          
+          // Create mesh with dental material
+          const material = this.createDentalMaterial()
+          const mesh = new Mesh(geometry, material)
+          
+          // Mark the mesh as raw to prevent Vue reactivity issues
+          Object.defineProperty(mesh, '__v_skip', { value: true })
+          
+          console.log('STL mesh created successfully')
+          resolve(mesh)
+        } catch (error) {
+          console.error('Error parsing STL:', error)
+          reject(error)
+        }
+      }
+      
+      reader.onerror = () => {
+        console.error('Failed to read STL file')
+        reject(new Error('Failed to read STL file'))
+      }
+      
+      console.log('Starting to read STL file:', file.name, 'size:', file.size)
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  /**
+   * Create standard dental material
+   */
+  private createDentalMaterial(): MeshStandardMaterial {
+    return new MeshStandardMaterial({ 
+      color: 0xf8f8f8,        // Slightly off-white for better visual appeal
+      side: DoubleSide,
+      roughness: 0.3,         // Slight shininess for dental material
+      metalness: 0.1,         // Very slight metallic quality
+      transparent: false,
+      opacity: 1.0,
+      flatShading: false,     // Smooth shading for better quality
+      emissive: 0x000000,     // No emissive color
+      emissiveIntensity: 0.0
+    })
+  }
+
+  /**
+   * Get file size in human readable format
+   */
+  formatFileSize(bytes: number): string {
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    if (bytes === 0) return '0 Bytes'
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
+  }
+
+  /**
+   * Validate if a file is a valid STL file
+   */
+  isValidSTLFile(file: File): boolean {
+    return file.name.toLowerCase().endsWith('.stl') && file.size > 0
+  }
+
+  /**
+   * Get compression ratio between STL and glTF/GLB
+   */
+  getCompressionRatio(originalSize: number, compressedSize: number): number {
+    return Math.round((1 - (compressedSize / originalSize)) * 100)
+  }
+}

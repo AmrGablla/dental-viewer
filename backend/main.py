@@ -10,6 +10,7 @@ from typing import Dict
 
 from config import settings
 from services.segmentation_service import DentalSegmentationService
+from services.gltf_converter import GLTFConverterService
 
 app = FastAPI(
     title=settings.API_TITLE,
@@ -26,8 +27,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize segmentation service
+# Initialize services
 segmentation_service = DentalSegmentationService()
+gltf_converter = GLTFConverterService()
 
 @app.get("/")
 async def root():
@@ -158,6 +160,224 @@ async def cleanup_session(session_id: str):
         "success": True,
         "message": f"Session {session_id} cleaned up successfully"
     })
+
+@app.post("/convert/stl-to-gltf")
+async def convert_stl_to_gltf(
+    file: UploadFile = File(...), 
+    binary: bool = Form(True),
+    session_id: str = Form(None)
+) -> JSONResponse:
+    """
+    Convert uploaded STL file to glTF or GLB format.
+    
+    Args:
+        file: Uploaded STL file
+        binary: True for GLB output, False for glTF
+        session_id: Optional session ID to associate with conversion
+        
+    Returns:
+        JSON response with conversion results and download information
+    """
+    try:
+        # Validate file type
+        if not file.filename or not file.filename.lower().endswith('.stl'):
+            raise HTTPException(status_code=400, detail="Only STL files are supported")
+        
+        # Check file size
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > settings.MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE // (1024*1024)}MB"
+            )
+        
+        # Save uploaded file to temporary location
+        tmp_input = tempfile.NamedTemporaryFile(delete=False, suffix=".stl")
+        tmp_input.write(content)
+        tmp_input.close()
+        
+        # Create output file path
+        format_ext = '.glb' if binary else '.gltf'
+        base_name = os.path.splitext(file.filename)[0]
+        tmp_output = tempfile.NamedTemporaryFile(
+            delete=False, 
+            suffix=format_ext,
+            prefix=f"{base_name}_"
+        )
+        tmp_output.close()
+        
+        try:
+            # Perform conversion
+            result = gltf_converter.stl_to_gltf(tmp_input.name, tmp_output.name, binary)
+            
+            if not result['success']:
+                raise HTTPException(status_code=500, detail=result['error'])
+            
+            return JSONResponse({
+                "success": True,
+                "conversion_id": os.path.basename(tmp_output.name),
+                "input_format": result['input_format'],
+                "output_format": result['output_format'],
+                "compression_ratio": result['compression_ratio'],
+                "mesh_info": {
+                    "vertices": result['vertex_count'],
+                    "faces": result['face_count'],
+                    "volume": result['volume'],
+                    "surface_area": result['surface_area'],
+                    "bounds": result['bounds'],
+                    "is_watertight": result['is_watertight']
+                },
+                "file_info": {
+                    "original_size": result['input_size'],
+                    "converted_size": result['output_size'],
+                    "original_name": file.filename,
+                    "download_path": f"/download-converted/{os.path.basename(tmp_output.name)}"
+                },
+                "session_id": session_id,
+                "message": f"STL successfully converted to {result['output_format']}"
+            })
+            
+        finally:
+            # Clean up temporary input file
+            if os.path.exists(tmp_input.name):
+                os.unlink(tmp_input.name)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error during STL to glTF conversion: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Conversion failed: {str(e)}")
+
+@app.post("/segment-to-gltf")
+async def segment_and_convert_to_gltf(
+    file: UploadFile = File(...), 
+    config: str = Form(None),
+    binary: bool = Form(True)
+) -> JSONResponse:
+    """
+    Segment STL file and convert results to glTF/GLB format.
+    
+    Args:
+        file: Uploaded STL file
+        config: Optional JSON configuration string
+        binary: True for GLB output, False for glTF
+        
+    Returns:
+        JSON response with segmentation and conversion results
+    """
+    try:
+        # Validate file type
+        if not file.filename or not file.filename.lower().endswith('.stl'):
+            raise HTTPException(status_code=400, detail="Only STL files are supported")
+        
+        # Parse configuration if provided
+        user_config = {}
+        if config:
+            try:
+                import json
+                user_config = json.loads(config)
+                print(f"Using user configuration: {user_config}")
+            except json.JSONDecodeError:
+                print("Invalid JSON configuration, using defaults")
+        
+        # Check file size
+        content = await file.read()
+        file_size = len(content)
+        
+        if file_size > settings.MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE // (1024*1024)}MB"
+            )
+        
+        # Save uploaded file to temporary location
+        tmp_input = tempfile.NamedTemporaryFile(delete=False, suffix=".stl")
+        tmp_input.write(content)
+        tmp_input.close()
+        
+        try:
+            # Perform segmentation
+            segmentation_result = segmentation_service.segment_stl_file(tmp_input.name, file.filename, user_config)
+            
+            # Convert segments to glTF/GLB
+            conversion_result = gltf_converter.process_segmented_meshes_to_gltf(
+                segmentation_result.segments_data,  # This needs to be added to segmentation result
+                segmentation_result.output_dir,
+                segmentation_result.session_id,
+                binary
+            )
+            
+            if not conversion_result['success']:
+                raise HTTPException(status_code=500, detail=conversion_result['error'])
+            
+            return JSONResponse({
+                "success": True,
+                "session_id": segmentation_result.session_id,
+                "segmentation": {
+                    "total_segments": len(segmentation_result.segments),
+                    "segments": segmentation_result.segments
+                },
+                "conversion": {
+                    "format": conversion_result['format'],
+                    "converted_segments": conversion_result['converted_segments'],
+                    "segments": conversion_result['segments']
+                },
+                "download_info": {
+                    "base_path": f"/download/{segmentation_result.session_id}",
+                    "format": conversion_result['format'].lower()
+                },
+                "message": f"Successfully segmented and converted {conversion_result['converted_segments']} segments to {conversion_result['format']}"
+            })
+            
+        finally:
+            # Clean up temporary input file
+            if os.path.exists(tmp_input.name):
+                os.unlink(tmp_input.name)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error during segment and convert operation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Operation failed: {str(e)}")
+
+@app.get("/download-converted/{filename}")
+async def download_converted_file(filename: str):
+    """
+    Download a converted glTF/GLB file.
+    
+    Args:
+        filename: Name of the converted file
+        
+    Returns:
+        File response with the converted file
+    """
+    try:
+        # Look for the file in temp directory
+        file_path = os.path.join(tempfile.gettempdir(), filename)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Converted file not found")
+        
+        # Determine media type
+        media_type = "application/octet-stream"
+        if filename.endswith('.glb'):
+            media_type = "model/gltf-binary"
+        elif filename.endswith('.gltf'):
+            media_type = "model/gltf+json"
+        
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type=media_type
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error downloading converted file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 @app.get("/health")
 async def health_check():

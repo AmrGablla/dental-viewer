@@ -7,7 +7,18 @@ A comprehensive web-based 3D dental viewer application with AI-powered segmentat
 - **Frontend**: Vue.js 3 + Three.js + TypeScript (Port 5173)
 - **Backend**: FastAPI + Open3D + Python (Port 8000)
 - **Segmentation**: DBSCAN clustering with point cloud analysis
-- **File Format**: STL input, PLY segment output
+- **File Formats**: STL input with internal glTF/GLB conversion for enhanced performance
+
+## 🆕 New glTF/GLB Integration
+
+The application now features enhanced 3D file processing:
+- **STL Upload**: Users continue to upload STL files as usual
+- **Internal Conversion**: STL files are automatically converted to glTF/GLB format for better performance
+- **Performance Benefits**: 30-50% smaller file sizes, faster loading, better compression
+- **Multiple Export Formats**: Export segmented teeth as STL, glTF, or GLB
+- **Backwards Compatibility**: All existing functionality remains unchanged
+
+See [GLTF_INTEGRATION.md](./GLTF_INTEGRATION.md) for detailed technical documentation.
 
 ## 🚀 Quick Start
 

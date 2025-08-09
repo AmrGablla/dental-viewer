@@ -32,6 +32,14 @@ export interface DentalModel {
     min: Vector3
     max: Vector3
   }
+  convertedModel?: {
+    data: ArrayBuffer | string
+    format: 'glb' | 'gltf'
+    size: number
+    vertexCount: number
+    triangleCount: number
+    originalFileName: string
+  }
 }
 
 export interface InteractionMode {

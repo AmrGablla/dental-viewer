@@ -18,10 +18,11 @@ from .algorithms import segment_mesh
 class SegmentationResult:
     """Container for segmentation results."""
 
-    def __init__(self, session_id: str, output_dir: str, segments: List[Dict]):
+    def __init__(self, session_id: str, output_dir: str, segments: List[Dict], segments_data: Optional[List[Dict]] = None):
         self.session_id = session_id
         self.output_dir = output_dir
         self.segments = segments
+        self.segments_data = segments_data or []  # Raw mesh data for conversions
 
     def to_dict(self) -> Dict:
         return {
@@ -50,7 +51,7 @@ class DentalSegmentationService:
             output_dir = self._create_output_directory(session_id)
             segments = self._export_mesh_segments(segments_data, output_dir, session_id)
             self.active_sessions[session_id] = output_dir
-            return SegmentationResult(session_id, output_dir, segments)
+            return SegmentationResult(session_id, output_dir, segments, segments_data)
         except Exception as e:
             raise Exception(f"Segmentation failed: {str(e)}")
 

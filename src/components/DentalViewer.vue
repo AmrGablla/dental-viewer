@@ -239,6 +239,15 @@ function cleanup() {
   window.removeEventListener("resize", onWindowResize);
 }
 
+// Utility function to format file sizes
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 function initThreeJS() {
   if (!canvasContainer.value) return;
 
@@ -1496,10 +1505,14 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
     loadingMessage.value = "Loading STL file...";
 
     try {
-      console.log("Starting STL loading...");
-      loadingMessage.value = "Parsing STL file...";
-      const mesh = await stlLoader.loadSTL(file);
-      console.log("STL loaded successfully:", mesh);
+      console.log("Starting STL loading with glTF conversion...");
+      loadingMessage.value = "Converting STL to glTF format...";
+      
+      // Use the new glTF-based loading system
+      const { mesh, convertedModel } = await stlLoader.loadSTLAsGLTF(file, true); // Use GLB format
+      
+      console.log("STL converted and loaded successfully:", mesh);
+      console.log("Conversion details:", convertedModel);
 
       // Clear previous model
       if (dentalModel.value) {
@@ -1537,11 +1550,15 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
         originalMesh: rawMesh,
         segments: [], // Empty segments array - no segmentation applied yet
         boundingBox,
+        convertedModel, // Store the converted model data for potential backend operations
       };
 
-      const vertexCount = geometry.getAttribute("position")?.count || 0;
+      const vertexCount = convertedModel.vertexCount;
       console.log(
-        `STL model loaded with ${vertexCount.toLocaleString()} vertices`
+        `Model loaded: ${vertexCount.toLocaleString()} vertices (${convertedModel.format} format)`
+      );
+      console.log(
+        `File size: Original ${formatFileSize(file.size)} -> Converted ${formatFileSize(convertedModel.size)}`
       );
       loadingMessage.value = "Model loaded successfully";
 
@@ -1558,11 +1575,58 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
       }
     } catch (error) {
       console.error("Error loading STL file:", error);
-      alert(
-        `Error loading STL file: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }. Please try again.`
-      );
+      
+      // If glTF conversion fails, try fallback to traditional STL loading
+      try {
+        console.log("Falling back to traditional STL loading...");
+        loadingMessage.value = "Loading STL file (fallback mode)...";
+        const mesh = await stlLoader.loadSTL(file);
+        
+        // Clear previous model
+        if (dentalModel.value) {
+          dentalModel.value.segments.forEach((segment) => {
+            scene.remove(segment.mesh);
+          });
+          if (dentalModel.value.originalMesh) {
+            scene.remove(dentalModel.value.originalMesh);
+          }
+        }
+
+        const rawMesh = markRaw(mesh);
+        rawMesh.visible = true;
+        scene.add(rawMesh);
+
+        const geometry = mesh.geometry as any;
+        geometry.computeBoundingBox();
+        const boundingBox = {
+          min: geometry.boundingBox?.min.clone() || new THREE.Vector3(),
+          max: geometry.boundingBox?.max.clone() || new THREE.Vector3(),
+        };
+
+        dentalModel.value = {
+          originalMesh: rawMesh,
+          segments: [],
+          boundingBox,
+        };
+
+        const vertexCount = geometry.getAttribute("position")?.count || 0;
+        console.log(`STL model loaded with ${vertexCount.toLocaleString()} vertices (fallback mode)`);
+        loadingMessage.value = "Model loaded successfully";
+        focusOnModel();
+
+        if (autoSegment) {
+          console.log("🤖 Starting automatic AI segmentation in background...");
+          startBackgroundAISegmentation(file);
+        }
+        
+      } catch (fallbackError) {
+        console.error("Fallback STL loading also failed:", fallbackError);
+        alert(
+          `Error loading STL file: ${
+            fallbackError instanceof Error ? fallbackError.message : "Unknown error"
+          }. Please try again.`
+        );
+      }
     } finally {
       isLoading.value = false;
       loadingMessage.value = "";
