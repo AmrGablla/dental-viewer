@@ -38,6 +38,60 @@
         >
           <span class="btn-icon">{{ getModeIcon(mode) }}</span>
         </button>
+        
+        <!-- Enhanced Lasso Controls -->
+        <div v-if="currentMode === 'lasso'" class="lasso-controls">
+          <div class="lasso-mode-selector">
+            <button 
+              v-for="lassoMode in lassoModes" 
+              :key="lassoMode.id"
+              @click="setLassoMode(lassoMode.id)"
+              :class="{ 
+                active: currentLassoMode === lassoMode.id,
+                disabled: isLassoModeDisabled(lassoMode.id)
+              }"
+              class="lasso-mode-btn"
+              :title="lassoMode.title"
+              :disabled="isLassoModeDisabled(lassoMode.id)"
+            >
+              <span class="lasso-icon">{{ lassoMode.icon }}</span>
+              <span class="lasso-label">{{ lassoMode.label }}</span>
+            </button>
+          </div>
+          
+          <!-- Preview Toggle -->
+          <div class="preview-controls" v-if="showPreviewControls">
+            <button 
+              @click="togglePreview"
+              :class="{ active: previewEnabled }"
+              class="toolbar-btn preview-btn"
+              title="Toggle preview mode"
+            >
+              <span class="btn-icon">👁️</span>
+              <span>Preview</span>
+            </button>
+            
+            <button 
+              v-if="hasPreviewSelection"
+              @click="confirmSelection"
+              class="toolbar-btn confirm-btn"
+              title="Confirm selection"
+            >
+              <span class="btn-icon">✓</span>
+              <span>Apply</span>
+            </button>
+            
+            <button 
+              v-if="hasPreviewSelection"
+              @click="cancelSelection"
+              class="toolbar-btn cancel-btn"
+              title="Cancel selection"
+            >
+              <span class="btn-icon">✕</span>
+              <span>Cancel</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -55,8 +109,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
+import type { LassoMode } from '../services/EnhancedLassoService'
 
 // Props
 interface Props {
@@ -74,10 +129,58 @@ const emit = defineEmits<{
   fileUpload: [event: Event, autoSegment: boolean]
   exportModel: []
   setInteractionMode: [mode: InteractionMode['mode']]
+  setLassoMode: [mode: LassoMode]
+  togglePreview: []
+  confirmSelection: []
+  cancelSelection: []
 }>()
 
 // Refs
 const fileInput = ref<HTMLInputElement>()
+const currentLassoMode = ref<LassoMode>('create')
+const previewEnabled = ref(false)
+const hasPreviewSelection = ref(false)
+
+// Computed
+const showPreviewControls = computed(() => {
+  return props.currentMode === 'lasso' && (
+    currentLassoMode.value === 'create' || 
+    currentLassoMode.value === 'add' || 
+    currentLassoMode.value === 'subtract'
+  )
+})
+
+// Lasso modes configuration
+const lassoModes = [
+  {
+    id: 'create' as LassoMode,
+    label: 'Create',
+    icon: '✨',
+    title: 'Create new segment from selection'
+  },
+  {
+    id: 'select' as LassoMode,
+    label: 'Select',
+    icon: '◯',
+    title: 'Select multiple segments'
+  },
+  {
+    id: 'add' as LassoMode,
+    label: 'Add',
+    icon: '➕',
+    title: props.selectedSegments.length === 0 
+      ? 'Select a segment first, then use lasso to add vertices to it'
+      : `Add vertices to selected segment: ${props.selectedSegments[0]?.name}`
+  },
+  {
+    id: 'subtract' as LassoMode,
+    label: 'Remove',
+    icon: '➖',
+    title: props.selectedSegments.length === 0
+      ? 'Select a segment first, then use lasso to remove vertices from it'
+      : `Remove vertices from selected segment: ${props.selectedSegments[0]?.name}`
+  }
+]
 
 // Methods
 function triggerFileUpload() {
@@ -95,6 +198,36 @@ function exportModel() {
 
 function setInteractionMode(mode: InteractionMode['mode']) {
   emit('setInteractionMode', mode)
+}
+
+function setLassoMode(mode: LassoMode) {
+  currentLassoMode.value = mode
+  emit('setLassoMode', mode)
+}
+
+function togglePreview() {
+  previewEnabled.value = !previewEnabled.value
+  emit('togglePreview')
+}
+
+function confirmSelection() {
+  hasPreviewSelection.value = false
+  emit('confirmSelection')
+}
+
+function cancelSelection() {
+  hasPreviewSelection.value = false
+  emit('cancelSelection')
+}
+
+function isLassoModeDisabled(mode: LassoMode): boolean {
+  if (mode === 'add' || mode === 'subtract') {
+    // Require both existing segments AND a selected segment for add/subtract operations
+    return !props.dentalModel || 
+           props.dentalModel.segments.length === 0 || 
+           props.selectedSegments.length === 0
+  }
+  return !props.dentalModel
 }
 
 function getUploadButtonText(): string {
@@ -122,13 +255,37 @@ function isInteractionModeDisabled(_mode: InteractionMode['mode']): boolean {
 function getInteractionModeTitle(mode: InteractionMode['mode']): string {
   const titles = {
     select: 'Click to select individual segments',
-    lasso: props.dentalModel?.segments.length === 0
-      ? 'Draw lasso to create new segments manually'
-      : 'Draw lasso to select multiple segments',
+    lasso: getLassoModeDescription(),
     move: 'Move selected segments',
     rotate: 'Rotate view (drag to orbit camera)'
   }
   return titles[mode] || mode.charAt(0).toUpperCase() + mode.slice(1)
+}
+
+function getLassoModeDescription(): string {
+  const hasSegments = props.dentalModel?.segments.length ?? 0 > 0
+  const hasSelected = props.selectedSegments.length > 0
+  
+  switch (currentLassoMode.value) {
+    case 'create':
+      return hasSegments 
+        ? 'Draw lasso to create new segment from original model'
+        : 'Draw lasso to create segments manually'
+    case 'select':
+      return hasSegments
+        ? 'Draw lasso to select multiple segments'
+        : 'No segments available to select'
+    case 'add':
+      return hasSelected
+        ? `Draw lasso to add vertices to "${props.selectedSegments[0]?.name}"`
+        : 'Select a segment first, then draw lasso to add vertices to it'
+    case 'subtract':
+      return hasSelected
+        ? `Draw lasso to remove vertices from "${props.selectedSegments[0]?.name}"`
+        : 'Select a segment first, then draw lasso to remove vertices from it'
+    default:
+      return 'Enhanced lasso tool'
+  }
 }
 </script>
 
@@ -294,5 +451,109 @@ function getInteractionModeTitle(mode: InteractionMode['mode']): string {
   border-radius: 6px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   backdrop-filter: blur(4px);
+}
+
+.selected-count {
+  color: #06b6d4;
+  background: rgba(6, 182, 212, 0.2);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* Enhanced Lasso Controls */
+.lasso-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  backdrop-filter: blur(4px);
+}
+
+.lasso-mode-selector {
+  display: flex;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.lasso-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lasso-mode-btn:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #f1f5f9;
+}
+
+.lasso-mode-btn.active {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  color: white;
+}
+
+.lasso-mode-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lasso-icon {
+  font-size: 14px;
+}
+
+.lasso-label {
+  font-size: 11px;
+}
+
+.preview-controls {
+  display: flex;
+  gap: 8px;
+  padding-left: 16px;
+  border-left: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.preview-btn {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.preview-btn.active {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: white;
+}
+
+.confirm-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: white;
+}
+
+.confirm-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.cancel-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 </style>

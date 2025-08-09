@@ -9,6 +9,10 @@
       @fileUpload="handleFileUpload"
       @exportModel="exportModel"
       @setInteractionMode="setInteractionMode"
+      @setLassoMode="setLassoMode"
+      @togglePreview="togglePreview"
+      @confirmSelection="confirmSelection"
+      @cancelSelection="cancelSelection"
     />
 
     <!-- Background Status Indicator -->
@@ -87,6 +91,11 @@ import type {
   ToothType,
   OrthodonticTreatmentPlan,
 } from "../types/dental";
+import type { 
+  EnhancedLassoService, 
+  LassoMode, 
+  LassoOperationResult 
+} from "../services/EnhancedLassoService";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
 import ViewportArea from "./ViewportArea.vue";
@@ -111,6 +120,12 @@ const canvasContainer = computed(
 // Services - will be initialized after lazy loading
 let stlLoader: any = null;
 let segmentationService: any = null;
+let enhancedLassoService: EnhancedLassoService | null = null;
+
+// Enhanced Lasso state
+const currentLassoMode = ref<LassoMode>('create');
+const previewEnabled = ref(false);
+const hasPreviewSelection = ref(false);
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
@@ -156,12 +171,9 @@ let resizeObserver: ResizeObserver | null = null;
 
 // Interaction state
 let isDragging = false;
-let isLassoActive = false;
 let isPanning = false;
 let movementStartPosition: any;
 let lastMousePosition: any;
-let lassoPoints: any[] = [];
-let lassoPath: SVGPathElement | null = null;
 let movementStartMousePosition: any;
 let constrainedAxis: "Anteroposterior" | "Vertical" | "Transverse" | null =
   null;
@@ -298,6 +310,9 @@ function initThreeJS() {
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 
+  // Initialize Enhanced Lasso Service (asynchronously)
+  initializeEnhancedLasso();
+
   // Initialize movement tracking variables
   movementStartPosition = new THREE.Vector3();
   lastMousePosition = new THREE.Vector2();
@@ -403,6 +418,22 @@ function setupEnhancedLighting() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 }
 
+async function initializeEnhancedLasso() {
+  if (!renderer?.domElement || !camera || !scene) return;
+  
+  try {
+    const { EnhancedLassoService } = await import("../services/EnhancedLassoService");
+    enhancedLassoService = new EnhancedLassoService(
+      renderer.domElement,
+      camera,
+      renderer,
+      scene
+    );
+  } catch (error) {
+    console.error("Failed to initialize Enhanced Lasso Service:", error);
+  }
+}
+
 function onMouseDown(event: MouseEvent) {
   isDragging = true;
   updateMousePosition(event);
@@ -434,8 +465,8 @@ function onMouseDown(event: MouseEvent) {
     };
     console.log("Starting 3D segment movement");
   } else if (currentMode.value === "lasso") {
-    // Start lasso selection if in lasso mode and not rotating
-    startLassoSelection(event);
+    // Start enhanced lasso selection if in lasso mode and not rotating
+    startEnhancedLassoSelection(event);
   }
 }
 
@@ -453,7 +484,7 @@ function onMouseMove(event: MouseEvent) {
       // Always move selected segments when dragging (except in lasso mode)
       moveSegmentsIn3D(event);
     } else if (currentMode.value === "lasso") {
-      updateLassoSelection(event);
+      updateEnhancedLassoSelection(event);
     } else if (currentMode.value === "rotate") {
       // Implement rotation logic for selected segments
       rotateCamera(event);
@@ -484,9 +515,9 @@ function onMouseMove(event: MouseEvent) {
   }
 }
 
-function onMouseUp(event: MouseEvent) {
-  if (isDragging && currentMode.value === "lasso" && isLassoActive) {
-    finalizeLassoSelection(event);
+function onMouseUp(_event: MouseEvent) {
+  if (isDragging && currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
+    finalizeEnhancedLassoSelection();
   }
 
   // Reset rotation state and cursor
@@ -1017,169 +1048,73 @@ function moveSegmentInDirection(
   }
 }
 
-// Lasso Selection Functions
-function startLassoSelection(event: MouseEvent) {
-  isLassoActive = true;
-  lassoPoints = [];
-
-  // Get canvas coordinates
+// Enhanced Lasso Selection Functions
+function startEnhancedLassoSelection(event: MouseEvent) {
+  if (!enhancedLassoService) return;
+  
   const rect = renderer.domElement.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-
-  lassoPoints.push(new THREE.Vector2(x, y));
-  createLassoVisual();
-
-  console.log("Started lasso selection");
+  
+  const targetSegmentId = selectedSegments.value.length > 0 ? selectedSegments.value[0].id : undefined;
+  
+  enhancedLassoService.startLasso(
+    currentLassoMode.value,
+    { x, y },
+    targetSegmentId
+  );
+  
+  console.log(`Started enhanced lasso selection in ${currentLassoMode.value} mode`);
 }
 
-function updateLassoSelection(event: MouseEvent) {
-  if (!isLassoActive) return;
-
-  // Get canvas coordinates
+function updateEnhancedLassoSelection(event: MouseEvent) {
+  if (!enhancedLassoService || !enhancedLassoService.isLassoActive()) return;
+  
   const rect = renderer.domElement.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
+  
+  enhancedLassoService.updateLasso({ x, y });
+}
 
-  const newPoint = new THREE.Vector2(x, y);
+function finalizeEnhancedLassoSelection() {
+  if (!enhancedLassoService || !dentalModel.value) return;
+  
+  const result = enhancedLassoService.finishLasso(dentalModel.value);
+  
+  if (result) {
+    handleLassoOperationResult(result);
+  }
+  
+  console.log("Finalized enhanced lasso selection");
+}
 
-  // Only add point if it's far enough from the last point (smooth the path)
-  if (
-    lassoPoints.length === 0 ||
-    lassoPoints[lassoPoints.length - 1].distanceTo(newPoint) > 5
-  ) {
-    lassoPoints.push(newPoint);
-    updateLassoVisual();
+function handleLassoOperationResult(result: LassoOperationResult) {
+  switch (result.mode) {
+    case 'create':
+      handleLassoCreateSegment(result.selectedVertices);
+      break;
+    case 'select':
+      handleLassoSelectSegments(result.affectedSegments);
+      break;
+    case 'add':
+      handleLassoAddToSegment(result.selectedVertices, result.targetSegmentId);
+      break;
+    case 'subtract':
+      handleLassoSubtractFromSegment(result.selectedVertices, result.targetSegmentId);
+      break;
   }
 }
 
-function finalizeLassoSelection(event: MouseEvent) {
-  if (!isLassoActive) return;
-
-  // Close the lasso path
-  const rect = renderer.domElement.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-
-  lassoPoints.push(new THREE.Vector2(x, y));
-
-  console.log(`Finalizing lasso with ${lassoPoints.length} points`);
-  console.log(`Dental model exists: ${!!dentalModel.value}`);
-  console.log(`Original mesh exists: ${!!dentalModel.value?.originalMesh}`);
-  console.log(`Segments count: ${dentalModel.value?.segments.length || 0}`);
-
-  // Perform selection based on lasso area
-  performLassoSelection();
-
-  // Clean up
-  isLassoActive = false;
-  removeLassoVisual();
-  lassoPoints = [];
-
-  console.log("Completed lasso selection cleanup");
-}
-
-function createLassoVisual() {
-  // Create SVG overlay for lasso visualization
-  const canvas = renderer.domElement;
-  const rect = canvas.getBoundingClientRect();
-
-  // Remove existing lasso if any
-  removeLassoVisual();
-
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.style.position = "absolute";
-  svg.style.top = "0";
-  svg.style.left = "0";
-  svg.style.width = rect.width + "px";
-  svg.style.height = rect.height + "px";
-  svg.style.pointerEvents = "none";
-  svg.style.zIndex = "1000";
-  svg.id = "lasso-overlay";
-
-  lassoPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  lassoPath.setAttribute("stroke", "#00ff00");
-  lassoPath.setAttribute("stroke-width", "2");
-  lassoPath.setAttribute("fill", "rgba(0, 255, 0, 0.2)");
-  lassoPath.setAttribute("stroke-dasharray", "3,3");
-
-  svg.appendChild(lassoPath);
-
-  canvas.parentElement?.appendChild(svg);
-}
-
-function updateLassoVisual() {
-  if (!lassoPath || lassoPoints.length < 2) return;
-
-  let pathData = `M ${lassoPoints[0].x} ${lassoPoints[0].y}`;
-  for (let i = 1; i < lassoPoints.length; i++) {
-    pathData += ` L ${lassoPoints[i].x} ${lassoPoints[i].y}`;
-  }
-
-  // Close the path if we have enough points
-  if (lassoPoints.length > 2) {
-    pathData += ` Z`; // Close the path
-  }
-
-  lassoPath.setAttribute("d", pathData);
-}
-
-function removeLassoVisual() {
-  const overlay = document.getElementById("lasso-overlay");
-  if (overlay) {
-    overlay.remove();
-  }
-  lassoPath = null;
-}
-
-function performLassoSelection() {
-  if (!dentalModel.value || lassoPoints.length < 3) {
-    console.log(
-      "Cannot perform lasso selection: insufficient points or no model"
-    );
-    console.log(
-      `Lasso points: ${
-        lassoPoints.length
-      }, Model exists: ${!!dentalModel.value}`
-    );
+async function handleLassoCreateSegment(selectedVertices: number[]) {
+  if (!dentalModel.value?.originalMesh || selectedVertices.length === 0) {
+    alert("No vertices found inside lasso area.");
     return;
   }
-
-  console.log(
-    `Performing lasso selection. Segments exist: ${
-      dentalModel.value.segments.length > 0
-    }`
-  );
-
-  // ALWAYS create new segments from original mesh when using lasso tool
-  // This allows creating multiple segments by always working from the original mesh
-  console.log(
-    "Creating new segment from original mesh (allowing multiple segments)"
-  );
-  performManualSegmentation();
-}
-
-async function performManualSegmentation() {
-  if (!dentalModel.value?.originalMesh) return;
 
   try {
     isLoading.value = true;
     loadingMessage.value = "Creating segment...";
-
-    const selectedVertices = getVerticesInsideLasso(
-      dentalModel.value.originalMesh
-    );
-
-    if (selectedVertices.length === 0) {
-      alert("No vertices found inside lasso area.");
-      return;
-    }
-
-    console.log(
-      `Creating segment ${dentalModel.value.segments.length + 1} with ${
-        selectedVertices.length
-      } vertices`
-    );
 
     const newSegment = await createSegmentFromVertices(
       selectedVertices,
@@ -1187,25 +1122,17 @@ async function performManualSegmentation() {
     );
 
     if (newSegment) {
-      // Add new segment to the model
       dentalModel.value.segments.push(newSegment);
       scene.add(newSegment.mesh);
-
-      // Ensure reactivity for newly added segment
       dentalModel.value = { ...dentalModel.value };
 
-      // IMPORTANT: Keep the original mesh visible for subsequent lasso operations
+      // Keep original mesh visible for more segmentations
       dentalModel.value.originalMesh.visible = true;
-
-      // Make sure the original mesh is still in the scene
       if (!scene.children.includes(dentalModel.value.originalMesh)) {
         scene.add(dentalModel.value.originalMesh);
-        console.log(
-          "Re-added original mesh to scene for continued segmentation"
-        );
       }
 
-      // Clear other selections and make only the new segment selected
+      // Select the new segment
       selectedSegments.value.forEach((segment) => {
         segment.isSelected = false;
         updateSegmentAppearance(segment);
@@ -1214,9 +1141,7 @@ async function performManualSegmentation() {
       newSegment.isSelected = true;
       updateSegmentAppearance(newSegment);
 
-      console.log(
-        `Successfully created segment ${newSegment.name}. Original mesh remains visible for more segmentations.`
-      );
+      console.log(`Successfully created segment ${newSegment.name}`);
     }
   } catch (error) {
     console.error("Error creating segment:", error);
@@ -1227,82 +1152,233 @@ async function performManualSegmentation() {
   }
 }
 
-function isPointInPolygon(
-  point: any,
-  polygon: any[]
-): boolean {
-  let inside = false;
+function handleLassoSelectSegments(segments: ToothSegment[]) {
+  // Clear current selection
+  selectedSegments.value.forEach((segment) => {
+    segment.isSelected = false;
+    updateSegmentAppearance(segment);
+  });
 
-  // Ray casting algorithm - optimized version
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x;
-    const yi = polygon[i].y;
-    const xj = polygon[j].x;
-    const yj = polygon[j].y;
+  // Select the lassoed segments
+  selectedSegments.value = segments;
+  segments.forEach((segment) => {
+    segment.isSelected = true;
+    updateSegmentAppearance(segment);
+  });
 
-    if (
-      yi > point.y !== yj > point.y &&
-      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi
-    ) {
-      inside = !inside;
-    }
-  }
-
-  return inside;
+  console.log(`Selected ${segments.length} segments via lasso`);
 }
 
-function getVerticesInsideLasso(mesh: any): number[] {
-  const geometry = mesh.geometry;
-  const positions = geometry.getAttribute("position");
-  const selectedIndices: number[] = [];
-
-  console.log(
-    `Processing ${positions.count} vertices against lasso with ${lassoPoints.length} points`
-  );
-  console.log(
-    `Mesh visible: ${mesh.visible}, in scene: ${scene.children.includes(mesh)}`
-  );
-
-  const rect = renderer.domElement.getBoundingClientRect();
-  const vertex = new THREE.Vector3();
-  const screenPoint = new THREE.Vector2();
-
-  // Make sure we're using the mesh's world matrix
-  mesh.updateMatrixWorld();
-
-  for (let i = 0; i < positions.count; i++) {
-    vertex.set(positions.getX(i), positions.getY(i), positions.getZ(i));
-
-    // Apply the mesh's world transformation
-    vertex.applyMatrix4(mesh.matrixWorld);
-
-    // Project to screen coordinates
-    vertex.project(camera);
-
-    // Skip vertices behind the camera
-    if (vertex.z < -1 || vertex.z > 1) continue;
-
-    // Convert NDC to screen coordinates
-    screenPoint.x = ((vertex.x + 1) * rect.width) / 2;
-    screenPoint.y = ((-vertex.y + 1) * rect.height) / 2;
-
-    // Check if vertex is within screen bounds
-    if (
-      screenPoint.x >= 0 &&
-      screenPoint.x <= rect.width &&
-      screenPoint.y >= 0 &&
-      screenPoint.y <= rect.height
-    ) {
-      if (isPointInPolygon(screenPoint, lassoPoints)) {
-        selectedIndices.push(i);
-      }
-    }
+function handleLassoAddToSegment(selectedVertices: number[], targetSegmentId?: string) {
+  if (!targetSegmentId || selectedVertices.length === 0) {
+    alert("Please select a segment first to add vertices to it.");
+    return;
   }
 
-  console.log(
-    `Found ${selectedIndices.length} vertices inside lasso for segment creation`
-  );
-  return selectedIndices;
+  const targetSegment = dentalModel.value?.segments.find(s => s.id === targetSegmentId);
+  if (!targetSegment) {
+    alert("Target segment not found.");
+    return;
+  }
+
+  addVerticestoSegment(targetSegment, selectedVertices);
+}
+
+function handleLassoSubtractFromSegment(selectedVertices: number[], targetSegmentId?: string) {
+  if (!targetSegmentId || selectedVertices.length === 0) {
+    alert("Please select a segment first to remove vertices from it.");
+    return;
+  }
+
+  const targetSegment = dentalModel.value?.segments.find(s => s.id === targetSegmentId);
+  if (!targetSegment) {
+    alert("Target segment not found.");
+    return;
+  }
+
+  // Use the optimized removal function that doesn't modify the model immediately
+  removeVerticesFromSegmentSafely(targetSegment, selectedVertices);
+}
+
+async function removeVerticesFromSegmentSafely(targetSegment: ToothSegment, selectedVertices: number[]) {
+  if (!dentalModel.value?.originalMesh || selectedVertices.length === 0) {
+    console.warn("No original mesh or vertices to remove");
+    return;
+  }
+
+  try {
+    isLoading.value = true;
+    loadingMessage.value = `Removing ${selectedVertices.length} vertices from segment...`;
+
+    const originalGeometry = dentalModel.value.originalMesh.geometry;
+    const originalPositions = originalGeometry.getAttribute("position");
+    const segmentGeometry = targetSegment.mesh.geometry;
+    
+    console.log(`Processing vertex removal for segment ${targetSegment.name}`);
+    console.log(`Selected vertices to remove: ${selectedVertices.length}`);
+    
+    let newGeometry: any = null;
+    
+    if (originalGeometry.index && segmentGeometry.index) {
+      newGeometry = await createRemovedVerticesGeometry(targetSegment, selectedVertices, originalPositions, true);
+    } else {
+      newGeometry = await createRemovedVerticesGeometry(targetSegment, selectedVertices, originalPositions, false);
+    }
+
+    if (!newGeometry) {
+      alert("Could not create updated geometry");
+      return;
+    }
+
+    // Update the segment mesh safely
+    scene.remove(targetSegment.mesh);
+    
+    // Create new mesh with updated geometry
+    const originalMaterial = targetSegment.mesh.material;
+    const material = Array.isArray(originalMaterial) ? originalMaterial[0].clone() : originalMaterial.clone();
+    const newMesh = new THREE.Mesh(newGeometry, material);
+    newMesh.name = targetSegment.name;
+    
+    // Update segment
+    targetSegment.mesh = newMesh;
+    
+    // Add new mesh to scene
+    scene.add(newMesh);
+    updateSegmentAppearance(targetSegment);
+    
+    // Update reactivity
+    dentalModel.value = { ...dentalModel.value };
+    
+    console.log(`Successfully removed vertices from segment ${targetSegment.name}`);
+
+  } catch (error) {
+    console.error("Error removing vertices from segment:", error);
+    alert(`Error removing vertices from segment: ${error}`);
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = "";
+  }
+}
+
+async function createRemovedVerticesGeometry(
+  targetSegment: ToothSegment, 
+  selectedVertices: number[], 
+  originalPositions: any,
+  isIndexed: boolean
+): Promise<any> {
+  const segmentGeometry = targetSegment.mesh.geometry;
+  
+  if (isIndexed) {
+    const segmentIndices = segmentGeometry.index;
+    
+    if (!segmentIndices) {
+      throw new Error("Segment must have indexed geometry for indexed removal");
+    }
+    
+    const selectedVertexSet = new Set(selectedVertices);
+    const segmentIndexArray = segmentIndices.array;
+    const remainingIndices = [];
+    
+    // Keep triangles that don't contain any selected vertices
+    for (let i = 0; i < segmentIndexArray.length; i += 3) {
+      if (i + 2 >= segmentIndexArray.length) break;
+      
+      const v1 = segmentIndexArray[i];
+      const v2 = segmentIndexArray[i + 1];
+      const v3 = segmentIndexArray[i + 2];
+      
+      // Keep triangle only if none of its vertices are selected for removal
+      const shouldKeep = !selectedVertexSet.has(v1) && 
+                        !selectedVertexSet.has(v2) && 
+                        !selectedVertexSet.has(v3);
+      
+      if (shouldKeep) {
+        remainingIndices.push(v1, v2, v3);
+      }
+    }
+    
+    if (remainingIndices.length === 0) {
+      console.warn("All triangles would be removed - keeping at least one triangle");
+      // Keep the first triangle to avoid empty geometry
+      remainingIndices.push(segmentIndexArray[0], segmentIndexArray[1], segmentIndexArray[2]);
+    }
+    
+    // Create geometry with remaining triangles
+    const newGeometry = new THREE.BufferGeometry();
+    newGeometry.setAttribute('position', originalPositions.clone());
+    newGeometry.setIndex(remainingIndices);
+    newGeometry.computeVertexNormals();
+    
+    return newGeometry;
+    
+  } else {
+    // Non-indexed geometry
+    const segmentPositions = segmentGeometry.getAttribute("position");
+    
+    // Create spatial hash for quick vertex lookup
+    const PRECISION = 6;
+    const selectedVertexCoords = new Set<string>();
+    
+    // Build hash of selected vertex coordinates
+    for (const vertexIndex of selectedVertices) {
+      if (vertexIndex < originalPositions.count) {
+        const x = originalPositions.getX(vertexIndex).toFixed(PRECISION);
+        const y = originalPositions.getY(vertexIndex).toFixed(PRECISION);
+        const z = originalPositions.getZ(vertexIndex).toFixed(PRECISION);
+        selectedVertexCoords.add(`${x},${y},${z}`);
+      }
+    }
+    
+    const remainingVertices = [];
+    const vertexCount = segmentPositions.count;
+    
+    // Process triangles and keep those without selected vertices
+    for (let i = 0; i < vertexCount; i += 3) {
+      if (i + 2 >= vertexCount) break;
+      
+      // Get triangle vertices
+      const vertices = [
+        {
+          x: segmentPositions.getX(i),
+          y: segmentPositions.getY(i),
+          z: segmentPositions.getZ(i)
+        },
+        {
+          x: segmentPositions.getX(i + 1),
+          y: segmentPositions.getY(i + 1),
+          z: segmentPositions.getZ(i + 1)
+        },
+        {
+          x: segmentPositions.getX(i + 2),
+          y: segmentPositions.getY(i + 2),
+          z: segmentPositions.getZ(i + 2)
+        }
+      ];
+      
+      // Check if any vertex should be removed
+      const shouldRemove = vertices.some(v => {
+        const key = `${v.x.toFixed(PRECISION)},${v.y.toFixed(PRECISION)},${v.z.toFixed(PRECISION)}`;
+        return selectedVertexCoords.has(key);
+      });
+      
+      // Keep triangle if none of its vertices should be removed
+      if (!shouldRemove) {
+        remainingVertices.push(...vertices.flatMap(v => [v.x, v.y, v.z]));
+      }
+    }
+    
+    if (remainingVertices.length === 0) {
+      console.warn("All triangles would be removed - keeping original segment");
+      throw new Error("Cannot remove all vertices from segment");
+    }
+    
+    // Create geometry with remaining vertices
+    const newGeometry = new THREE.BufferGeometry();
+    newGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(remainingVertices), 3));
+    newGeometry.computeVertexNormals();
+    
+    return newGeometry;
+  }
 }
 
 async function createSegmentFromVertices(
@@ -1684,11 +1760,9 @@ function areAllSegmentsVisible(): boolean {
 }
 
 function setInteractionMode(mode: InteractionMode["mode"]) {
-  // Clean up any active lasso selection when changing modes
-  if (currentMode.value === "lasso" && isLassoActive) {
-    isLassoActive = false;
-    removeLassoVisual();
-    lassoPoints = [];
+  // Clean up any active enhanced lasso selection when changing modes
+  if (currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
+    enhancedLassoService.cancelLasso();
   }
 
   currentMode.value = mode;
@@ -1812,6 +1886,363 @@ function deleteSegment(segment: ToothSegment) {
     // Trigger reactivity by creating a new reference since we're using shallowRef
     dentalModel.value = markRaw({ ...dentalModel.value });
   }
+
+// Geometry Manipulation Functions
+async function addVerticestoSegment(targetSegment: ToothSegment, selectedVertices: number[]) {
+  if (!dentalModel.value?.originalMesh || selectedVertices.length === 0) {
+    console.warn("No original mesh or vertices to add");
+    return;
+  }
+
+  try {
+    isLoading.value = true;
+    loadingMessage.value = `Adding ${selectedVertices.length} vertices to segment...`;
+
+    // Get the original mesh geometry
+    const originalGeometry = dentalModel.value.originalMesh.geometry;
+    const originalPositions = originalGeometry.getAttribute("position");
+    
+    if (!originalPositions) {
+      throw new Error("Original mesh has no position attribute");
+    }
+
+    console.log(`Processing vertex addition for segment ${targetSegment.name}`);
+    console.log(`Original mesh vertices: ${originalPositions.count}`);
+    console.log(`Selected vertices to add: ${selectedVertices.length}`);
+    
+    // Use a more efficient approach based on geometry type
+    if (originalGeometry.index) {
+      await addVerticesIndexedGeometry(targetSegment, selectedVertices, originalGeometry, originalPositions);
+    } else {
+      await addVerticesNonIndexedGeometry(targetSegment, selectedVertices, originalPositions);
+    }
+
+  } catch (error) {
+    console.error("Error adding vertices to segment:", error);
+    alert(`Error adding vertices to segment: ${error}`);
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = "";
+  }
+}
+
+// Optimized function for indexed geometry
+async function addVerticesIndexedGeometry(
+  targetSegment: ToothSegment, 
+  selectedVertices: number[], 
+  originalGeometry: any, 
+  originalPositions: any
+) {
+  const originalIndices = originalGeometry.index;
+  const segmentGeometry = targetSegment.mesh.geometry;
+  let segmentIndices = segmentGeometry.index;
+  
+  if (!segmentIndices) {
+    // Convert segment to indexed geometry first
+    console.log("Converting segment to indexed geometry...");
+    segmentGeometry.computeBoundingBox();
+    segmentGeometry.computeVertexNormals();
+    if (!segmentGeometry.index) {
+      // Simple indexed conversion - create sequential indices
+      const vertexCount = segmentGeometry.getAttribute('position').count;
+      const indices = [];
+      for (let i = 0; i < vertexCount; i++) {
+        indices.push(i);
+      }
+      segmentGeometry.setIndex(indices);
+    }
+    segmentIndices = segmentGeometry.index!;
+  }
+  
+  // Create efficient lookup sets
+  const selectedVertexSet = new Set(selectedVertices);
+  const existingIndicesSet = new Set(Array.from(segmentIndices.array));
+  
+  // Find triangles from original mesh that contain selected vertices
+  const originalIndexArray = originalIndices.array;
+  const newIndices = [];
+  const processedTriangles = new Set<string>();
+  
+  console.log("Finding relevant triangles...");
+  
+  // Process triangles more efficiently
+  for (let i = 0; i < originalIndexArray.length; i += 3) {
+    const v1 = originalIndexArray[i];
+    const v2 = originalIndexArray[i + 1];
+    const v3 = originalIndexArray[i + 2];
+    
+    // Create a unique triangle identifier
+    const triangleId = [v1, v2, v3].sort().join(',');
+    
+    // Skip if we've already processed this triangle
+    if (processedTriangles.has(triangleId)) continue;
+    processedTriangles.add(triangleId);
+    
+    // Check if triangle contains any selected vertices
+    const hasSelectedVertex = selectedVertexSet.has(v1) || selectedVertexSet.has(v2) || selectedVertexSet.has(v3);
+    
+    // Check if triangle is not already in segment
+    const isNewTriangle = !existingIndicesSet.has(v1) || !existingIndicesSet.has(v2) || !existingIndicesSet.has(v3);
+    
+    if (hasSelectedVertex && isNewTriangle) {
+      newIndices.push(v1, v2, v3);
+    }
+  }
+  
+  if (newIndices.length === 0) {
+    alert("No new geometry found to add to segment");
+    return;
+  }
+  
+  console.log(`Found ${newIndices.length / 3} new triangles to add`);
+  
+  // Efficiently combine indices
+  const combinedIndices = new Array(segmentIndices.array.length + newIndices.length);
+  let index = 0;
+  
+  // Copy existing indices
+  for (let i = 0; i < segmentIndices.array.length; i++) {
+    combinedIndices[index++] = segmentIndices.array[i];
+  }
+  
+  // Add new indices
+  for (let i = 0; i < newIndices.length; i++) {
+    combinedIndices[index++] = newIndices[i];
+  }
+  
+  // Create optimized geometry
+  const newGeometry = new THREE.BufferGeometry();
+  newGeometry.setAttribute('position', originalPositions.clone());
+  newGeometry.setIndex(combinedIndices);
+  
+  // Compute normals efficiently
+  newGeometry.computeVertexNormals();
+  
+  await updateSegmentMesh(targetSegment, newGeometry, combinedIndices, originalPositions);
+  
+  console.log(`Successfully added ${newIndices.length / 3} triangles to segment`);
+}
+
+// Optimized function for non-indexed geometry  
+async function addVerticesNonIndexedGeometry(
+  targetSegment: ToothSegment,
+  selectedVertices: number[],
+  originalPositions: any
+) {
+  console.log("Processing non-indexed geometry addition...");
+  
+  const segmentGeometry = targetSegment.mesh.geometry;
+  const segmentPositions = segmentGeometry.getAttribute("position");
+  
+  // Create efficient vertex lookup using spatial hashing
+  const PRECISION = 6;
+  const existingVertexSet = new Set<string>();
+  
+  for (let i = 0; i < segmentPositions.count; i++) {
+    const x = segmentPositions.getX(i).toFixed(PRECISION);
+    const y = segmentPositions.getY(i).toFixed(PRECISION);
+    const z = segmentPositions.getZ(i).toFixed(PRECISION);
+    existingVertexSet.add(`${x},${y},${z}`);
+  }
+  
+  // Collect new triangles more efficiently
+  const newVertices = [];
+  const selectedVertexSet = new Set(selectedVertices);
+  const vertexCount = originalPositions.count;
+  
+  // Process triangles in batches for better performance
+  const BATCH_SIZE = 1000;
+  
+  for (let start = 0; start < vertexCount; start += BATCH_SIZE * 3) {
+    const end = Math.min(start + BATCH_SIZE * 3, vertexCount);
+    
+    for (let i = start; i < end; i += 3) {
+      if (i + 2 >= vertexCount) break;
+      
+      // Check if triangle contains selected vertices
+      const hasSelectedVertex = selectedVertexSet.has(i) || 
+                               selectedVertexSet.has(i + 1) || 
+                               selectedVertexSet.has(i + 2);
+      
+      if (hasSelectedVertex) {
+        const vertices = [
+          {
+            x: originalPositions.getX(i),
+            y: originalPositions.getY(i),
+            z: originalPositions.getZ(i)
+          },
+          {
+            x: originalPositions.getX(i + 1),
+            y: originalPositions.getY(i + 1),
+            z: originalPositions.getZ(i + 1)
+          },
+          {
+            x: originalPositions.getX(i + 2),
+            y: originalPositions.getY(i + 2),
+            z: originalPositions.getZ(i + 2)
+          }
+        ];
+        
+        // Check if triangle is new (at least one vertex not in existing set)
+        const isNewTriangle = vertices.some(v => {
+          const key = `${v.x.toFixed(PRECISION)},${v.y.toFixed(PRECISION)},${v.z.toFixed(PRECISION)}`;
+          return !existingVertexSet.has(key);
+        });
+        
+        if (isNewTriangle) {
+          newVertices.push(...vertices.flatMap(v => [v.x, v.y, v.z]));
+        }
+      }
+    }
+  }
+  
+  if (newVertices.length === 0) {
+    alert("No new vertices found to add to segment");
+    return;
+  }
+  
+  console.log(`Found ${newVertices.length / 9} new triangles to add`);
+  
+  // Efficiently combine vertex arrays
+  const existingVertices = Array.from(segmentPositions.array);
+  const combinedVertices = new Float32Array(existingVertices.length + newVertices.length);
+  
+  combinedVertices.set(existingVertices, 0);
+  combinedVertices.set(newVertices, existingVertices.length);
+  
+  // Create optimized geometry
+  const newGeometry = new THREE.BufferGeometry();
+  newGeometry.setAttribute('position', new THREE.BufferAttribute(combinedVertices, 3));
+  newGeometry.computeVertexNormals();
+  
+  await updateSegmentMeshNonIndexed(targetSegment, newGeometry);
+  
+  console.log(`Successfully added ${newVertices.length / 9} triangles to segment`);
+}
+
+// Helper function to update segment mesh with indexed geometry
+async function updateSegmentMesh(targetSegment: ToothSegment, newGeometry: any, combinedIndices: number[], originalPositions: any) {
+  // Remove old mesh from scene
+  scene.remove(targetSegment.mesh);
+  targetSegment.mesh.geometry.dispose();
+
+  // Create new mesh with the combined geometry
+  const newMesh = new THREE.Mesh(newGeometry, targetSegment.mesh.material);
+  newMesh.name = targetSegment.name;
+  newMesh.castShadow = true;
+  newMesh.receiveShadow = true;
+
+  // Update segment properties
+  targetSegment.mesh = newMesh;
+  
+  // Update originalVertices to include all vertices referenced by the new indices
+  const allVertexIndices = new Set(combinedIndices);
+  targetSegment.originalVertices = Array.from(allVertexIndices).map(index => {
+    return new THREE.Vector3(
+      originalPositions.getX(index),
+      originalPositions.getY(index), 
+      originalPositions.getZ(index)
+    );
+  });
+
+  // Recalculate centroid
+  targetSegment.centroid = calculateCentroid(targetSegment.originalVertices);
+
+  // Add new mesh to scene
+  scene.add(newMesh);
+  updateSegmentAppearance(targetSegment);
+
+  // Update reactivity
+  dentalModel.value = markRaw({ ...dentalModel.value! });
+}
+
+// Helper function to update segment mesh with non-indexed geometry
+async function updateSegmentMeshNonIndexed(targetSegment: ToothSegment, newGeometry: any) {
+  // Remove old mesh from scene
+  scene.remove(targetSegment.mesh);
+  targetSegment.mesh.geometry.dispose();
+
+  // Create new mesh with the combined geometry
+  const newMesh = new THREE.Mesh(newGeometry, targetSegment.mesh.material);
+  newMesh.name = targetSegment.name;
+  newMesh.castShadow = true;
+  newMesh.receiveShadow = true;
+
+  // Update segment properties
+  targetSegment.mesh = newMesh;
+  
+  // Update originalVertices from the new geometry
+  const positions = newGeometry.getAttribute('position');
+  const vertices = [];
+  for (let i = 0; i < positions.count; i++) {
+    vertices.push(new THREE.Vector3(
+      positions.getX(i),
+      positions.getY(i),
+      positions.getZ(i)
+    ));
+  }
+  targetSegment.originalVertices = vertices;
+
+  // Recalculate centroid
+  targetSegment.centroid = calculateCentroid(targetSegment.originalVertices);
+
+  // Add new mesh to scene
+  scene.add(newMesh);
+  updateSegmentAppearance(targetSegment);
+
+  // Update reactivity
+  dentalModel.value = markRaw({ ...dentalModel.value! });
+}
+
+// Utility function to calculate centroid of vertices
+function calculateCentroid(vertices: any[]): any {
+  if (vertices.length === 0) {
+    return new THREE.Vector3(0, 0, 0);
+  }
+
+  const centroid = new THREE.Vector3(0, 0, 0);
+  
+  vertices.forEach(vertex => {
+    centroid.add(vertex);
+  });
+  
+  centroid.divideScalar(vertices.length);
+  return centroid;
+}
+
+// Enhanced Lasso Handlers
+function setLassoMode(mode: LassoMode) {
+  currentLassoMode.value = mode;
+  console.log(`Lasso mode set to: ${mode}`);
+}
+
+function togglePreview() {
+  previewEnabled.value = !previewEnabled.value;
+  console.log(`Preview mode: ${previewEnabled.value ? 'enabled' : 'disabled'}`);
+}
+
+function confirmSelection() {
+  if (!hasPreviewSelection.value) return;
+  
+  hasPreviewSelection.value = false;
+  console.log('Selection confirmed');
+  
+  // Apply the preview selection
+  // This would depend on your specific implementation needs
+}
+
+function cancelSelection() {
+  if (!hasPreviewSelection.value) return;
+  
+  hasPreviewSelection.value = false;
+  
+  // Cancel current lasso operation
+  if (enhancedLassoService?.isLassoActive()) {
+    enhancedLassoService.cancelLasso();
+  }
+  
+  console.log('Selection cancelled');
+}
 
 // Treatment Plan Handlers
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
