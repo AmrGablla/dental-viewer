@@ -130,7 +130,7 @@ const hasPreviewSelection = ref(false);
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
 const selectedSegments = ref<ToothSegment[]>([]);
-const currentMode = ref<InteractionMode["mode"]>("select");
+const currentMode = ref<InteractionMode["mode"]>("lasso");
 const isLoading = ref(false);
 const loadingMessage = ref("");
 const totalMovementDistance = ref(0);
@@ -155,17 +155,14 @@ const isTreatmentPlanFullScreen = ref(false);
 const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 
 const interactionModes: InteractionMode["mode"][] = [
-  "select",
   "lasso",
-  "move",
-  "rotate",
+  "pan",
 ];
 
 // Three.js objects - will be initialized after lazy loading
 let scene: any;
 let camera: any;
 let renderer: any;
-let raycaster: any;
 let mouse: any;
 let resizeObserver: ResizeObserver | null = null;
 
@@ -174,9 +171,6 @@ let isDragging = false;
 let isPanning = false;
 let movementStartPosition: any;
 let lastMousePosition: any;
-let movementStartMousePosition: any;
-let constrainedAxis: "Anteroposterior" | "Vertical" | "Transverse" | null =
-  null;
 let directionalMoveInterval: number | null = null;
 let isDirectionalMoving = false;
 
@@ -306,8 +300,6 @@ function initThreeJS() {
   // Enhanced Multi-Directional Lighting System
   setupEnhancedLighting();
 
-  // Raycaster for picking
-  raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 
   // Initialize Enhanced Lasso Service (asynchronously)
@@ -316,7 +308,6 @@ function initThreeJS() {
   // Initialize movement tracking variables
   movementStartPosition = new THREE.Vector3();
   lastMousePosition = new THREE.Vector2();
-  movementStartMousePosition = new THREE.Vector2();
 
   // Start render loop
   animate();
@@ -450,20 +441,11 @@ function onMouseDown(event: MouseEvent) {
     if (renderer?.domElement) {
       renderer.domElement.style.cursor = "grabbing";
     }
-  } else if (
-    selectedSegments.value.length > 0 &&
-    currentMode.value !== "lasso"
-  ) {
-    // Always start 3D movement of selected segments (except in lasso mode)
-    movementStartMousePosition.set(event.clientX, event.clientY);
-    constrainedAxis = null; // Reset axis constraint
-    movementAxis.value = "None";
-    axisMovementDistances.value = {
-      anteroposterior: 0,
-      vertical: 0,
-      transverse: 0,
-    };
-    console.log("Starting 3D segment movement");
+  } else if (currentMode.value === "pan") {
+    // Pan mode - change cursor to indicate panning
+    if (renderer?.domElement) {
+      renderer.domElement.style.cursor = "grabbing";
+    }
   } else if (currentMode.value === "lasso") {
     // Start enhanced lasso selection if in lasso mode and not rotating
     startEnhancedLassoSelection(event);
@@ -477,17 +459,11 @@ function onMouseMove(event: MouseEvent) {
     if (isPanning) {
       // Rotate the camera/model with modifier key
       rotateWithModifier(event);
-    } else if (
-      selectedSegments.value.length > 0 &&
-      currentMode.value !== "lasso"
-    ) {
-      // Always move selected segments when dragging (except in lasso mode)
-      moveSegmentsIn3D(event);
     } else if (currentMode.value === "lasso") {
       updateEnhancedLassoSelection(event);
-    } else if (currentMode.value === "rotate") {
-      // Implement rotation logic for selected segments
-      rotateCamera(event);
+    } else if (currentMode.value === "pan") {
+      // Implement pan logic for camera movement
+      panCamera(event);
     }
   }
 
@@ -495,19 +471,11 @@ function onMouseMove(event: MouseEvent) {
   if (renderer?.domElement) {
     if (event.metaKey || event.ctrlKey) {
       renderer.domElement.style.cursor = "grab";
-    } else if (
-      selectedSegments.value.length > 0 &&
-      currentMode.value !== "lasso" &&
-      currentMode.value !== "rotate"
-    ) {
-      renderer.domElement.style.cursor = "move";
     } else {
       // Reset cursor based on current mode
       const cursorMap = {
         lasso: "crosshair",
-        select: "pointer",
-        rotate: "grab",
-        move: "move",
+        pan: "grab",
       };
       renderer.domElement.style.cursor =
         cursorMap[currentMode.value] || "default";
@@ -526,15 +494,9 @@ function onMouseUp(_event: MouseEvent) {
     if (renderer?.domElement) {
       renderer.domElement.style.cursor = "grab"; // Keep grab cursor if modifier still held
     }
-  }
-
-  // End segment movement
-  if (selectedSegments.value.length > 0 && isDragging) {
-    console.log(
-      `Finished moving segments. Total distance: ${totalMovementDistance.value.toFixed(
-        2
-      )}mm`
-    );
+  } else if (currentMode.value === "pan" && renderer?.domElement) {
+    // Reset pan cursor back to grab
+    renderer.domElement.style.cursor = "grab";
   }
 
   isDragging = false;
@@ -543,11 +505,10 @@ function onMouseUp(_event: MouseEvent) {
 function onClick(event: MouseEvent) {
   updateMousePosition(event);
 
-  if (currentMode.value === "select") {
-    selectSegment();
-  } else if (currentMode.value === "lasso") {
-    // Implement lasso selection
+  if (currentMode.value === "lasso") {
+    // Lasso mode click handling is managed by the enhanced lasso service
   }
+  // Note: Click handling for pan mode is not needed as it's drag-based
 }
 
 function onWheel(event: WheelEvent) {
@@ -618,9 +579,7 @@ function onKeyUp(event: KeyboardEvent) {
     // Reset cursor based on current mode
     const cursorMap = {
       lasso: "crosshair",
-      select: "pointer",
-      rotate: "grab",
-      move: "move",
+      pan: "grab",
     };
     renderer.domElement.style.cursor =
       cursorMap[currentMode.value] || "default";
@@ -631,26 +590,6 @@ function updateMousePosition(event: MouseEvent) {
   const rect = renderer.domElement.getBoundingClientRect();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-}
-
-function selectSegment() {
-  if (!dentalModel.value) return;
-
-  raycaster.setFromCamera(mouse, camera);
-
-  const meshes = dentalModel.value.segments.map((segment) => segment.mesh);
-  const intersects = raycaster.intersectObjects(meshes);
-
-  if (intersects.length > 0) {
-    const intersectedMesh = intersects[0].object as any;
-    const segment = dentalModel.value.segments.find(
-      (s) => s.mesh === intersectedMesh
-    );
-
-    if (segment) {
-      toggleSegmentSelection(segment);
-    }
-  }
 }
 
 function toggleSegmentSelection(segment: ToothSegment) {
@@ -689,19 +628,30 @@ function updateSegmentAppearance(segment: ToothSegment) {
   }
 }
 
-function rotateCamera(event: MouseEvent) {
-  // Simple orbit camera rotation
+function panCamera(event: MouseEvent) {
+  // Pan camera by moving its position and target
   const deltaX = event.movementX * 0.01;
   const deltaY = event.movementY * 0.01;
 
-  const spherical = new THREE.Spherical();
-  spherical.setFromVector3(camera.position);
-  spherical.theta -= deltaX;
-  spherical.phi += deltaY;
-  spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+  // Get camera's right and up vectors
+  const cameraDirection = new THREE.Vector3();
+  camera.getWorldDirection(cameraDirection);
+  
+  const cameraRight = new THREE.Vector3();
+  cameraRight.crossVectors(camera.up, cameraDirection).normalize();
+  
+  const cameraUp = new THREE.Vector3();
+  cameraUp.copy(camera.up).normalize();
 
-  camera.position.setFromSpherical(spherical);
-  camera.lookAt(0, 0, 0);
+  // Calculate pan movement in world space
+  const panMovement = new THREE.Vector3();
+  panMovement.addScaledVector(cameraRight, deltaX);
+  panMovement.addScaledVector(cameraUp, deltaY);
+
+  // Apply movement to camera position
+  camera.position.add(panMovement);
+  
+  // Update camera matrix
   camera.updateMatrixWorld();
 }
 
@@ -734,135 +684,6 @@ function rotateWithModifier(event: MouseEvent) {
   camera.position.setFromSpherical(spherical);
   camera.lookAt(0, 0, 0);
   camera.updateMatrixWorld();
-}
-
-function moveSegmentsIn3D(event: MouseEvent) {
-  if (selectedSegments.value.length === 0) return;
-
-  // Initialize movement tracking if not already done
-  if (totalMovementDistance.value === 0) {
-    movementStartPosition.copy(selectedSegments.value[0].mesh.position);
-  }
-
-  // Calculate mouse movement delta
-  const currentMousePosition = new THREE.Vector2(event.clientX, event.clientY);
-  const deltaX = currentMousePosition.x - lastMousePosition.x;
-  const deltaY = currentMousePosition.y - lastMousePosition.y;
-
-  // Update last mouse position
-  lastMousePosition.copy(currentMousePosition);
-
-  // Calculate total mouse movement from start for axis determination
-  const totalDeltaX = currentMousePosition.x - movementStartMousePosition.x;
-  const totalDeltaY = currentMousePosition.y - movementStartMousePosition.y;
-
-  // Determine constrained axis if not already set (threshold for axis lock)
-  const axisThreshold = 15; // pixels
-  if (
-    !constrainedAxis &&
-    (Math.abs(totalDeltaX) > axisThreshold ||
-      Math.abs(totalDeltaY) > axisThreshold)
-  ) {
-    const horizontalMovement = Math.abs(totalDeltaX);
-    const verticalMovement = Math.abs(totalDeltaY);
-
-    // Determine primary axis based on dominant movement direction
-    if (horizontalMovement > verticalMovement * 1.5) {
-      constrainedAxis = "Transverse"; // Horizontal movement = Transverse (side-to-side)
-      movementAxis.value = "Transverse";
-    } else if (verticalMovement > horizontalMovement * 1.5) {
-      constrainedAxis = "Vertical"; // Vertical movement = Vertical (up-down)
-      movementAxis.value = "Vertical";
-    } else {
-      constrainedAxis = "Anteroposterior"; // Diagonal or mixed = Anteroposterior (front-back)
-      movementAxis.value = "Anteroposterior";
-    }
-
-    console.log(`Movement constrained to ${constrainedAxis} axis`);
-  }
-
-  // Get camera's right and up vectors for proper 3D movement
-  const cameraDirection = new THREE.Vector3();
-  camera.getWorldDirection(cameraDirection);
-
-  const cameraRight = new THREE.Vector3();
-  cameraRight.crossVectors(camera.up, cameraDirection).normalize();
-
-  const cameraUp = new THREE.Vector3();
-  cameraUp.crossVectors(cameraDirection, cameraRight).normalize();
-
-  // Calculate movement sensitivity based on camera distance
-  const distance = camera.position.length();
-  const movementSensitivity = distance * 0.001; // Slightly increased for better control
-
-  // Calculate movement vector based on constrained axis
-  const movementVector = new THREE.Vector3();
-
-  if (constrainedAxis === "Transverse") {
-    // Transverse movement (side-to-side, X-axis in 3D space)
-    movementVector.addScaledVector(cameraRight, -deltaX * movementSensitivity);
-  } else if (constrainedAxis === "Vertical") {
-    // Vertical movement (up-down, Y-axis in 3D space)
-    movementVector.addScaledVector(cameraUp, deltaY * movementSensitivity);
-  } else if (constrainedAxis === "Anteroposterior") {
-    // Anteroposterior movement (front-back, Z-axis in 3D space)
-    const cameraForward = cameraDirection.clone().negate();
-    movementVector.addScaledVector(
-      cameraForward,
-      (deltaX + deltaY) * 0.5 * movementSensitivity
-    );
-  }
-
-  // Apply movement to all selected segments
-  selectedSegments.value.forEach((segment) => {
-    segment.mesh.position.add(movementVector);
-    segment.mesh.updateMatrixWorld();
-  });
-
-  // Calculate and update movement distances
-  if (selectedSegments.value[0]) {
-    const currentPosition = selectedSegments.value[0].mesh.position;
-    const totalDistance = movementStartPosition.distanceTo(currentPosition);
-    totalMovementDistance.value = totalDistance;
-
-    // Update individual segment movement distance and history
-    const segment = selectedSegments.value[0];
-    if (segment.originalPosition) {
-      segment.movementDistance =
-        segment.originalPosition.distanceTo(currentPosition);
-      // Update movement history
-      updateSegmentMovementHistory(segment, "drag");
-    }
-
-    // Calculate axis-specific distances using dental coordinate system
-    const deltaPosition = currentPosition.clone().sub(movementStartPosition);
-    axisMovementDistances.value = {
-      transverse: deltaPosition.x, // Side-to-side (X in 3D space)
-      vertical: deltaPosition.y, // Up-down (Y in 3D space)
-      anteroposterior: deltaPosition.z, // Front-back (Z in 3D space)
-    };
-
-    // Update movement axis display based on largest component
-    const absTransverse = Math.abs(deltaPosition.x);
-    const absVertical = Math.abs(deltaPosition.y);
-    const absAnteroposterior = Math.abs(deltaPosition.z);
-
-    if (absTransverse > absVertical && absTransverse > absAnteroposterior) {
-      movementAxis.value = "Transverse";
-    } else if (
-      absVertical > absTransverse &&
-      absVertical > absAnteroposterior
-    ) {
-      movementAxis.value = "Vertical";
-    } else if (
-      absAnteroposterior > absTransverse &&
-      absAnteroposterior > absVertical
-    ) {
-      movementAxis.value = "Anteroposterior";
-    } else {
-      movementAxis.value = "Combined";
-    }
-  }
 }
 
 // Individual Segment Functions
@@ -1772,9 +1593,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
   if (renderer?.domElement) {
     const cursorMap = {
       lasso: "crosshair",
-      select: "pointer",
-      rotate: "grab",
-      move: "move",
+      pan: "grab",
     };
     renderer.domElement.style.cursor = cursorMap[mode] || "default";
     console.log(

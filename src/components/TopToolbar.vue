@@ -93,18 +93,7 @@
           </div>
         </div>
       </div>
-    </div>
-    
-    <div class="toolbar-section">
-      <div class="status-info">
-        <span v-if="dentalModel?.segments.length" class="segment-count">
-          {{ dentalModel.segments.length }} segments
-        </span>
-        <span v-if="selectedSegments.length" class="selected-count">
-          {{ selectedSegments.length }} selected
-        </span>
-      </div>
-    </div>
+    </div> 
   </div>
 </template>
 
@@ -240,10 +229,8 @@ function getUploadButtonText(): string {
 
 function getModeIcon(mode: InteractionMode['mode']): string {
   const icons = {
-    select: '🖱️',
     lasso: '✏️',
-    move: '✋',
-    rotate: '🔄'
+    pan: '🤚'
   }
   return icons[mode] || '◈'
 }
@@ -254,10 +241,8 @@ function isInteractionModeDisabled(_mode: InteractionMode['mode']): boolean {
 
 function getInteractionModeTitle(mode: InteractionMode['mode']): string {
   const titles = {
-    select: 'Click to select individual segments',
     lasso: getLassoModeDescription(),
-    move: 'Move selected segments',
-    rotate: 'Rotate view (drag to orbit camera)'
+    pan: 'Pan view (drag to move camera position)'
   }
   return titles[mode] || mode.charAt(0).toUpperCase() + mode.slice(1)
 }
