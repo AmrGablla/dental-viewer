@@ -12,15 +12,6 @@
         @stopDirectionalMove="handleStopDirectionalMove"
       />
       
-      <!-- Viewport Controls -->
-      <div class="viewport-controls">
-        <div class="viewport-info">
-          <span v-if="currentMode !== 'select'" class="current-mode">
-            {{ getModeIcon(currentMode) }} {{ currentMode.toUpperCase() }}
-          </span>
-        </div>
-      </div>
-      
       <ViewPresets v-if="dentalModel" @setViewPreset="handleSetViewPreset" />
     </div>
   </div>
