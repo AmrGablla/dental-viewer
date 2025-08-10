@@ -108,6 +108,9 @@ const { loadThreeJS, loadServices } = useThreeJS()
 // Dynamic imports will be stored here
 let THREE: any
 let STLLoaderService: any
+let OBJLoaderService: any
+let PLYLoaderService: any
+let GLTFLoaderService: any
 let SegmentationService: any
 // Refs
 const viewportRef = ref<typeof ViewportArea>();
@@ -119,6 +122,9 @@ const canvasContainer = computed(
 
 // Services - will be initialized after lazy loading
 let stlLoader: any = null;
+let objLoader: any = null;
+let plyLoader: any = null;
+let gltfLoader: any = null;
 let segmentationService: any = null;
 let enhancedLassoService: EnhancedLassoService | null = null;
 
@@ -185,12 +191,21 @@ async function initializeApp() {
 
     // Load Three.js and services
     const { THREE: ThreeJS, BVH } = await loadThreeJS();
-    const { STLLoaderService: STLLoader, SegmentationService: SegService } = await loadServices();
+    const {
+      STLLoaderService: STLLoader,
+      OBJLoaderService: OBJLoader,
+      PLYLoaderService: PLYLoader,
+      GLTFLoaderService: GLTFLoader,
+      SegmentationService: SegService
+    } = await loadServices();
 
     // Set the loaded modules to global variables
     THREE = ThreeJS;
-    STLLoaderService = STLLoader;
-    SegmentationService = SegService;
+  STLLoaderService = STLLoader;
+  OBJLoaderService = OBJLoader;
+  PLYLoaderService = PLYLoader;
+  GLTFLoaderService = GLTFLoader;
+  SegmentationService = SegService;
 
     // Add BVH extensions to THREE.js
     THREE.BufferGeometry.prototype.computeBoundsTree = BVH.computeBoundsTree;
@@ -198,8 +213,11 @@ async function initializeApp() {
     THREE.Mesh.prototype.raycast = BVH.acceleratedRaycast;
 
     // Initialize services
-    stlLoader = new STLLoaderService();
-    segmentationService = new SegmentationService();
+  stlLoader = new STLLoaderService();
+  objLoader = new OBJLoaderService();
+  plyLoader = new PLYLoaderService();
+  gltfLoader = new GLTFLoaderService();
+  segmentationService = new SegmentationService();
 
     // Initialize Three.js scene
     initThreeJS();
@@ -1389,154 +1407,125 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
 
-  if (file) {
-    console.log(
-      "File selected:",
-      file.name,
-      "size:",
-      file.size,
-      "type:",
-      file.type,
-      "auto-segment:",
-      autoSegment
-    );
+  if (!file) {
+    console.log("No file selected");
+    return;
+  }
 
-    isLoading.value = true;
-    loadingMessage.value = "Loading STL file...";
+  console.log(
+    "File selected:",
+    file.name,
+    "size:",
+    file.size,
+    "type:",
+    file.type,
+    "auto-segment:",
+    autoSegment
+  );
 
-    try {
-      console.log("Starting STL loading with glTF conversion...");
-      loadingMessage.value = "Converting STL to glTF format...";
-      
-      // Use the new glTF-based loading system
-      const { mesh, convertedModel } = await stlLoader.loadSTLAsGLTF(file, true); // Use GLB format
-      
-      console.log("STL converted and loaded successfully:", mesh);
-      console.log("Conversion details:", convertedModel);
+  isLoading.value = true;
+  loadingMessage.value = "Loading 3D model...";
 
-      // Clear previous model
-      if (dentalModel.value) {
-        console.log(
-          "Clearing previous model segments:",
-          dentalModel.value.segments.length
-        );
-        dentalModel.value.segments.forEach((segment) => {
-          scene.remove(segment.mesh);
-        });
-        // Also remove the original mesh if it exists
-        if (dentalModel.value.originalMesh) {
-          scene.remove(dentalModel.value.originalMesh);
-        }
-      }
-
-      // Mark the mesh as raw to prevent Vue reactivity issues
-      const rawMesh = markRaw(mesh);
-
-      // Add original mesh to scene (visible)
-      rawMesh.visible = true;
-      scene.add(rawMesh);
-      console.log("Original mesh added to scene and made visible");
-
-      // Create a simple dental model with just the original mesh (no segmentation yet)
-      const geometry = mesh.geometry as any;
-      geometry.computeBoundingBox();
-      const boundingBox = {
-        min: geometry.boundingBox?.min.clone() || new THREE.Vector3(),
-        max: geometry.boundingBox?.max.clone() || new THREE.Vector3(),
-      };
-
-      // Create dental model without segments initially
-      dentalModel.value = {
-        originalMesh: rawMesh,
-        segments: [], // Empty segments array - no segmentation applied yet
-        boundingBox,
-        convertedModel, // Store the converted model data for potential backend operations
-      };
-
-      const vertexCount = convertedModel.vertexCount;
-      console.log(
-        `Model loaded: ${vertexCount.toLocaleString()} vertices (${convertedModel.format} format)`
-      );
-      console.log(
-        `File size: Original ${formatFileSize(file.size)} -> Converted ${formatFileSize(convertedModel.size)}`
-      );
-      loadingMessage.value = "Model loaded successfully";
-
-      // Focus camera on model
-      focusOnModel();
-      console.log("Camera focused on model");
-
-      // Start background AI segmentation if enabled
-      if (autoSegment) {
-        console.log("🤖 Starting automatic AI segmentation in background...");
-        startBackgroundAISegmentation(file);
-      } else {
-        console.log("Model loaded without auto-segmentation");
-      }
-    } catch (error) {
-      console.error("Error loading STL file:", error);
-      
-      // If glTF conversion fails, try fallback to traditional STL loading
-      try {
-        console.log("Falling back to traditional STL loading...");
-        loadingMessage.value = "Loading STL file (fallback mode)...";
-        const mesh = await stlLoader.loadSTL(file);
-        
-        // Clear previous model
-        if (dentalModel.value) {
-          dentalModel.value.segments.forEach((segment) => {
-            scene.remove(segment.mesh);
-          });
-          if (dentalModel.value.originalMesh) {
-            scene.remove(dentalModel.value.originalMesh);
-          }
-        }
-
-        const rawMesh = markRaw(mesh);
-        rawMesh.visible = true;
-        scene.add(rawMesh);
-
-        const geometry = mesh.geometry as any;
-        geometry.computeBoundingBox();
-        const boundingBox = {
-          min: geometry.boundingBox?.min.clone() || new THREE.Vector3(),
-          max: geometry.boundingBox?.max.clone() || new THREE.Vector3(),
-        };
-
-        dentalModel.value = {
-          originalMesh: rawMesh,
-          segments: [],
-          boundingBox,
-        };
-
-        const vertexCount = geometry.getAttribute("position")?.count || 0;
-        console.log(`STL model loaded with ${vertexCount.toLocaleString()} vertices (fallback mode)`);
-        loadingMessage.value = "Model loaded successfully";
-        focusOnModel();
-
-        if (autoSegment) {
-          console.log("🤖 Starting automatic AI segmentation in background...");
-          startBackgroundAISegmentation(file);
-        }
-        
-      } catch (fallbackError) {
-        console.error("Fallback STL loading also failed:", fallbackError);
-        alert(
-          `Error loading STL file: ${
-            fallbackError instanceof Error ? fallbackError.message : "Unknown error"
-          }. Please try again.`
-        );
-      }
-    } finally {
-      isLoading.value = false;
-      loadingMessage.value = "";
-      // Clear the input so the same file can be selected again
-      if (input) {
-        input.value = "";
+  // Helper to clear previous model from scene
+  function clearPreviousModel() {
+    if (dentalModel.value) {
+      dentalModel.value.segments.forEach((segment) => {
+        scene.remove(segment.mesh);
+      });
+      if (dentalModel.value.originalMesh) {
+        scene.remove(dentalModel.value.originalMesh);
       }
     }
-  } else {
-    console.log("No file selected");
+  }
+
+  // Helper to add mesh to scene and update dentalModel
+  function setModel(mesh: any, boundingBox: any, convertedModel?: any) {
+    const rawMesh = markRaw(mesh);
+    rawMesh.visible = true;
+    scene.add(rawMesh);
+    dentalModel.value = {
+      originalMesh: rawMesh,
+      segments: [],
+      boundingBox,
+      ...(convertedModel ? { convertedModel } : {}),
+    };
+    focusOnModel();
+  }
+
+  try {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    let mesh: any = null;
+    let convertedModel: any = undefined;
+    let geometry: any = null;
+    let boundingBox: any = null;
+
+
+    if (ext === 'stl') {
+      try {
+        loadingMessage.value = "Converting STL to glTF format...";
+        const result = await stlLoader.loadSTLAsGLTF(file, true);
+        mesh = result.mesh;
+        convertedModel = result.convertedModel;
+        geometry = mesh.geometry;
+      } catch (err) {
+        console.warn("STL glTF conversion failed, falling back to STL loader", err);
+        mesh = await stlLoader.loadSTL(file);
+        geometry = mesh.geometry;
+      }
+    } else if (ext === 'obj') {
+      mesh = await objLoader.loadOBJ(file);
+      // mesh is a THREE.Group, compute bounding box for all children
+      let box = null;
+      mesh.traverse((child: any) => {
+        if (child.isMesh) {
+          child.geometry.computeBoundingBox();
+          if (!box) {
+            box = child.geometry.boundingBox.clone();
+          } else {
+            box.union(child.geometry.boundingBox);
+          }
+        }
+      });
+      geometry = { boundingBox: box };
+    } else if (ext === 'ply') {
+      mesh = await plyLoader.loadPLY(file);
+      geometry = mesh.geometry;
+    } else if (ext === 'gltf' || ext === 'glb') {
+      mesh = await gltfLoader.loadGLTF(file);
+      geometry = mesh.geometry;
+    } else {
+      throw new Error('Unsupported file type: ' + ext);
+    }
+
+    // Compute bounding box
+    if (geometry && geometry.boundingBox) {
+      boundingBox = {
+        min: geometry.boundingBox.min.clone() || new THREE.Vector3(),
+        max: geometry.boundingBox.max.clone() || new THREE.Vector3(),
+      };
+    } else {
+      // fallback
+      boundingBox = { min: new THREE.Vector3(), max: new THREE.Vector3() };
+    }
+
+    clearPreviousModel();
+    setModel(mesh, boundingBox, convertedModel);
+
+    loadingMessage.value = "Model loaded successfully";
+    if (autoSegment && ext === 'stl') {
+      startBackgroundAISegmentation(file);
+    }
+  } catch (error) {
+    console.error("Error loading 3D model:", error);
+    alert(
+      `Error loading 3D model: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }. Please try again.`
+    );
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = "";
+    if (input) input.value = "";
   }
 }
 

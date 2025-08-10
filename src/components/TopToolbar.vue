@@ -12,7 +12,7 @@
         <input 
           ref="fileInput" 
           type="file" 
-          accept=".stl" 
+          accept=".stl,.obj,.ply,.gltf,.glb" 
           @change="handleFileUpload"
           style="display: none"
         />
@@ -229,8 +229,7 @@ function getUploadButtonText(): string {
   if (props.isLoading) {
     return 'Processing...'
   }
-  
-  return 'Load STL'
+  return 'Load 3D Model';
 }
 
 function getModeIcon(mode: InteractionMode['mode']): string {

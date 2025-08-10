@@ -35,14 +35,23 @@ export function useThreeJS() {
     try {
       const [
         { STLLoaderService },
+        { OBJLoaderService },
+        { PLYLoaderService },
+        { GLTFLoaderService },
         { SegmentationService }
       ] = await Promise.all([
         import('../services/STLLoader'),
+        import('../services/OBJLoader'),
+        import('../services/PLYLoader'),
+        import('../services/GLTFLoader'),
         import('../services/SegmentationService')
       ])
 
       return {
         STLLoaderService,
+        OBJLoaderService,
+        PLYLoaderService,
+        GLTFLoaderService,
         SegmentationService
       }
     } catch (error) {
