@@ -597,12 +597,15 @@ function toggleSegmentSelection(segment: ToothSegment) {
 
   if (index >= 0) {
     // Deselect
-    selectedSegments.value.splice(index, 1);
+    selectedSegments.value = [];
     segment.isSelected = false;
     updateSegmentAppearance(segment);
   } else {
-    // Select
-    selectedSegments.value.push(segment);
+    selectedSegments.value.forEach((s) => {
+      s.isSelected = false;
+      updateSegmentAppearance(s);
+    });
+    selectedSegments.value = [segment];
     segment.isSelected = true;
     updateSegmentAppearance(segment);
   }
