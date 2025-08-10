@@ -41,4 +41,4 @@ echo "Press Ctrl+C to stop the server"
 echo ""
 
 # Run uvicorn with conda environment
-conda run -n dental-backend uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+conda run -n dental-backend --no-capture-output uvicorn main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
