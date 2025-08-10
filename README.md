@@ -277,3 +277,19 @@ MIT License - see LICENSE file for details.
 - Three.js community for excellent 3D library
 - Vue.js team for the reactive framework
 - Open source dental imaging research community
+
+## FastAPI Segmentation Backend
+
+A lightweight segmentation service lives under `app/`. Start it with:
+
+```bash
+make run
+```
+
+Upload a sample STL and run segmentation synchronously:
+
+```bash
+curl -F "file=@samples/sample.stl" "http://localhost:8000/segment?sync=1"
+```
+
+Results can be downloaded from `/jobs/{job_id}/result` as a ZIP archive.
