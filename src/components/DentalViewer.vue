@@ -571,8 +571,6 @@ function onWindowResize() {
   const containerWidth = canvasContainer.value.clientWidth;
   const containerHeight = canvasContainer.value.clientHeight;
 
-  console.log("Resizing to:", containerWidth, "x", containerHeight);
-
   camera.aspect = containerWidth / containerHeight;
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
