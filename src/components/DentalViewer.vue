@@ -874,20 +874,20 @@ function moveSegmentInDirection(
 
 // Enhanced Lasso Selection Functions
 function startEnhancedLassoSelection(event: MouseEvent) {
-  if (!enhancedLassoService) return;
-  
+  if (!enhancedLassoService || !dentalModel.value) return;
+
   const rect = renderer.domElement.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-  
+
   const targetSegmentId = selectedSegments.value.length > 0 ? selectedSegments.value[0].id : undefined;
-  
+
   enhancedLassoService.startLasso(
     currentLassoMode.value,
     { x, y },
     targetSegmentId
   );
-  
+
   console.log(`Started enhanced lasso selection in ${currentLassoMode.value} mode`);
 }
 

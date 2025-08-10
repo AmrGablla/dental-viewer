@@ -185,7 +185,13 @@ function exportModel() {
   emit('exportModel')
 }
 
+
 function setInteractionMode(mode: InteractionMode['mode']) {
+  // Prevent activating lasso mode if no model is loaded
+  if (mode === 'lasso' && !props.dentalModel) {
+    return
+  }
+  console.log('Setting interaction mode:', mode)
   emit('setInteractionMode', mode)
 }
 
