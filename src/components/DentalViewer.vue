@@ -1775,35 +1775,30 @@ async function addVerticesIndexedGeometry(
   
   // Create efficient lookup sets
   const selectedVertexSet = new Set(selectedVertices);
-  const existingIndicesSet = new Set(Array.from(segmentIndices.array));
+  
+  // Use simpler existing vertex set instead of complex triangle comparison
+  const existingVerticesSet = new Set(Array.from(segmentIndices.array));
   
   // Find triangles from original mesh that contain selected vertices
   const originalIndexArray = originalIndices.array;
   const newIndices = [];
-  const processedTriangles = new Set<string>();
   
   console.log("Finding relevant triangles...");
+  console.log(`Selected vertices: ${selectedVertices.length}`);
   
-  // Process triangles more efficiently
+  // Single pass: collect triangles with selected vertices that aren't fully in existing segment
   for (let i = 0; i < originalIndexArray.length; i += 3) {
     const v1 = originalIndexArray[i];
     const v2 = originalIndexArray[i + 1];
     const v3 = originalIndexArray[i + 2];
     
-    // Create a unique triangle identifier
-    const triangleId = [v1, v2, v3].sort().join(',');
-    
-    // Skip if we've already processed this triangle
-    if (processedTriangles.has(triangleId)) continue;
-    processedTriangles.add(triangleId);
-    
     // Check if triangle contains any selected vertices
     const hasSelectedVertex = selectedVertexSet.has(v1) || selectedVertexSet.has(v2) || selectedVertexSet.has(v3);
     
-    // Check if triangle is not already in segment
-    const isNewTriangle = !existingIndicesSet.has(v1) || !existingIndicesSet.has(v2) || !existingIndicesSet.has(v3);
+    // Check if triangle is already fully in the segment (all vertices exist)
+    const isFullyInSegment = existingVerticesSet.has(v1) && existingVerticesSet.has(v2) && existingVerticesSet.has(v3);
     
-    if (hasSelectedVertex && isNewTriangle) {
+    if (hasSelectedVertex && !isFullyInSegment) {
       newIndices.push(v1, v2, v3);
     }
   }
@@ -1853,15 +1848,16 @@ async function addVerticesNonIndexedGeometry(
   const segmentGeometry = targetSegment.mesh.geometry;
   const segmentPositions = segmentGeometry.getAttribute("position");
   
-  // Create efficient vertex lookup using spatial hashing
+  // Create efficient vertex lookup using spatial hashing for existing vertices
   const PRECISION = 6;
-  const existingVertexSet = new Set<string>();
+  const existingVertexKeys = new Set<string>();
   
+  // Build set of existing vertex coordinates
   for (let i = 0; i < segmentPositions.count; i++) {
     const x = segmentPositions.getX(i).toFixed(PRECISION);
     const y = segmentPositions.getY(i).toFixed(PRECISION);
     const z = segmentPositions.getZ(i).toFixed(PRECISION);
-    existingVertexSet.add(`${x},${y},${z}`);
+    existingVertexKeys.add(`${x},${y},${z}`);
   }
   
   // Collect new triangles more efficiently
@@ -1869,48 +1865,44 @@ async function addVerticesNonIndexedGeometry(
   const selectedVertexSet = new Set(selectedVertices);
   const vertexCount = originalPositions.count;
   
-  // Process triangles in batches for better performance
-  const BATCH_SIZE = 1000;
+  console.log(`Selected vertices: ${selectedVertices.length}`);
   
-  for (let start = 0; start < vertexCount; start += BATCH_SIZE * 3) {
-    const end = Math.min(start + BATCH_SIZE * 3, vertexCount);
+  // Single pass: process triangles and collect new ones
+  for (let i = 0; i < vertexCount; i += 3) {
+    if (i + 2 >= vertexCount) break;
     
-    for (let i = start; i < end; i += 3) {
-      if (i + 2 >= vertexCount) break;
-      
-      // Check if triangle contains selected vertices
-      const hasSelectedVertex = selectedVertexSet.has(i) || 
-                               selectedVertexSet.has(i + 1) || 
-                               selectedVertexSet.has(i + 2);
-      
-      if (hasSelectedVertex) {
-        const vertices = [
-          {
-            x: originalPositions.getX(i),
-            y: originalPositions.getY(i),
-            z: originalPositions.getZ(i)
-          },
-          {
-            x: originalPositions.getX(i + 1),
-            y: originalPositions.getY(i + 1),
-            z: originalPositions.getZ(i + 1)
-          },
-          {
-            x: originalPositions.getX(i + 2),
-            y: originalPositions.getY(i + 2),
-            z: originalPositions.getZ(i + 2)
-          }
-        ];
-        
-        // Check if triangle is new (at least one vertex not in existing set)
-        const isNewTriangle = vertices.some(v => {
-          const key = `${v.x.toFixed(PRECISION)},${v.y.toFixed(PRECISION)},${v.z.toFixed(PRECISION)}`;
-          return !existingVertexSet.has(key);
-        });
-        
-        if (isNewTriangle) {
-          newVertices.push(...vertices.flatMap(v => [v.x, v.y, v.z]));
+    // Check if triangle contains selected vertices
+    const hasSelectedVertex = selectedVertexSet.has(i) || 
+                             selectedVertexSet.has(i + 1) || 
+                             selectedVertexSet.has(i + 2);
+    
+    if (hasSelectedVertex) {
+      const vertices = [
+        {
+          x: originalPositions.getX(i),
+          y: originalPositions.getY(i),
+          z: originalPositions.getZ(i)
+        },
+        {
+          x: originalPositions.getX(i + 1),
+          y: originalPositions.getY(i + 1),
+          z: originalPositions.getZ(i + 1)
+        },
+        {
+          x: originalPositions.getX(i + 2),
+          y: originalPositions.getY(i + 2),
+          z: originalPositions.getZ(i + 2)
         }
+      ];
+      
+      // Check if triangle has any new vertices (simpler check than full triangle comparison)
+      const hasNewVertex = vertices.some(v => {
+        const key = `${v.x.toFixed(PRECISION)},${v.y.toFixed(PRECISION)},${v.z.toFixed(PRECISION)}`;
+        return !existingVertexKeys.has(key);
+      });
+      
+      if (hasNewVertex) {
+        newVertices.push(...vertices.flatMap(v => [v.x, v.y, v.z]));
       }
     }
   }
