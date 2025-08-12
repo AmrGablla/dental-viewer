@@ -54,29 +54,6 @@
               <span class="lasso-label">{{ lassoMode.label }}</span>
             </button>
           </div>
-          
-          <!-- Preview Toggle -->
-          <div class="preview-controls" v-if="showPreviewControls">
-            <button 
-              v-if="hasPreviewSelection"
-              @click="confirmSelection"
-              class="toolbar-btn confirm-btn"
-              title="Confirm selection"
-            >
-              <span class="btn-icon">✓</span>
-              <span>Apply</span>
-            </button>
-            
-            <button 
-              v-if="hasPreviewSelection"
-              @click="cancelSelection"
-              class="toolbar-btn cancel-btn"
-              title="Cancel selection"
-            >
-              <span class="btn-icon">✕</span>
-              <span>Cancel</span>
-            </button>
-          </div>
         </div>
       </div>
     </div> 
@@ -84,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
 import type { LassoMode } from '../services/EnhancedLassoService'
 
@@ -104,24 +81,11 @@ const emit = defineEmits<{
   fileUpload: [event: Event, autoSegment: boolean]
   setInteractionMode: [mode: InteractionMode['mode']]
   setLassoMode: [mode: LassoMode]
-  confirmSelection: []
-  cancelSelection: []
 }>()
 
 // Refs
 const fileInput = ref<HTMLInputElement>()
 const currentLassoMode = ref<LassoMode>('create')
-const previewEnabled = ref(false)
-const hasPreviewSelection = ref(false)
-
-// Computed
-const showPreviewControls = computed(() => {
-  return props.currentMode === 'lasso' && (
-    currentLassoMode.value === 'create' || 
-    currentLassoMode.value === 'add' || 
-    currentLassoMode.value === 'subtract'
-  )
-})
 
 // Lasso modes configuration
 const lassoModes = [
@@ -162,14 +126,8 @@ function triggerFileUpload() {
 
 function handleFileUpload(event: Event) {
   const autoSegment = true;
-  console.log("📁 TopToolbar: handleFileUpload called with autoSegment:", autoSegment);
   emit('fileUpload', event, autoSegment)
 }
-
-function exportModel() {
-  emit('exportModel')
-}
-
 
 function setInteractionMode(mode: InteractionMode['mode']) {
   // Prevent activating lasso mode if no model is loaded
@@ -183,16 +141,6 @@ function setInteractionMode(mode: InteractionMode['mode']) {
 function setLassoMode(mode: LassoMode) {
   currentLassoMode.value = mode
   emit('setLassoMode', mode)
-}
-
-function confirmSelection() {
-  hasPreviewSelection.value = false
-  emit('confirmSelection')
-}
-
-function cancelSelection() {
-  hasPreviewSelection.value = false
-  emit('cancelSelection')
 }
 
 function isLassoModeDisabled(mode: LassoMode): boolean {
@@ -482,45 +430,5 @@ function getLassoModeDescription(): string {
 
 .lasso-label {
   font-size: 11px;
-}
-
-.preview-controls {
-  display: flex;
-  gap: 8px;
-  padding-left: 16px;
-  border-left: 1px solid rgba(148, 163, 184, 0.2);
-}
-
-.preview-btn {
-  background: rgba(148, 163, 184, 0.1);
-  border-color: rgba(148, 163, 184, 0.2);
-}
-
-.preview-btn.active {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  border-color: rgba(139, 92, 246, 0.5);
-  color: white;
-}
-
-.confirm-btn {
-  background: linear-gradient(135deg, #10b981, #059669);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: white;
-}
-
-.confirm-btn:hover {
-  background: linear-gradient(135deg, #059669, #047857);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.cancel-btn {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: white;
-}
-
-.cancel-btn:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 </style>

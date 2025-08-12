@@ -9,18 +9,19 @@
       @fileUpload="handleFileUpload"
       @setInteractionMode="setInteractionMode"
       @setLassoMode="setLassoMode"
-      @confirmSelection="confirmSelection"
-      @cancelSelection="cancelSelection"
     />
 
     <!-- Background Status Indicator -->
-    <BackgroundStatusIndicator 
+    <BackgroundStatusIndicator
       :status="backgroundSegmentationStatus"
       @dismiss="dismissBackgroundStatus"
     />
 
     <!-- Main Content Area -->
-    <div class="main-content" :class="{ 'treatment-fullscreen': isTreatmentPlanFullScreen }">
+    <div
+      class="main-content"
+      :class="{ 'treatment-fullscreen': isTreatmentPlanFullScreen }"
+    >
       <LeftSidebar
         v-show="!isTreatmentPlanFullScreen"
         :dentalModel="dentalModel"
@@ -71,14 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  onMounted,
-  onUnmounted,
-  shallowRef,
-  watch,
-  computed,
-} from "vue";
+import { ref, onMounted, shallowRef, computed } from "vue";
 import { useThreeJS } from "../composables/useThreeJS";
 import { useThreeJSManager } from "../composables/useThreeJSManager";
 import { useSegmentManager } from "../composables/useSegmentManager";
@@ -92,10 +86,10 @@ import type {
   InteractionMode,
   OrthodonticTreatmentPlan,
 } from "../types/dental";
-import type { 
-  EnhancedLassoService, 
-  LassoMode, 
-  LassoOperationResult 
+import type {
+  EnhancedLassoService,
+  LassoMode,
+  LassoOperationResult,
 } from "../services/EnhancedLassoService";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
@@ -128,9 +122,7 @@ let enhancedLassoService: EnhancedLassoService | null = null;
 let THREE: any = null;
 
 // Enhanced Lasso state
-const currentLassoMode = ref<LassoMode>('create');
-const previewEnabled = ref(false);
-const hasPreviewSelection = ref(false);
+const currentLassoMode = ref<LassoMode>("create");
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
@@ -147,10 +139,7 @@ const backgroundSegmentationStatus = ref<{
 const isTreatmentPlanFullScreen = ref(false);
 const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 
-const interactionModes: InteractionMode["mode"][] = [
-  "lasso",
-  "pan",
-];
+const interactionModes: InteractionMode["mode"][] = ["lasso", "pan"];
 
 onMounted(async () => {
   await initializeApp();
@@ -164,12 +153,12 @@ async function initializeApp() {
     // Load Three.js and services
     const { THREE: ThreeJS, BVH } = await loadThreeJS();
     THREE = ThreeJS; // Store THREE globally for this component
-    
+
     const {
       STLLoaderService: STLLoader,
       OBJLoaderService: OBJLoader,
       PLYLoaderService: PLYLoader,
-      GLTFLoaderService: GLTFLoader
+      GLTFLoaderService: GLTFLoader,
     } = await loadServices();
 
     // Add BVH extensions to THREE.js
@@ -178,13 +167,16 @@ async function initializeApp() {
     THREE.Mesh.prototype.raycast = BVH.acceleratedRaycast;
 
     // Initialize Three.js scene
-    const threeJSResult = threeJSManager.initThreeJS(canvasContainer.value!, THREE);
+    const threeJSResult = threeJSManager.initThreeJS(
+      canvasContainer.value!,
+      THREE
+    );
     if (!threeJSResult) {
-      throw new Error('Failed to initialize Three.js');
+      throw new Error("Failed to initialize Three.js");
     }
-    
+
     const { scene, camera, renderer } = threeJSResult;
-    
+
     // Initialize services
     fileHandlerService = new FileHandlerService(
       new STLLoader(),
@@ -193,13 +185,10 @@ async function initializeApp() {
       new GLTFLoader(),
       scene
     );
-    
-    // Initialize the real segmentation service with backend connection
-    console.log("🔧 Initializing segmentation service...");
+
     const { BackendService } = await import("../services/BackendService");
-    const backendService = new BackendService('http://localhost:8000', THREE);
+    const backendService = new BackendService("http://localhost:8000", THREE);
     segmentationService = new SegmentationService(backendService, scene, THREE);
-    console.log("✅ Segmentation service initialized:", !!segmentationService);
 
     // Setup event listeners
     if (renderer?.domElement) {
@@ -207,10 +196,17 @@ async function initializeApp() {
       const lassoHandlers = {
         handleLassoMouseDown,
         handleLassoMouseMove,
-        handleLassoMouseUp
+        handleLassoMouseUp,
       };
-      
-      cameraControls.setupEventListeners(renderer.domElement, camera, renderer, currentMode, THREE, lassoHandlers);
+
+      cameraControls.setupEventListeners(
+        renderer.domElement,
+        camera,
+        renderer,
+        currentMode,
+        THREE,
+        lassoHandlers
+      );
       threeJSManager.setupResizeObserver(canvasContainer.value!);
     }
 
@@ -219,125 +215,12 @@ async function initializeApp() {
 
     threeJSManager.isLoading.value = false;
   } catch (error) {
-    console.error('Failed to initialize app:', error);
+    console.error("Failed to initialize app:", error);
     threeJSManager.loadingMessage.value = "Failed to load 3D engine";
   }
 }
 
-// Watch for mode changes to update canvas cursor
-watch(currentMode, (newMode) => {
-  const renderer = threeJSManager.getRenderer();
-  if (renderer && renderer.domElement) {
-    renderer.domElement.setAttribute("data-mode", newMode);
-  }
-});
-
-onUnmounted(() => {
-  directionalMovement.cleanup();
-  cameraControls.cleanup();
-  threeJSManager.cleanup();
-});
-
-async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
-  try {
-    const { EnhancedLassoService } = await import("../services/EnhancedLassoService");
-    enhancedLassoService = new EnhancedLassoService(
-      renderer.domElement,
-      camera,
-      renderer,
-      scene
-    );
-  } catch (error) {
-    console.error("Failed to initialize Enhanced Lasso Service:", error);
-  }
-}
-
-// File handling
-async function handleFileUpload(event: Event, autoSegment: boolean = false) {
-  console.log("📁 handleFileUpload called with autoSegment:", autoSegment);
-  console.log("📁 Event type:", event.type, "Event target:", event.target);
-  if (!fileHandlerService) {
-    console.error("❌ fileHandlerService is not initialized");
-    return;
-  }
-
-  const onLoadStart = () => {
-    threeJSManager.isLoading.value = true;
-    threeJSManager.loadingMessage.value = "Loading 3D model...";
-  };
-
-  const onLoadComplete = (model: DentalModel) => {
-    dentalModel.value = model;
-    threeJSManager.focusOnModel(model);
-    threeJSManager.isLoading.value = false;
-    threeJSManager.loadingMessage.value = "Model loaded successfully";
-  };
-
-  const onError = (error: Error) => {
-    alert(error.message);
-    threeJSManager.isLoading.value = false;
-    threeJSManager.loadingMessage.value = "";
-  };
-
-  const startBackgroundAISegmentation = async (file: File) => {
-    console.log("🤖 startBackgroundAISegmentation called with file:", file.name);
-    if (!segmentationService) {
-      console.error("❌ segmentationService is not initialized");
-      return;
-    }
-    if (!dentalModel.value) {
-      console.error("❌ dentalModel is not loaded");
-      return;
-    }
-    
-    await segmentationService.startBackgroundAISegmentation(
-      file,
-      dentalModel.value,
-      (status) => {
-        backgroundSegmentationStatus.value = status;
-      },
-      (result) => {
-        console.log(`✅ Background AI Segmentation completed: ${result.segments.length} teeth found`);
-        setTimeout(() => {
-          backgroundSegmentationStatus.value.isRunning = false;
-          backgroundSegmentationStatus.value.message = "";
-          backgroundSegmentationStatus.value.progress = undefined;
-          
-          threeJSManager.loadingMessage.value = `AI found ${result.segments.length} teeth!`;
-          setTimeout(() => {
-            threeJSManager.loadingMessage.value = "";
-          }, 3000);
-        }, 1000);
-      },
-      (error) => {
-        console.error("Background AI Segmentation failed:", error);
-        backgroundSegmentationStatus.value.isRunning = false;
-        backgroundSegmentationStatus.value.message = "";
-        backgroundSegmentationStatus.value.progress = undefined;
-        
-        threeJSManager.loadingMessage.value = `AI segmentation failed: ${error.message}`;
-        setTimeout(() => {
-          threeJSManager.loadingMessage.value = "";
-        }, 5000);
-      },
-      (updatedDentalModel) => {
-        // Update the reactive dentalModel ref to trigger Vue reactivity
-        dentalModel.value = updatedDentalModel;
-        console.log("🔄 Updated dentalModel ref to trigger Vue reactivity and sidebar update");
-      }
-    );
-  };
-
-  console.log("📤 Calling fileHandlerService.handleFileUpload with autoSegment:", autoSegment);
-  await fileHandlerService.handleFileUpload(
-    event,
-    autoSegment,
-    onLoadStart,
-    onLoadComplete,
-    onError,
-    startBackgroundAISegmentation
-  );
-
+// Event handlers and functions
 function setInteractionMode(mode: InteractionMode["mode"]) {
   // Clean up any active enhanced lasso selection when changing modes
   if (currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
@@ -358,7 +241,9 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
   }
 }
 
-function setViewPreset(view: "top" | "bottom" | "front" | "back" | "left" | "right") {
+function setViewPreset(
+  view: "top" | "bottom" | "front" | "back" | "left" | "right"
+) {
   if (!dentalModel.value) return;
   threeJSManager.setViewPreset(view, dentalModel.value);
 }
@@ -369,29 +254,14 @@ function setLassoMode(mode: LassoMode) {
   console.log(`Lasso mode set to: ${mode}`);
 }
 
-function confirmSelection() {
-  if (!hasPreviewSelection.value) return;
-  
-  hasPreviewSelection.value = false;
-  console.log('Selection confirmed');
-}
-
-function cancelSelection() {
-  if (!hasPreviewSelection.value) return;
-  
-  hasPreviewSelection.value = false;
-  
-  // Cancel current lasso operation
-  if (enhancedLassoService?.isLassoActive()) {
-    enhancedLassoService.cancelLasso();
-  }
-  
-  console.log('Selection cancelled');
-}
-
 // Lasso Mouse Event Handlers
 function handleLassoMouseDown(event: MouseEvent) {
-  if (currentMode.value !== "lasso" || !enhancedLassoService || !dentalModel.value) return;
+  if (
+    currentMode.value !== "lasso" ||
+    !enhancedLassoService ||
+    !dentalModel.value
+  )
+    return;
 
   // Don't start lasso if modifier keys are held (for rotation)
   if (event.metaKey || event.ctrlKey) return;
@@ -403,9 +273,10 @@ function handleLassoMouseDown(event: MouseEvent) {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
 
-  const targetSegmentId = segmentManager.selectedSegments.value.length > 0 
-    ? segmentManager.selectedSegments.value[0].id 
-    : undefined;
+  const targetSegmentId =
+    segmentManager.selectedSegments.value.length > 0
+      ? segmentManager.selectedSegments.value[0].id
+      : undefined;
 
   enhancedLassoService.startLasso(
     currentLassoMode.value,
@@ -413,47 +284,62 @@ function handleLassoMouseDown(event: MouseEvent) {
     targetSegmentId
   );
 
-  console.log(`Started enhanced lasso selection in ${currentLassoMode.value} mode`);
+  console.log(
+    `Started enhanced lasso selection in ${currentLassoMode.value} mode`
+  );
 }
 
 function handleLassoMouseMove(event: MouseEvent) {
-  if (currentMode.value !== "lasso" || !enhancedLassoService || !enhancedLassoService.isLassoActive()) return;
-  
+  if (
+    currentMode.value !== "lasso" ||
+    !enhancedLassoService ||
+    !enhancedLassoService.isLassoActive()
+  )
+    return;
+
   const renderer = threeJSManager.getRenderer();
   if (!renderer) return;
-  
+
   const rect = renderer.domElement.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-  
+
   enhancedLassoService.updateLasso({ x, y });
 }
 
 function handleLassoMouseUp(_event: MouseEvent) {
-  if (currentMode.value !== "lasso" || !enhancedLassoService || !enhancedLassoService.isLassoActive()) return;
-  
+  if (
+    currentMode.value !== "lasso" ||
+    !enhancedLassoService ||
+    !enhancedLassoService.isLassoActive()
+  )
+    return;
+
   const result = enhancedLassoService.finishLasso(dentalModel.value!);
-  
+
   if (result) {
     handleLassoOperationResult(result);
   }
-  
+
   console.log("Finalized enhanced lasso selection");
 }
 
 function handleLassoOperationResult(result: LassoOperationResult) {
   switch (result.mode) {
-    case 'create':
+    case "create":
       handleLassoCreateSegment(result.selectedVertices);
       break;
-    case 'select':
+    case "select":
       handleLassoSelectSegments(result.affectedSegments);
       break;
-    case 'add':
+    case "add":
       handleLassoAddToSegment(result.selectedVertices, result.targetSegmentId);
       break;
-    case 'subtract':
-      handleLassoSubtractFromSegment(result.selectedVertices, result.targetSegmentId);
+    case "subtract":
+      handleLassoSubtractFromSegment(
+        result.selectedVertices,
+        result.targetSegmentId
+      );
       break;
   }
 }
@@ -526,34 +412,54 @@ function handleLassoSelectSegments(segments: any[]) {
   console.log(`Selected ${segments.length} segments via lasso`);
 }
 
-function handleLassoAddToSegment(selectedVertices: number[], targetSegmentId?: string) {
+function handleLassoAddToSegment(
+  selectedVertices: number[],
+  targetSegmentId?: string
+) {
   if (!targetSegmentId || selectedVertices.length === 0) {
     alert("Please select a segment first to add vertices to it.");
     return;
   }
 
-  const targetSegment = dentalModel.value?.segments.find(s => s.id === targetSegmentId);
+  const targetSegment = dentalModel.value?.segments.find(
+    (s) => s.id === targetSegmentId
+  );
   if (!targetSegment) {
     alert("Target segment not found.");
     return;
   }
 
-  geometryManipulation.addVerticesToSegment(targetSegment, selectedVertices, dentalModel.value?.originalMesh, THREE);
+  geometryManipulation.addVerticesToSegment(
+    targetSegment,
+    selectedVertices,
+    dentalModel.value?.originalMesh,
+    THREE
+  );
 }
 
-function handleLassoSubtractFromSegment(selectedVertices: number[], targetSegmentId?: string) {
+function handleLassoSubtractFromSegment(
+  selectedVertices: number[],
+  targetSegmentId?: string
+) {
   if (!targetSegmentId || selectedVertices.length === 0) {
     alert("Please select a segment first to remove vertices from it.");
     return;
   }
 
-  const targetSegment = dentalModel.value?.segments.find(s => s.id === targetSegmentId);
+  const targetSegment = dentalModel.value?.segments.find(
+    (s) => s.id === targetSegmentId
+  );
   if (!targetSegment) {
     alert("Target segment not found.");
     return;
   }
 
-  geometryManipulation.removeVerticesFromSegment(targetSegment, selectedVertices, dentalModel.value?.originalMesh, THREE);
+  geometryManipulation.removeVerticesFromSegment(
+    targetSegment,
+    selectedVertices,
+    dentalModel.value?.originalMesh,
+    THREE
+  );
 }
 
 // Directional Movement Functions
@@ -563,7 +469,7 @@ function startDirectionalMove(
 ) {
   const camera = threeJSManager.getCamera();
   if (!camera || !THREE) return;
-  
+
   directionalMovement.startDirectionalMove(
     axis,
     direction,
@@ -592,9 +498,9 @@ function deleteSegment(segment: any) {
   if (!dentalModel.value) return;
   const scene = threeJSManager.getScene();
   if (!scene) return;
-  
+
   segmentManager.deleteSegment(segment, scene, dentalModel.value);
-  
+
   // Trigger Vue reactivity by reassigning the dentalModel ref
   dentalModel.value = { ...dentalModel.value };
   console.log("🔄 Triggered Vue reactivity after deleting segment");
@@ -603,27 +509,139 @@ function deleteSegment(segment: any) {
 // Treatment Plan Handlers
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
   currentTreatmentPlan.value = plan;
-  console.log('Treatment plan created:', plan);
+  console.log("Treatment plan created:", plan);
 }
 
 function handlePlanUpdated(plan: OrthodonticTreatmentPlan | null) {
   currentTreatmentPlan.value = plan;
-  console.log('Treatment plan updated:', plan);
+  console.log("Treatment plan updated:", plan);
 }
 
 function handleStepChanged(stepNumber: number) {
-  console.log('Treatment step changed to:', stepNumber);
+  console.log("Treatment step changed to:", stepNumber);
 }
 
 function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   isTreatmentPlanFullScreen.value = isFullScreen;
-  console.log('Treatment plan full screen:', isFullScreen);
+  console.log("Treatment plan full screen:", isFullScreen);
 }
 
 function dismissBackgroundStatus() {
   backgroundSegmentationStatus.value.isRunning = false;
   backgroundSegmentationStatus.value.message = "";
   backgroundSegmentationStatus.value.progress = undefined;
+}
+
+async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
+  try {
+    const { EnhancedLassoService } = await import(
+      "../services/EnhancedLassoService"
+    );
+    enhancedLassoService = new EnhancedLassoService(
+      renderer.domElement,
+      camera,
+      renderer,
+      scene
+    );
+  } catch (error) {
+    console.error("Failed to initialize Enhanced Lasso Service:", error);
+  }
+}
+
+// File handling
+async function handleFileUpload(event: Event, autoSegment: boolean = false) {
+  console.log("📁 handleFileUpload called with autoSegment:", autoSegment);
+   if (!fileHandlerService) {
+    console.error("❌ fileHandlerService is not initialized");
+    return;
+  }
+
+  const onLoadStart = () => {
+    threeJSManager.isLoading.value = true;
+    threeJSManager.loadingMessage.value = "Loading 3D model...";
+  };
+
+  const onLoadComplete = (model: DentalModel) => {
+    dentalModel.value = model;
+    threeJSManager.focusOnModel(model);
+    threeJSManager.isLoading.value = false;
+    threeJSManager.loadingMessage.value = "Model loaded successfully";
+  };
+
+  const onError = (error: Error) => {
+    alert(error.message);
+    threeJSManager.isLoading.value = false;
+    threeJSManager.loadingMessage.value = "";
+  };
+
+  const startBackgroundAISegmentation = async (file: File) => {
+    console.log(
+      "🤖 startBackgroundAISegmentation called with file:",
+      file.name
+    );
+    if (!segmentationService) {
+      console.error("❌ segmentationService is not initialized");
+      return;
+    }
+    if (!dentalModel.value) {
+      console.error("❌ dentalModel is not loaded");
+      return;
+    }
+
+    await segmentationService.startBackgroundAISegmentation(
+      file,
+      dentalModel.value,
+      (status) => {
+        backgroundSegmentationStatus.value = status;
+      },
+      (result) => {
+        console.log(
+          `✅ Background AI Segmentation completed: ${result.segments.length} teeth found`
+        );
+        setTimeout(() => {
+          backgroundSegmentationStatus.value.isRunning = false;
+          backgroundSegmentationStatus.value.message = "";
+          backgroundSegmentationStatus.value.progress = undefined;
+
+          threeJSManager.loadingMessage.value = `AI found ${result.segments.length} teeth!`;
+          setTimeout(() => {
+            threeJSManager.loadingMessage.value = "";
+          }, 3000);
+        }, 1000);
+      },
+      (error) => {
+        console.error("Background AI Segmentation failed:", error);
+        backgroundSegmentationStatus.value.isRunning = false;
+        backgroundSegmentationStatus.value.message = "";
+        backgroundSegmentationStatus.value.progress = undefined;
+
+        threeJSManager.loadingMessage.value = `AI segmentation failed: ${error.message}`;
+        setTimeout(() => {
+          threeJSManager.loadingMessage.value = "";
+        }, 5000);
+      },
+      (updatedDentalModel) => {
+        // Update the reactive dentalModel ref to trigger Vue reactivity
+        dentalModel.value = updatedDentalModel;
+        console.log(
+          "🔄 Updated dentalModel ref to trigger Vue reactivity and sidebar update"
+        );
+      }
+    );
+  };
+
+  console.log(
+    "📤 Calling fileHandlerService.handleFileUpload with autoSegment:",
+    autoSegment
+  );
+  await fileHandlerService.handleFileUpload(
+    event,
+    autoSegment,
+    onLoadStart,
+    onLoadComplete,
+    onError,
+    startBackgroundAISegmentation
+  );
 }
 </script>
 

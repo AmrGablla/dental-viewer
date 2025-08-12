@@ -21,6 +21,11 @@ export function useCameraControls() {
     canvas.addEventListener("click", (event) => onClick(event, camera, renderer, currentMode));
     canvas.addEventListener("wheel", (event) => onWheel(event, camera));
 
+    // Add touch events for better trackpad support
+    canvas.addEventListener("touchstart", (event) => onTouchStart(event, camera, renderer, currentMode));
+    canvas.addEventListener("touchmove", (event) => onTouchMove(event, camera, renderer, currentMode));
+    canvas.addEventListener("touchend", (event) => onTouchEnd(event, camera, renderer, currentMode));
+
     // Add keyboard listeners for modifier keys
     window.addEventListener("keydown", (event) => onKeyDown(event, renderer));
     window.addEventListener("keyup", (event) => onKeyUp(event, renderer, currentMode));
@@ -28,8 +33,12 @@ export function useCameraControls() {
   }
 
   function onMouseDown(event: MouseEvent, _camera: any, renderer: any, currentMode: any) {
-    // Handle lasso mode first
-    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseDown) {
+    
+    // Check if modifier keys are pressed for rotation (should override lasso mode)
+    const isRotationRequested = event.metaKey || event.ctrlKey;
+    
+    // Handle lasso mode first, but only if not rotating
+    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseDown && !isRotationRequested) {
       lassoHandlers.handleLassoMouseDown(event);
       return;
     }
@@ -39,14 +48,9 @@ export function useCameraControls() {
 
     // Store initial mouse position for rotation and movement
     lastMousePosition.set(event.clientX, event.clientY);
-
-    // Check if Cmd (Mac) or Ctrl (Windows/Linux) is held for rotation
-    const isRotationRequested = event.metaKey || event.ctrlKey;
-    console.log("MouseDown - isDragging:", isDragging, "isRotationRequested:", isRotationRequested, "metaKey:", event.metaKey, "ctrlKey:", event.ctrlKey);
-
+    
     if (isRotationRequested) {
       isPanning = true; // Keep variable name for compatibility but use for rotation
-      console.log("Setting isPanning to true for rotation");
       // Change cursor to indicate rotation mode
       if (renderer?.domElement) {
         renderer.domElement.style.cursor = "grabbing";
@@ -60,8 +64,12 @@ export function useCameraControls() {
   }
 
   function onMouseMove(event: MouseEvent, camera: any, renderer: any, currentMode: any) {
-    // Handle lasso mode first
-    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseMove) {
+    
+    // Check if modifier keys are pressed for rotation (should override lasso mode)
+    const isRotationRequested = event.metaKey || event.ctrlKey;
+    
+    // Handle lasso mode first, but only if not rotating
+    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseMove && !isRotationRequested) {
       lassoHandlers.handleLassoMouseMove(event);
       return;
     }
@@ -69,12 +77,8 @@ export function useCameraControls() {
     updateMousePosition(event, renderer);
 
     if (isDragging) {
-      // Check for rotation modifier key (Cmd/Ctrl) during mouse move
-      const isRotationRequested = event.metaKey || event.ctrlKey;
-      console.log("MouseMove - isDragging:", isDragging, "isRotationRequested:", isRotationRequested, "isPanning:", isPanning, "metaKey:", event.metaKey, "ctrlKey:", event.ctrlKey);
       
       if (isRotationRequested || isPanning) {
-        console.log("Calling rotateWithModifier");
         // Rotate the camera/model with modifier key
         rotateWithModifier(event, camera);
       } else if (currentMode.value === "pan") {
@@ -161,6 +165,46 @@ export function useCameraControls() {
     }
   }
 
+  function onTouchStart(event: TouchEvent, camera: any, renderer: any, currentMode: any) {
+    event.preventDefault();
+    
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        metaKey: event.ctrlKey || event.metaKey,
+        ctrlKey: event.ctrlKey || event.metaKey
+      });
+      onMouseDown(mouseEvent, camera, renderer, currentMode);
+    }
+  }
+
+  function onTouchMove(event: TouchEvent, camera: any, renderer: any, currentMode: any) {
+    event.preventDefault();
+    
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        metaKey: event.ctrlKey || event.metaKey,
+        ctrlKey: event.ctrlKey || event.metaKey
+      });
+      onMouseMove(mouseEvent, camera, renderer, currentMode);
+    }
+  }
+
+  function onTouchEnd(event: TouchEvent, camera: any, renderer: any, currentMode: any) {
+    event.preventDefault();
+    
+    const mouseEvent = new MouseEvent('mouseup', {
+      clientX: 0,
+      clientY: 0
+    });
+    onMouseUp(mouseEvent, camera, renderer, currentMode);
+  }
+
   function onWindowResize(camera: any, renderer: any) {
     if (!camera || !renderer) return;
 
@@ -183,21 +227,25 @@ export function useCameraControls() {
 
   function onKeyDown(event: KeyboardEvent, renderer: any) {
     // Update cursor when modifier keys are pressed
-    if ((event.metaKey || event.ctrlKey) && renderer?.domElement && !isDragging) {
-      renderer.domElement.style.cursor = "grab";
+    if (event.metaKey || event.ctrlKey) {
+      if (renderer?.domElement && !isDragging) {
+        renderer.domElement.style.cursor = "grab";
+      }
     }
   }
 
   function onKeyUp(event: KeyboardEvent, renderer: any, currentMode: any) {
     // Reset cursor when modifier keys are released
-    if (!event.metaKey && !event.ctrlKey && renderer?.domElement && !isDragging) {
-      // Reset cursor based on current mode
-      const cursorMap: Record<string, string> = {
-        lasso: "crosshair",
-        pan: "grab",
-      };
-      renderer.domElement.style.cursor =
-        cursorMap[currentMode.value] || "default";
+    if (!event.metaKey && !event.ctrlKey) {
+      if (renderer?.domElement && !isDragging) {
+        // Reset cursor based on current mode
+        const cursorMap: Record<string, string> = {
+          lasso: "crosshair",
+          pan: "grab",
+        };
+        renderer.domElement.style.cursor =
+          cursorMap[currentMode.value] || "default";
+      }
     }
   }
 
@@ -242,29 +290,19 @@ export function useCameraControls() {
   }
 
   function rotateWithModifier(event: MouseEvent, camera: any) {
-    if (!THREE || !lastMousePosition) {
-      console.log("rotateWithModifier - THREE or lastMousePosition not available");
-      return;
-    }
     
-    // Calculate mouse movement delta using movementX and movementY for better accuracy
-    const deltaX = event.movementX || 0;
-    const deltaY = event.movementY || 0;
+    // Calculate mouse movement delta
+    const currentMousePosition = new THREE.Vector2(event.clientX, event.clientY);
+    const deltaX = currentMousePosition.x - lastMousePosition.x;
+    const deltaY = currentMousePosition.y - lastMousePosition.y;
 
-    console.log("rotateWithModifier - deltaX:", deltaX, "deltaY:", deltaY);
-
-    // Only rotate if there's actual movement
-    if (Math.abs(deltaX) < 0.1 && Math.abs(deltaY) < 0.1) {
-      console.log("rotateWithModifier - movement too small, skipping");
-      return;
-    }
+    // Update last mouse position
+    lastMousePosition.copy(currentMousePosition);
 
     // Convert mouse movement to rotation angles
-    const rotationSpeed = 0.01; // Increased for more responsive rotation
+    const rotationSpeed = 0.005;
     const deltaTheta = -deltaX * rotationSpeed;
     const deltaPhi = deltaY * rotationSpeed;
-
-    console.log("rotateWithModifier - deltaTheta:", deltaTheta, "deltaPhi:", deltaPhi);
 
     // Use spherical coordinates for smooth orbital rotation
     const spherical = new THREE.Spherical();
@@ -281,8 +319,6 @@ export function useCameraControls() {
     camera.position.setFromSpherical(spherical);
     camera.lookAt(0, 0, 0);
     camera.updateMatrixWorld();
-
-    console.log("rotateWithModifier - camera position updated:", camera.position);
   }
 
   function cleanup() {

@@ -1,4 +1,4 @@
-import { ref, markRaw } from 'vue';
+import { ref } from 'vue';
 import type { ToothSegment, DentalModel } from '../types/dental';
 
 export function useSegmentManager() {
