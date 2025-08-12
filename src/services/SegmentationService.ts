@@ -1,229 +1,263 @@
-import { Mesh, MeshStandardMaterial, DoubleSide } from 'three'
-import { STLLoader } from 'three-stdlib'
-import type { SegmentationResult } from '../types/dental'
+import { markRaw } from 'vue';
+import type { 
+  SegmentationResult, 
+  SegmentData, 
+  ToothSegment, 
+  ToothType,
+  DentalModel 
+} from '../types/dental';
 
 export class SegmentationService {
-  private readonly API_BASE_URL = 'http://localhost:8000'
-  private activeSessions: Map<string, SegmentationResult> = new Map()
+  private backendService: any;
+  private scene: any;
+  private THREE: any;
 
-  /**
-   * Segment a dental STL file using the backend API
-   * @param file - The STL file to segment
-   * @returns Promise with segmentation results
-   */
-  async segmentSTLFile(file: File): Promise<SegmentationResult> {
-    return this.segmentSTLFileWithConfig(file, {})
+  constructor(backendService: any, scene: any, THREE?: any) {
+    this.backendService = backendService;
+    this.scene = scene;
+    this.THREE = THREE;
   }
 
-  /**
-   * Segment a dental STL file with user configuration
-   * @param file - The STL file to segment
-   * @param config - User segmentation configuration
-   * @returns Promise with segmentation results
-   */
-  async segmentSTLFileWithConfig(file: File, config: any = {}): Promise<SegmentationResult> {
+  async startBackgroundAISegmentation(
+    file: File,
+    dentalModel: DentalModel,
+    onStatusUpdate?: (status: { isRunning: boolean; message: string; progress?: number }) => void,
+    onComplete?: (result: SegmentationResult) => void,
+    onError?: (error: Error) => void,
+    onSegmentsCreated?: (updatedDentalModel: DentalModel) => void
+  ): Promise<void> {
     try {
-      console.log('Starting STL segmentation for:', file.name, 'with config:', config)
-      
-      // Validate file
-      if (!file.name.toLowerCase().endsWith('.stl')) {
-        throw new Error('Only STL files are supported for segmentation')
+      // Update background status
+      onStatusUpdate?.({
+        isRunning: true,
+        message: "AI analyzing dental structure...",
+        progress: 0,
+      });
+
+      console.log("🤖 Starting background AI segmentation...");
+
+      // Check if backend is available
+      const isHealthy = await this.backendService.checkHealth();
+      if (!isHealthy) {
+        throw new Error("Backend service unavailable");
       }
 
-      // Create form data for upload
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      // Add configuration as JSON
-      if (Object.keys(config).length > 0) {
-        formData.append('config', JSON.stringify(config))
+      onStatusUpdate?.({
+        isRunning: true,
+        message: "Uploading to AI service...",
+        progress: 25,
+      });
+
+      // Perform AI segmentation
+      const result = await this.backendService.segmentSTLFile(file);
+
+      onStatusUpdate?.({
+        isRunning: true,
+        message: "Processing segmentation results...",
+        progress: 75,
+      });
+
+      // Wait a bit for the 3D model to be fully loaded and rendered
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Clear existing manual segments (keep original mesh visible)
+      if (dentalModel.segments.length > 0) {
+        console.log("🧹 Clearing manual segments for AI results...");
+        this.clearExistingSegments(dentalModel);
       }
 
-      // Send to backend API
-      const response = await fetch(`${this.API_BASE_URL}/segment`, {
-        method: 'POST',
-        body: formData
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
-        throw new Error(`Segmentation failed: ${errorData.detail || response.statusText}`)
-      }
-
-      const result = await response.json()
+      // Create AI-segmented tooth segments
+      console.log("🔍 Backend result structure:", result);
+      console.log("🔍 session_id:", result.session_id);
+      console.log("🔍 sessionId:", result.sessionId);
       
-      // Transform backend response to our frontend types
-      const segmentationResult: SegmentationResult = {
-        sessionId: result.session_id,
-        originalFile: file.name,
-        segments: result.segments.map((segment: any) => ({
+      // Convert snake_case to camelCase for frontend compatibility
+      const frontendResult = {
+        ...result,
+        sessionId: result.session_id || result.sessionId,
+        segmentsCount: result.segments_count || result.segmentsCount
+      };
+      console.log("🔍 Frontend result with sessionId:", frontendResult.sessionId);
+      
+      // Map backend segment data to frontend format with unique colors
+      const colors = [
+        '#FF6B6B', // Red
+        '#4ECDC4', // Teal
+        '#45B7D1', // Blue
+        '#96CEB4', // Green
+        '#FFEAA7', // Yellow
+        '#DDA0DD', // Plum
+        '#98D8C8', // Mint
+        '#F7DC6F', // Gold
+        '#BB8FCE', // Purple
+        '#85C1E9', // Light Blue
+        '#F8C471', // Orange
+        '#82E0AA'  // Light Green
+      ];
+      
+      const mappedSegments = result.segments.map((segment: any, index: number) => {
+        const color = colors[index % colors.length];
+        console.log(`🎨 Assigning color ${color} to segment ${segment.tooth_type === 'gum' ? 'Gum' : `Tooth ${segment.tooth_number}`}`);
+        
+        return {
           id: segment.id,
           name: segment.tooth_type === 'gum' ? 'Gum' : `Tooth ${segment.tooth_number}`,
           filename: segment.filename,
-          pointCount: segment.point_count || segment.vertex_count,
-          center: segment.center,
+          pointCount: segment.vertex_count || 0,
+          center: segment.center || [0, 0, 0],
           volume: segment.volume || 0,
           boundingBox: segment.bounding_box,
-          downloadUrl: segment.download_url,
+          downloadUrl: segment.download_url || `/download/${frontendResult.sessionId}/${segment.filename}`,
           visible: true,
           selected: false,
-          color: segment.tooth_type === 'gum' ? '#FFC0CB' : this.generateSegmentColor(segment.id),
-          toothType: segment.tooth_type
-        })),
-        timestamp: new Date(),
-        status: 'completed'
-      }
-
-      // Store in active sessions
-      this.activeSessions.set(result.session_id, segmentationResult)
-
-      console.log(`Segmentation completed: ${result.segments_count} teeth found`)
-      return segmentationResult
-
-    } catch (error) {
-      console.error('Segmentation error:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Download a specific tooth segment as PLY file
-   * @param sessionId - The segmentation session ID
-   * @param filename - The segment filename to download
-   * @returns Promise with blob data
-   */
-  async downloadSegment(sessionId: string, filename: string): Promise<Blob> {
-    try {
-      const response = await fetch(`${this.API_BASE_URL}/download/${sessionId}/${filename}`)
+          color: color, // Assign unique color based on index
+          toothType: segment.tooth_type || 'molar'
+        };
+      });
       
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`)
-      }
-
-      return await response.blob()
-    } catch (error) {
-      console.error('Download error:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Load a segmented STL file from the backend and create a Three.js mesh
-   * @param sessionId - The segmentation session ID
-   * @param filename - The segment filename
-   * @returns Promise resolving to a Three.js Mesh
-   */
-  async loadSegmentAsMesh(sessionId: string, filename: string): Promise<Mesh> {
-    try {
-      // Fetch the segment as a blob and convert to ArrayBuffer
-      const blob = await this.downloadSegment(sessionId, filename)
-      const arrayBuffer = await blob.arrayBuffer()
-
-      // Parse STL geometry
-      const loader = new STLLoader()
-      const geometry = loader.parse(arrayBuffer)
-
-      // Create a enhanced material for the segment
-      const material = new MeshStandardMaterial({ 
-        color: 0xffffff, 
-        side: DoubleSide,
-        roughness: 0.4,
-        metalness: 0.05,
-        transparent: true,
-        opacity: 0.95,
-        flatShading: false
-      })
-      const mesh = new Mesh(geometry, material)
-
-      // Prevent Vue from making the mesh reactive
-      Object.defineProperty(mesh, '__v_skip', { value: true })
-
-      return mesh
-    } catch (error) {
-      console.error('Error loading segment as mesh:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Get information about a segmentation session
-   * @param sessionId - The session ID to query
-   * @returns Promise with session information
-   */
-  async getSessionInfo(sessionId: string): Promise<any> {
-    try {
-      const response = await fetch(`${this.API_BASE_URL}/sessions/${sessionId}`)
+      const finalResult = {
+        ...frontendResult,
+        segments: mappedSegments
+      };
       
-      if (!response.ok) {
-        throw new Error(`Session not found: ${response.statusText}`)
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error('Error getting session info:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Clean up a segmentation session
-   * @param sessionId - The session ID to clean up
-   * @returns Promise indicating success
-   */
-  async cleanupSession(sessionId: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.API_BASE_URL}/sessions/${sessionId}`, {
-        method: 'DELETE'
-      })
-
-      if (response.ok) {
-        this.activeSessions.delete(sessionId)
-        return true
-      }
+      console.log("🔍 Mapped segments:", mappedSegments);
+      const updatedDentalModel = await this.createAISegments(finalResult, dentalModel);
       
-      return false
+      // Notify the caller about the updated dental model to trigger reactivity
+      if (updatedDentalModel && onSegmentsCreated) {
+        onSegmentsCreated(updatedDentalModel);
+        console.log("🔄 Notified caller about updated dental model");
+      }
+
+      onStatusUpdate?.({
+        isRunning: true,
+        message: "AI segmentation completed!",
+        progress: 100,
+      });
+
+      console.log(`✅ Background AI Segmentation completed: ${result.segments.length} teeth found`);
+      
+      onComplete?.(result);
+
     } catch (error) {
-      console.error('Error cleaning up session:', error)
-      return false
+      console.error("Background AI Segmentation failed:", error);
+      onError?.(error instanceof Error ? error : new Error('Unknown error'));
     }
   }
 
-  /**
-   * Check if the backend API is available
-   * @returns Promise with health status
-   */
-  async checkHealth(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.API_BASE_URL}/health`)
-      const data = await response.json()
-      return response.ok && data.status === 'healthy'
-    } catch (error) {
-      console.error('Backend health check failed:', error)
-      return false
-    }
-  }
-
-  /**
-   * Get all active segmentation sessions
-   * @returns Map of active sessions
-   */
-  getActiveSessions(): Map<string, SegmentationResult> {
-    return this.activeSessions
-  }
-
-  /**
-   * Generate a color for a segment based on its ID
-   * @param segmentId - The segment ID
-   * @returns Color as hex string
-   */
-  private generateSegmentColor(segmentId: number): string {
-    // Generate distinct colors for different segments
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
-      '#FF9FF3', '#A29BFE', '#FD79A8', '#E17055', '#74B9FF',
-      '#00B894', '#FDCB6E', '#E84393', '#6C5CE7', '#FD79A8'
-    ]
+  private clearExistingSegments(dentalModel: DentalModel) {
+    // Remove all existing segments from scene
+    dentalModel.segments.forEach((segment) => {
+      this.scene.remove(segment.mesh);
+    });
     
-    return colors[segmentId % colors.length]
+    // Clear segments array
+    dentalModel.segments = [];
+    dentalModel = { ...dentalModel };
+    
+    console.log("Cleared existing manual segments for AI segmentation");
+  }
+
+  async createAISegments(result: SegmentationResult, dentalModel: DentalModel): Promise<DentalModel> {
+    try {
+      console.log("🎨 Creating 3D tooth segments from backend result:", result);
+      console.log("📊 Number of segments to create:", result.segments.length);
+
+      for (let i = 0; i < result.segments.length; i++) {
+        const segmentData = result.segments[i];
+        console.log(`🦷 Creating segment ${i + 1}/${result.segments.length}:`, segmentData);
+
+        const segment = await this.createSegmentFromData(result.sessionId, segmentData);
+
+        if (segment) {
+          console.log(`✅ Successfully created segment: ${segment.name}`);
+          dentalModel.segments.push(segment);
+          this.scene.add(segment.mesh);
+          console.log(`📊 Added segment to dentalModel. Total segments: ${dentalModel.segments.length}`);
+          console.log(`🎭 Added mesh to scene. Scene children count: ${this.scene.children.length}`);
+        } else {
+          console.error(`❌ Failed to create segment ${i + 1}:`, segmentData);
+        }
+      }
+
+      // Force reactivity update so sidebar reflects new segments
+      // Since dentalModel is a shallowRef, we need to trigger reactivity by creating a new object
+      const updatedDentalModel = { ...dentalModel };
+      console.log(`🔄 Forced reactivity update. Updated model segments: ${updatedDentalModel.segments.length}`);
+      
+      // Trigger Vue reactivity by reassigning the entire object
+      // This will be handled by the caller (DentalViewer) since we can't directly modify the ref here
+      console.log(`🎉 Created ${dentalModel.segments.length} AI-segmented tooth segments`);
+      console.log(`📋 Session ID: ${result.sessionId} - Use this to download individual STL files`);
+      console.log(`📋 Final dentalModel segments:`, dentalModel.segments.map(s => ({ id: s.id, name: s.name })));
+      
+      // Return the updated model so the caller can update the ref
+      return updatedDentalModel;
+
+    } catch (error) {
+      console.error("❌ Error creating AI segments:", error);
+      throw error;
+    }
+  }
+
+  async createSegmentFromData(sessionId: string, segmentData: SegmentData): Promise<ToothSegment | null> {
+    try {
+      console.log(`🔧 Creating segment from data:`, segmentData);
+      
+      // Load actual segment mesh from backend
+      let mesh = await this.backendService.loadSegmentAsMesh(sessionId, segmentData.filename, segmentData.color);
+      console.log(`📦 Loaded mesh for segment:`, mesh);
+
+      // Apply color from segmentation result
+      if (!this.THREE) {
+        console.error("❌ THREE is not available in SegmentationService");
+        return null;
+      }
+      
+      const color = new this.THREE.Color(segmentData.color || '#00ff00');
+      const material = mesh.material as any;
+      material.color = color;
+      material.side = this.THREE.DoubleSide;
+
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh = markRaw(mesh);
+
+      const centroid = new this.THREE.Vector3(
+        segmentData.center?.[0] || 0,
+        segmentData.center?.[1] || 0,
+        segmentData.center?.[2] || 0
+      );
+
+      const segment: ToothSegment = {
+        id: `ai_segment_${segmentData.id}`,
+        name: segmentData.name,
+        mesh: mesh,
+        originalVertices: [],
+        centroid: centroid,
+        color: color,
+        toothType: (segmentData.toothType as ToothType) || 'molar',
+        isSelected: false,
+        movementDistance: 0,
+        originalPosition: mesh.position.clone(),
+        movementHistory: {
+          totalDistance: 0,
+          axisMovements: {
+            anteroposterior: 0,
+            vertical: 0,
+            transverse: 0,
+          },
+          lastMovementType: undefined,
+          movementCount: 0,
+        },
+      };
+
+      console.log(`✅ Created AI segment: ${segment.name} from ${segmentData.filename}`);
+      return segment;
+
+    } catch (error) {
+      console.error('❌ Error loading segment:', error);
+      return null;
+    }
   }
 }

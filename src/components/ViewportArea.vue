@@ -45,15 +45,7 @@ const emit = defineEmits<Emits>()
 const canvasContainer = ref<HTMLDivElement>()
 
 // Functions
-function getModeIcon(mode: InteractionMode['mode']): string {
-  const icons = {
-    select: '🖱️',
-    lasso: '✏️',
-    move: '✋',
-    rotate: '🔄'
-  }
-  return icons[mode] || '◈'
-}
+// Remove unused function
 
 function handleSetViewPreset(preset: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right') {
   emit('setViewPreset', preset)

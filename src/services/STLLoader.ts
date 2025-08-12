@@ -12,6 +12,13 @@ export class STLLoaderService {
   }
 
   /**
+   * Parse STL data from ArrayBuffer
+   */
+  parseSTLFromArrayBuffer(arrayBuffer: ArrayBuffer): any {
+    return this.loader.parse(arrayBuffer);
+  }
+
+  /**
    * Load STL file and convert to glTF/GLB format for internal use
    */
   async loadSTLAsGLTF(file: File, useGLB: boolean = true): Promise<{

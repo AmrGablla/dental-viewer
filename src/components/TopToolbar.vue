@@ -20,10 +20,6 @@
           <span class="btn-icon" :class="{ 'rotating': isLoading }">{{ isLoading ? '⟳' : '⬆' }}</span>
           {{ getUploadButtonText() }}
         </button>
-        <button @click="exportModel" :disabled="!dentalModel || isLoading" class="toolbar-btn">
-          <span class="btn-icon">⬇</span>
-          Export
-        </button>
       </div>
       
       <div class="view-controls" v-if="dentalModel">
@@ -61,16 +57,6 @@
           
           <!-- Preview Toggle -->
           <div class="preview-controls" v-if="showPreviewControls">
-            <button 
-              @click="togglePreview"
-              :class="{ active: previewEnabled }"
-              class="toolbar-btn preview-btn"
-              title="Toggle preview mode"
-            >
-              <span class="btn-icon">👁️</span>
-              <span>Preview</span>
-            </button>
-            
             <button 
               v-if="hasPreviewSelection"
               @click="confirmSelection"
@@ -116,10 +102,8 @@ const props = defineProps<Props>()
 // Emits
 const emit = defineEmits<{
   fileUpload: [event: Event, autoSegment: boolean]
-  exportModel: []
   setInteractionMode: [mode: InteractionMode['mode']]
   setLassoMode: [mode: LassoMode]
-  togglePreview: []
   confirmSelection: []
   cancelSelection: []
 }>()
@@ -178,6 +162,7 @@ function triggerFileUpload() {
 
 function handleFileUpload(event: Event) {
   const autoSegment = true;
+  console.log("📁 TopToolbar: handleFileUpload called with autoSegment:", autoSegment);
   emit('fileUpload', event, autoSegment)
 }
 
@@ -198,11 +183,6 @@ function setInteractionMode(mode: InteractionMode['mode']) {
 function setLassoMode(mode: LassoMode) {
   currentLassoMode.value = mode
   emit('setLassoMode', mode)
-}
-
-function togglePreview() {
-  previewEnabled.value = !previewEnabled.value
-  emit('togglePreview')
 }
 
 function confirmSelection() {
@@ -451,10 +431,7 @@ function getLassoModeDescription(): string {
 
 /* Enhanced Lasso Controls */
 .lasso-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 16px;
+   align-items: center; 
   background: rgba(30, 41, 59, 0.8);
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.2);

@@ -33,4 +33,8 @@ export class PLYLoaderService {
       reader.readAsArrayBuffer(file);
     });
   }
+
+  parsePLYFromArrayBuffer(arrayBuffer: ArrayBuffer): any {
+    return this.loader.parse(arrayBuffer);
+  }
 }
