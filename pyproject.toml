@@ -1,0 +1,28 @@
+[project]
+name = "dental-seg-backend"
+version = "0.1.0"
+description = "Dental segmentation backend"
+authors = [{name = "Auto"}]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic-settings",
+    "python-multipart",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "httpx",
+]
+dev = [
+    "pre-commit",
+    "black",
+    "isort",
+    "ruff",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
