@@ -58,6 +58,62 @@
         </div>
       </div>
 
+      <!-- Intersection Information -->
+      <div class="panel intersection-panel" v-if="intersectionResults && intersectionResults.length > 0">
+        <div class="panel-header">
+          <svg 
+            class="panel-icon" 
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
+          >
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <span class="panel-title">Intersections</span>
+          <span class="panel-badge intersection-badge">{{ intersectionResults.length }}</span>
+        </div>
+        <div class="panel-content">
+          <div class="intersection-list">
+            <div 
+              v-for="(intersection, index) in intersectionResults" 
+              :key="`${intersection.segment1.id}-${intersection.segment2.id}`"
+              class="intersection-item"
+            >
+              <div class="intersection-header">
+                <span class="intersection-number">{{ index + 1 }}</span>
+                <span class="intersection-segments">
+                  {{ intersection.segment1.name }} ↔ {{ intersection.segment2.name }}
+                </span>
+                <span class="intersection-severity" :class="intersection.severity">
+                  {{ intersection.severity }}
+                </span>
+              </div>
+              <div class="intersection-details">
+                <div class="detail-row">
+                  <span class="detail-label">Volume:</span>
+                  <span class="detail-value">{{ intersection.intersectionVolume.toFixed(2) }} mm³</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Penetration:</span>
+                  <span class="detail-value">{{ intersection.penetrationDepth.toFixed(2) }} mm</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Contact Area:</span>
+                  <span class="detail-value">{{ intersection.contactArea.toFixed(2) }} mm²</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Segment Management -->
       <div class="panel segment-panel" v-if="dentalModel && dentalModel.segments.length > 0">
         <div class="panel-header">
@@ -127,6 +183,7 @@ interface Props {
   dentalModel: DentalModel | null
   selectedSegments: ToothSegment[]
   currentTreatmentPlan?: OrthodonticTreatmentPlan | null
+  intersectionResults?: any[] // IntersectionResult[]
 }
 
 const props = defineProps<Props>()
@@ -511,5 +568,128 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
 
 .full-width {
   width: 100%;
+}
+
+/* Intersection Panel Styles */
+.intersection-panel {
+  margin-bottom: 12px;
+}
+
+.intersection-badge {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+}
+
+.intersection-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.intersection-item {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  padding: 10px;
+}
+
+.intersection-item:last-child {
+  margin-bottom: 0;
+}
+
+.intersection-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.intersection-number {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.intersection-segments {
+  flex: 1;
+  font-size: 12px;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.intersection-severity {
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.intersection-severity.low {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.intersection-severity.medium {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+.intersection-severity.high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.intersection-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-label {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 11px;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.intersection-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.intersection-list::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 2px;
+}
+
+.intersection-list::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.3);
+  border-radius: 2px;
+}
+
+.intersection-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.5);
 }
 </style>

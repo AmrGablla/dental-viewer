@@ -27,6 +27,7 @@
         :dentalModel="dentalModel"
         :selectedSegments="segmentManager.selectedSegments.value"
         :currentTreatmentPlan="currentTreatmentPlan"
+        :intersectionResults="segmentManager.intersectionResults.value"
         @toggleOriginalMesh="toggleOriginalMesh"
         @toggleAllSegments="toggleAllSegments"
         @toggleSegmentSelection="segmentManager.toggleSegmentSelection"
@@ -67,6 +68,17 @@
         @stepChanged="handleStepChanged"
         @toggleFullScreen="handleTreatmentPlanFullScreen"
       />
+
+      <!-- Intersection Panel -->
+      <IntersectionPanel
+        :intersectionResults="segmentManager.intersectionResults.value"
+        :statistics="segmentManager.intersectionStatistics.value"
+        :showNoIntersections="true"
+        @highlight="handleIntersectionHighlight"
+        @isolate="handleIntersectionIsolate"
+        @clear-visualizations="handleClearIntersectionVisualizations"
+        @export-data="handleExportIntersectionData"
+      />
     </div>
   </div>
 </template>
@@ -96,6 +108,7 @@ import LeftSidebar from "./LeftSidebar.vue";
 import ViewportArea from "./ViewportArea.vue";
 import BackgroundStatusIndicator from "./BackgroundStatusIndicator.vue";
 import TreatmentPlanPanel from "./TreatmentPlanPanel.vue";
+import IntersectionPanel from "./IntersectionPanel.vue";
 
 // Use the lazy loading composable
 const { loadThreeJS, loadServices } = useThreeJS();
@@ -189,6 +202,9 @@ async function initializeApp() {
     const { BackendService } = await import("../services/BackendService");
     const backendService = new BackendService("http://localhost:8000", THREE);
     segmentationService = new SegmentationService(backendService, scene, THREE);
+
+    // Initialize intersection detection
+    segmentManager.initializeIntersectionDetection(scene, THREE);
 
     // Setup event listeners
     if (renderer?.domElement) {
@@ -475,7 +491,13 @@ function startDirectionalMove(
     direction,
     segmentManager.selectedSegments.value,
     camera,
-    THREE
+    THREE,
+    () => {
+      // Trigger intersection detection after movement
+      if (dentalModel.value) {
+        segmentManager.detectIntersections(dentalModel.value);
+      }
+    }
   );
 }
 
@@ -532,6 +554,40 @@ function dismissBackgroundStatus() {
   backgroundSegmentationStatus.value.progress = undefined;
 }
 
+// Intersection Detection Handlers
+function handleIntersectionHighlight(intersection: any) {
+  console.log("Highlighting intersection:", intersection);
+  // TODO: Implement intersection highlighting
+}
+
+function handleIntersectionIsolate(intersection: any) {
+  console.log("Isolating segments for intersection:", intersection);
+  // TODO: Implement segment isolation
+}
+
+function handleClearIntersectionVisualizations() {
+  segmentManager.clearIntersectionVisualizations();
+  console.log("Cleared intersection visualizations");
+}
+
+function handleExportIntersectionData() {
+  const data = {
+    intersections: segmentManager.intersectionResults.value,
+    statistics: segmentManager.intersectionStatistics.value,
+    timestamp: new Date().toISOString()
+  };
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `intersection-data-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  console.log("Exported intersection data");
+}
+
 async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
   try {
     const { EnhancedLassoService } = await import(
@@ -566,6 +622,11 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
     threeJSManager.focusOnModel(model);
     threeJSManager.isLoading.value = false;
     threeJSManager.loadingMessage.value = "Model loaded successfully";
+    
+    // Detect intersections after model is loaded
+    if (model.segments.length > 0) {
+      segmentManager.detectIntersections(model);
+    }
   };
 
   const onError = (error: Error) => {

@@ -189,3 +189,40 @@ export interface TreatmentPlanExport {
     format: 'ascii' | 'binary'
   }[]
 }
+
+// Intersection Detection Types
+export interface IntersectionResult {
+  segment1: ToothSegment
+  segment2: ToothSegment
+  intersectionType: 'contact' | 'overlap' | 'collision'
+  severity: 'low' | 'medium' | 'high'
+  intersectionVolume: number
+  intersectionPoints: Vector3[]
+  penetrationDepth: number
+  contactArea: number
+  boundingBoxOverlap: {
+    min: Vector3
+    max: Vector3
+  }
+}
+
+export interface IntersectionVisualization {
+  intersectionMesh: Mesh
+  intersectionPoints: any // THREE.Points
+  boundingBoxes: any[] // THREE.Box3Helper[]
+  intersectionInfo: {
+    segment1Name: string
+    segment2Name: string
+    volume: number
+    penetrationDepth: number
+    contactArea: number
+  }
+}
+
+export interface IntersectionStatistics {
+  totalIntersections: number
+  bySeverity: { low: number; medium: number; high: number }
+  byType: { contact: number; overlap: number; collision: number }
+  averagePenetrationDepth: number
+  totalIntersectionVolume: number
+}

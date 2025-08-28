@@ -11,7 +11,8 @@ export function useDirectionalMovement() {
     direction: number,
     selectedSegments: ToothSegment[],
     camera: any,
-    THREE: any
+    THREE: any,
+    onMovementComplete?: () => void
   ) {
     if (selectedSegments.length === 0) return;
 
@@ -29,7 +30,7 @@ export function useDirectionalMovement() {
     directionalMoveInterval = window.setInterval(() => {
       if (!isDirectionalMoving) return;
 
-      moveSegmentInDirection(axis, direction * moveStep, selectedSegments, camera, THREE);
+      moveSegmentInDirection(axis, direction * moveStep, selectedSegments, camera, THREE, onMovementComplete);
     }, moveInterval);
 
     console.log(
@@ -55,7 +56,8 @@ export function useDirectionalMovement() {
     distance: number,
     selectedSegments: ToothSegment[],
     camera: any,
-    THREE: any
+    THREE: any,
+    onMovementComplete?: () => void
   ) {
     if (selectedSegments.length === 0) return;
 
@@ -90,6 +92,11 @@ export function useDirectionalMovement() {
       segment.mesh.position.add(movementVector);
       segment.mesh.updateMatrixWorld();
     });
+
+    // Call movement complete callback for intersection detection
+    if (onMovementComplete) {
+      onMovementComplete();
+    }
 
     // Update distance tracking
     if (selectedSegments[0]) {

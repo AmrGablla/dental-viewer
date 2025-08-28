@@ -1,5 +1,6 @@
 import { ref } from 'vue';
-import type { ToothSegment, DentalModel } from '../types/dental';
+import type { ToothSegment, DentalModel, IntersectionResult, IntersectionStatistics } from '../types/dental';
+import { IntersectionDetectionService, type IntersectionConfig } from '../services/IntersectionDetectionService';
 
 export function useSegmentManager() {
   const selectedSegments = ref<ToothSegment[]>([]);
@@ -12,6 +13,11 @@ export function useSegmentManager() {
     vertical: 0,
     transverse: 0,
   });
+
+  // Intersection detection
+  const intersectionResults = ref<IntersectionResult[]>([]);
+  const intersectionStatistics = ref<IntersectionStatistics | null>(null);
+  const intersectionService = ref<IntersectionDetectionService | null>(null);
 
   function toggleSegmentSelection(segment: ToothSegment) {
     const index = selectedSegments.value.findIndex((s) => s.id === segment.id);
@@ -79,6 +85,71 @@ export function useSegmentManager() {
       `Updated movement history for ${segment.name}:`,
       segment.movementHistory
     );
+  }
+
+  // Intersection detection functions
+  function initializeIntersectionDetection(scene: any, THREE: any) {
+    intersectionService.value = new IntersectionDetectionService(scene, {
+      severityThresholds: {
+        low: 1.0,
+        medium: 5.0,
+        high: 10.0
+      },
+      distanceThreshold: 2.0,
+      sampleCount: 200
+    });
+  }
+
+  function detectIntersections(dentalModel: DentalModel) {
+    if (!intersectionService.value || !dentalModel.segments.length) {
+      intersectionResults.value = [];
+      intersectionStatistics.value = null;
+      return;
+    }
+
+    console.log("Detecting intersections for", dentalModel.segments.length, "segments");
+    
+    // Detect intersections
+    const results = intersectionService.value.detectIntersections(dentalModel.segments);
+    intersectionResults.value = results;
+    
+    // Get statistics
+    intersectionStatistics.value = intersectionService.value.getIntersectionStatistics();
+    
+    // Create visualizations
+    intersectionService.value.createIntersectionVisualizations();
+    
+    console.log("Intersection detection completed:", {
+      totalIntersections: results.length,
+      statistics: intersectionStatistics.value
+    });
+  }
+
+  function clearIntersectionVisualizations() {
+    if (intersectionService.value) {
+      intersectionService.value.clearIntersectionVisualizations();
+    }
+  }
+
+  function getIntersectionsForSegment(segmentId: string): IntersectionResult[] {
+    if (!intersectionService.value) return [];
+    return intersectionService.value.getIntersectionsForSegment(segmentId);
+  }
+
+  function hasIntersections(): boolean {
+    if (!intersectionService.value) return false;
+    return intersectionService.value.hasIntersections();
+  }
+
+  function updateIntersectionConfig(config: Partial<IntersectionConfig>) {
+    if (intersectionService.value) {
+      intersectionService.value.updateConfig(config);
+    }
+  }
+
+  function getIntersectionConfig(): IntersectionConfig | null {
+    if (!intersectionService.value) return null;
+    return intersectionService.value.getConfig();
   }
 
   function resetIndividualPosition(segment: ToothSegment) {
@@ -210,6 +281,8 @@ export function useSegmentManager() {
     totalMovementDistance,
     movementAxis,
     axisMovementDistances,
+    intersectionResults,
+    intersectionStatistics,
     
     // Methods
     toggleSegmentSelection,
@@ -223,5 +296,14 @@ export function useSegmentManager() {
     areAllSegmentsVisible,
     toggleOriginalMesh,
     clearExistingSegments,
+    
+    // Intersection detection functions
+    initializeIntersectionDetection,
+    detectIntersections,
+    clearIntersectionVisualizations,
+    getIntersectionsForSegment,
+    hasIntersections,
+    updateIntersectionConfig,
+    getIntersectionConfig,
   };
 }
