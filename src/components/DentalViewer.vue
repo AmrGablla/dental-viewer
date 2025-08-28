@@ -509,11 +509,17 @@ function stopDirectionalMove() {
 function toggleOriginalMesh() {
   if (!dentalModel.value) return;
   segmentManager.toggleOriginalMesh(dentalModel.value);
+  
+  // Trigger Vue reactivity by reassigning the dentalModel ref
+  dentalModel.value = { ...dentalModel.value };
 }
 
 function toggleAllSegments() {
   if (!dentalModel.value) return;
   segmentManager.toggleAllSegments(dentalModel.value);
+  
+  // Trigger Vue reactivity by reassigning the dentalModel ref
+  dentalModel.value = { ...dentalModel.value };
 }
 
 function deleteSegment(segment: any) {

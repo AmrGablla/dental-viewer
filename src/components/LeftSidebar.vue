@@ -46,13 +46,25 @@
               @click="toggleOriginalMesh" 
               class="btn btn-secondary btn-compact"
             >
-              {{ dentalModel?.originalMesh?.visible ? 'Hide' : 'Show' }} Original
+              <Icon 
+                :name="isOriginalMeshVisible ? 'eye-off' : 'eye'" 
+                :size="14" 
+                color="currentColor" 
+                class="icon"
+              />
+              {{ isOriginalMeshVisible ? 'Hide' : 'Show' }} Original
             </button>
             <button 
               @click="toggleAllSegments" 
               class="btn btn-secondary btn-compact"
             >
-              {{ areAllSegmentsVisible() ? 'Hide All' : 'Show All' }}
+              <Icon 
+                :name="areAllSegmentsVisible ? 'eye-off' : 'eye'" 
+                :size="14" 
+                color="currentColor" 
+                class="icon"
+              />
+              {{ areAllSegmentsVisible ? 'Hide All' : 'Show All' }}
             </button>
           </div>
         </div>
@@ -172,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
 import SegmentItem from './SegmentItem.vue'
 import TreatmentPlanPanel from './TreatmentPlanPanel.vue'
@@ -214,10 +226,14 @@ function toggleAllSegments() {
   emit('toggleAllSegments')
 }
 
-function areAllSegmentsVisible(): boolean {
+const areAllSegmentsVisible = computed(() => {
   if (!props.dentalModel?.segments.length) return false
   return props.dentalModel.segments.every(segment => segment.mesh.visible)
-}
+})
+
+const isOriginalMeshVisible = computed(() => {
+  return props.dentalModel?.originalMesh?.visible ?? false
+})
 
 function handleToggleSegmentSelection(segment: ToothSegment) {
   emit('toggleSegmentSelection', segment)
@@ -435,6 +451,10 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   flex: 1;
 }
 
+.btn-compact .icon {
+  margin-right: 6px;
+}
+
 .segment-list {
   overflow-y: auto;
   overflow-x: hidden;
@@ -510,13 +530,19 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid;
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   white-space: nowrap;
   min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  z-index: 0;
+  outline: none;
+}
+
+.btn:focus {
+  outline: none;
 }
 
 .btn::before {
@@ -527,7 +553,14 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-  transition: left 0.6s ease;
+  transition: left 0.3s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.btn > * {
+  position: relative;
+  z-index: 2;
 }
 
 .btn:hover::before {
