@@ -279,7 +279,7 @@ function handleLassoMouseDown(event: MouseEvent) {
   )
     return;
 
-  // Don't start lasso if modifier keys are held (for rotation)
+  // Don't start lasso if modifier keys are held (for rotation/pan)
   if (event.metaKey || event.ctrlKey) return;
 
   const renderer = threeJSManager.getRenderer();
@@ -312,6 +312,9 @@ function handleLassoMouseMove(event: MouseEvent) {
     !enhancedLassoService.isLassoActive()
   )
     return;
+
+  // Don't update lasso if modifier keys are held (for rotation/pan)
+  if (event.metaKey || event.ctrlKey) return;
 
   const renderer = threeJSManager.getRenderer();
   if (!renderer) return;

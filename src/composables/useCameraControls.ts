@@ -64,12 +64,11 @@ export function useCameraControls() {
   }
 
   function onMouseMove(event: MouseEvent, camera: any, renderer: any, currentMode: any) {
-    
     // Check if modifier keys are pressed for rotation (should override lasso mode)
     const isRotationRequested = event.metaKey || event.ctrlKey;
     
-    // Handle lasso mode first, but only if not rotating
-    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseMove && !isRotationRequested) {
+    // Handle lasso mode first, but only if not rotating and not dragging with rotation
+    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseMove && !isRotationRequested && !isPanning) {
       lassoHandlers.handleLassoMouseMove(event);
       return;
     }
@@ -77,7 +76,6 @@ export function useCameraControls() {
     updateMousePosition(event, renderer);
 
     if (isDragging) {
-      
       if (isRotationRequested || isPanning) {
         // Rotate the camera/model with modifier key
         rotateWithModifier(event, camera);
@@ -104,10 +102,12 @@ export function useCameraControls() {
   }
 
   function onMouseUp(event: MouseEvent, _camera: any, renderer: any, currentMode: any) {
-    // Handle lasso mode first
-    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseUp) {
+    // Check if modifier keys are pressed for rotation (should override lasso mode)
+    const isRotationRequested = event.metaKey || event.ctrlKey;
+    
+    // Handle lasso mode first, but only if not rotating
+    if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseUp && !isRotationRequested) {
       lassoHandlers.handleLassoMouseUp(event);
-      return;
     }
 
     // Reset rotation state and cursor
