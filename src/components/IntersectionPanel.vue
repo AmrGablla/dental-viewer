@@ -19,7 +19,7 @@
       </div>
     </div>
 
-    <div class="severity-breakdown">
+    <div class="severity-breakdown" v-if="statistics">
       <div class="severity-item low" v-if="statistics.bySeverity.low > 0">
         <span class="severity-dot"></span>
         <span class="severity-label">Low</span>
@@ -39,7 +39,7 @@
 
     <div class="intersection-list">
       <div 
-        v-for="(intersection, index) in intersectionResults" 
+        v-for="intersection in intersectionResults" 
         :key="`${intersection.segment1.id}-${intersection.segment2.id}`"
         class="intersection-item"
         :class="[intersection.severity, intersection.intersectionType]"
@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+
 import Icon from './Icon.vue';
 import type { IntersectionResult, IntersectionStatistics } from '../types/dental';
 
@@ -135,7 +135,7 @@ interface Emits {
   (e: 'export-data'): void;
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   showNoIntersections: true
 });
 

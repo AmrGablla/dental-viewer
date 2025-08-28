@@ -204,7 +204,7 @@ async function initializeApp() {
     segmentationService = new SegmentationService(backendService, scene, THREE);
 
     // Initialize intersection detection
-    segmentManager.initializeIntersectionDetection(scene, THREE);
+    segmentManager.initializeIntersectionDetection(scene);
 
     // Setup event listeners
     if (renderer?.domElement) {

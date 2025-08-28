@@ -88,7 +88,7 @@ export function useSegmentManager() {
   }
 
   // Intersection detection functions
-  function initializeIntersectionDetection(scene: any, THREE: any) {
+  function initializeIntersectionDetection(scene: any) {
     intersectionService.value = new IntersectionDetectionService(scene, {
       severityThresholds: {
         low: 1.0,
