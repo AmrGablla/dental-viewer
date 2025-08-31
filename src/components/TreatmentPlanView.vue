@@ -38,7 +38,7 @@
           <div class="gantt-sidebar-header">Tooth</div>
           <div class="gantt-timeline-header">
             <div 
-              v-for="step in plan.totalSteps" 
+              v-for="step in Math.min(plan.totalSteps || 1, 2000)" 
               :key="step"
               class="step-header"
               :class="{ current: step === plan.currentStep }"
@@ -217,6 +217,8 @@ const exportAllSteps = async () => {
 // Movement timing and intersection functions
 const startDragMovement = (event: MouseEvent, toothId: string, movementIndex: number) => {
   event.preventDefault()
+  event.stopPropagation()
+  
   isDragging.value = true
   draggedMovement.value = { toothId, movementIndex }
   dragStartX.value = event.clientX
@@ -226,6 +228,8 @@ const startDragMovement = (event: MouseEvent, toothId: string, movementIndex: nu
   const movement = tooth?.movements[movementIndex]
   dragStartStep.value = movement?.startStep || tooth?.startStep || 1
   
+
+  
   // Add global mouse event listeners
   document.addEventListener('mousemove', handleDragMovement)
   document.addEventListener('mouseup', stopDragMovement)
@@ -234,16 +238,57 @@ const startDragMovement = (event: MouseEvent, toothId: string, movementIndex: nu
 const handleDragMovement = (event: MouseEvent) => {
   if (!isDragging.value || !draggedMovement.value) return
   
-  // Calculate step change based on mouse movement
-  const ganttTimeline = document.querySelector('.gantt-timeline')
-  if (!ganttTimeline) return
+  event.preventDefault()
   
-  const timelineRect = ganttTimeline.getBoundingClientRect()
-  const stepWidth = timelineRect.width / totalSteps.value
+  // Calculate step change based on mouse movement
+  // Try multiple selectors to find an element with width
+  let timelineElement = document.querySelector('.gantt-timeline-header')
+  let timelineRect = timelineElement?.getBoundingClientRect()
+  
+  // If timeline header has no width, try the gantt container
+  if (!timelineElement || !timelineRect || timelineRect.width === 0) {
+    timelineElement = document.querySelector('.gantt-container')
+    timelineRect = timelineElement?.getBoundingClientRect()
+  }
+  
+  // If still no width, try the gantt header
+  if (!timelineElement || !timelineRect || timelineRect.width === 0) {
+    timelineElement = document.querySelector('.gantt-header')
+    timelineRect = timelineElement?.getBoundingClientRect()
+  }
+  
+  // If still no width, try the treatment plan view container
+  if (!timelineElement || !timelineRect || timelineRect.width === 0) {
+    timelineElement = document.querySelector('.treatment-plan-view')
+    timelineRect = timelineElement?.getBoundingClientRect()
+  }
+  
+  if (!timelineElement || !timelineRect) {
+    return
+  }
+  
+  const currentTotalSteps = props.plan.totalSteps || 1
+  
+  // Safety check to prevent division by zero
+  if (currentTotalSteps <= 0 || timelineRect.width <= 0) {
+    // Fallback: use a reasonable step width based on typical UI dimensions
+    const fallbackStepWidth = 50 // 50px per step as fallback
+    const deltaX = event.clientX - dragStartX.value
+    const stepChange = Math.round(deltaX / fallbackStepWidth)
+    
+    // Calculate new start step
+    const newStartStep = Math.max(1, dragStartStep.value + stepChange)
+    
+    // Update the movement start step
+    updateMovementStartStep(draggedMovement.value.toothId, draggedMovement.value.movementIndex, newStartStep)
+    return
+  }
+  
+  const stepWidth = timelineRect.width / currentTotalSteps
   const deltaX = event.clientX - dragStartX.value
   const stepChange = Math.round(deltaX / stepWidth)
   
-  // Allow dragging beyond current total steps - we'll expand the plan automatically
+  // Calculate new start step
   const newStartStep = Math.max(1, dragStartStep.value + stepChange)
   
   // Update the movement start step
@@ -262,41 +307,58 @@ const stopDragMovement = () => {
 }
 
 const updateMovementStartStep = (toothId: string, movementIndex: number, newStartStep: number) => {
-  if (newStartStep >= 1) {
-    const tooth = props.plan.teethMovements.find(t => t.toothId === toothId)
-    if (tooth && tooth.movements[movementIndex]) {
-      const movement = tooth.movements[movementIndex]
-      const movementEndStep = newStartStep + (movement.userSteps || movement.recommendedSteps) - 1
-      
-      // Calculate new total steps needed
-      const maxStepNeeded = Math.max(
-        movementEndStep,
-        ...props.plan.teethMovements.flatMap(t => 
-          t.movements.map(m => {
-            const startStep = m.startStep || t.startStep
-            return startStep + (m.userSteps || m.recommendedSteps) - 1
-          })
-        )
-      )
-      
-      const updatedMovement = { ...movement, startStep: newStartStep }
-      const updatedMovements = [...tooth.movements]
-      updatedMovements[movementIndex] = updatedMovement
-      
-      const updatedTooth = { ...tooth, movements: updatedMovements }
-      const updatedTeethMovements = props.plan.teethMovements.map(t => 
-        t.toothId === toothId ? updatedTooth : t
-      )
-      
-      // Update the plan with new total steps if needed
-      const updatedPlan = { 
-        ...props.plan, 
-        teethMovements: updatedTeethMovements,
-        totalSteps: Math.max(props.plan.totalSteps, maxStepNeeded)
-      }
-      emit('planUpdated', updatedPlan)
-    }
+  // Validate input parameters
+  if (!isFinite(newStartStep) || newStartStep < 1) {
+    return
   }
+  
+  const tooth = props.plan.teethMovements.find(t => t.toothId === toothId)
+  if (!tooth || !tooth.movements[movementIndex]) {
+    return
+  }
+  
+  const movement = tooth.movements[movementIndex]
+  const movementSteps = movement.userSteps || movement.recommendedSteps || 1
+  
+  // Update the movement
+  const updatedMovement = { ...movement, startStep: newStartStep }
+  const updatedMovements = [...tooth.movements]
+  updatedMovements[movementIndex] = updatedMovement
+  
+  const updatedTooth = { ...tooth, movements: updatedMovements }
+  const updatedTeethMovements = props.plan.teethMovements.map(t => 
+    t.toothId === toothId ? updatedTooth : t
+  )
+  
+  // Calculate the maximum step needed across all movements
+  let maxStepNeeded = newStartStep + movementSteps - 1
+  
+  // Check all other movements to find the maximum step
+  updatedTeethMovements.forEach(t => {
+    t.movements.forEach(m => {
+      const startStep = m.startStep || t.startStep || 1
+      const steps = m.userSteps || m.recommendedSteps || 1
+      const endStep = startStep + steps - 1
+      if (endStep > maxStepNeeded) {
+        maxStepNeeded = endStep
+      }
+    })
+  })
+  
+  // Ensure maxStepNeeded is reasonable
+  maxStepNeeded = Math.max(1, Math.min(2000, maxStepNeeded))
+  
+  // Update the plan
+  const currentTotalSteps = props.plan.totalSteps || 1
+  const newTotalSteps = Math.max(currentTotalSteps, maxStepNeeded)
+  
+  const updatedPlan = { 
+    ...props.plan, 
+    teethMovements: updatedTeethMovements,
+    totalSteps: newTotalSteps
+  }
+  
+  emit('planUpdated', updatedPlan)
 }
 
 const hasIntersectionConflicts = (tooth: any): boolean => {
