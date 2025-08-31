@@ -165,6 +165,8 @@ watch(() => props.isVisible, (isVisible) => {
   }
 })
 
+
+
 const movedTeethCount = computed(() => {
   return props.segments.filter(segment => {
     if (!segment.movementHistory) return false

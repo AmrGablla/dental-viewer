@@ -496,6 +496,16 @@ function startDirectionalMove(
     camera,
     THREE,
     () => {
+      // Update movement history for all selected segments
+      segmentManager.selectedSegments.value.forEach(segment => {
+        segmentManager.updateSegmentMovementHistory(segment, 'directional');
+      });
+      
+      // Trigger Vue reactivity by reassigning the dentalModel ref
+      if (dentalModel.value) {
+        dentalModel.value = { ...dentalModel.value };
+      }
+      
       // Trigger intersection detection after movement
       if (dentalModel.value) {
         segmentManager.detectIntersections(dentalModel.value);
@@ -506,6 +516,16 @@ function startDirectionalMove(
 
 function stopDirectionalMove() {
   directionalMovement.stopDirectionalMove();
+  
+  // Update movement history for all selected segments when movement stops
+  segmentManager.selectedSegments.value.forEach(segment => {
+    segmentManager.updateSegmentMovementHistory(segment, 'directional');
+  });
+  
+  // Trigger Vue reactivity by reassigning the dentalModel ref
+  if (dentalModel.value) {
+    dentalModel.value = { ...dentalModel.value };
+  }
 }
 
 // Segment Management Functions
