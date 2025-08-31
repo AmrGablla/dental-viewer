@@ -1,60 +1,93 @@
 <template>
   <div class="treatment-plan-panel" :class="{ 'fullscreen': isFullScreen }">
     <div class="panel-header">
-      <h3>Orthodontic Treatment Plan</h3>
-      <div class="panel-actions">
-        <button 
-          @click="toggleFullScreen"
-          class="btn-expand"
-          :class="{ 'expanded': isFullScreen }"
-          :title="isFullScreen ? 'Exit Full Screen' : 'Expand to Full Screen'"
-        >
-          <Icon 
-            v-if="!isFullScreen" 
-            name="maximize-2" 
-            :size="16" 
-            color="#475569" 
-          />
-          <Icon 
-            v-else 
-            name="minimize-2" 
-            :size="16" 
-            color="#475569" 
-          />
-        </button>
-        <button 
-          v-if="!currentPlan" 
-          @click="createPlan" 
-          class="btn-create"
-          :disabled="!hasMovedSegments"
-        >
-          Create Treatment Plan
-        </button>
-        <button 
-          v-if="currentPlan" 
-          @click="clearPlan" 
-          class="btn-clear"
-        >
-          Clear Plan
-        </button>
+      <div class="header-content">
+        <div class="header-title">
+          <Icon name="file-text" :size="20" color="#06b6d4" />
+          <h3>Treatment Plan</h3>
+        </div>
+        <div class="header-actions">
+          <button 
+            @click="toggleFullScreen"
+            class="btn-expand"
+            :class="{ 'expanded': isFullScreen }"
+            :title="isFullScreen ? 'Exit Full Screen' : 'Expand to Full Screen'"
+          >
+            <Icon 
+              v-if="!isFullScreen" 
+              name="maximize-2" 
+              :size="16" 
+              color="currentColor" 
+            />
+            <Icon 
+              v-else 
+              name="minimize-2" 
+              :size="16" 
+              color="currentColor" 
+            />
+          </button>
+        </div>
       </div>
     </div>
 
-    <div v-if="!currentPlan && !hasMovedSegments" class="no-movements">
-      <p>Move teeth in the 3D viewer to create a treatment plan.</p>
-    </div>
+    <div class="panel-content">
+      <!-- No movements state -->
+      <div v-if="!currentPlan && !hasMovedSegments" class="no-movements">
+        <div class="no-movements-content">
+          <div class="icon-container">
+            <Icon name="move" :size="48" color="#94a3b8" />
+          </div>
+          <h4>No Tooth Movements Detected</h4>
+          <p>Move teeth in the 3D viewer to create a treatment plan.</p>
+          <div class="movement-tips">
+            <p><strong>How to move teeth:</strong></p>
+            <ul>
+              <li>Select a tooth segment</li>
+              <li>Use the movement controls</li>
+              <li>Or drag with your mouse</li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
-    <div v-if="!currentPlan && hasMovedSegments" class="create-plan-prompt">
-      <p>{{ movedTeethCount }} teeth have been moved. Create a treatment plan to visualize the orthodontic process.</p>
-    </div>
+      <!-- Ready to create plan state -->
+      <div v-if="!currentPlan && hasMovedSegments" class="create-plan-prompt">
+        <div class="create-plan-content">
+          <div class="icon-container success">
+            <Icon name="check-circle" :size="48" color="#10b981" />
+          </div>
+          <h4>Ready to Create Treatment Plan</h4>
+          <p><strong>{{ movedTeethCount }}</strong> teeth have been moved and are ready for treatment planning.</p>
+          <div class="movement-summary">
+            <div class="summary-item">
+              <span class="summary-label">Teeth Moved:</span>
+              <span class="summary-value">{{ movedTeethCount }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Total Distance:</span>
+              <span class="summary-value">{{ totalMovementDistance.toFixed(1) }}mm</span>
+            </div>
+          </div>
+          <button
+            @click="createPlan"
+            class="btn-create-large"
+            :disabled="!hasMovedSegments"
+          >
+            <Icon name="plus" :size="16" color="white" />
+            Create Treatment Plan
+          </button>
+        </div>
+      </div>
 
-    <TreatmentPlanView
-      v-if="currentPlan"
-      :plan="currentPlan"
-      :segments="segments"
-      @planUpdated="handlePlanUpdate"
-      @stepChanged="handleStepChange"
-    />
+      <!-- Treatment plan view -->
+      <TreatmentPlanView
+        v-if="currentPlan"
+        :plan="currentPlan"
+        :segments="segments"
+        @planUpdated="handlePlanUpdate"
+        @stepChanged="handleStepChange"
+      />
+    </div>
   </div>
 </template>
 
@@ -145,6 +178,20 @@ const movedTeethCount = computed(() => {
   }).length
 })
 
+const totalMovementDistance = computed(() => {
+  return props.segments.reduce((total, segment) => {
+    if (!segment.movementHistory) return total
+    
+    const movements = segment.movementHistory.axisMovements
+    const distance = Math.sqrt(
+      Math.pow(movements.anteroposterior, 2) +
+      Math.pow(movements.vertical, 2) +
+      Math.pow(movements.transverse, 2)
+    )
+    return total + distance
+  }, 0)
+})
+
 const createPlan = () => {
   if (!hasMovedSegments.value) return
   
@@ -214,8 +261,11 @@ watch(() => props.segments, (newSegments) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
 .treatment-plan-panel.fullscreen {
@@ -225,9 +275,10 @@ watch(() => props.segments, (newSegments) => {
   right: 0;
   bottom: 0;
   z-index: 1000;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   animation: expandToFullscreen 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 0 50px rgba(0, 0, 0, 0.15);
+  border-radius: 0;
 }
 
 @keyframes expandToFullscreen {
@@ -253,84 +304,87 @@ watch(() => props.segments, (newSegments) => {
 }
 
 .panel-header {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(8, 145, 178, 0.1) 100%);
+  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+  padding: 16px 20px;
+  position: relative;
+}
+
+.panel-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.5), transparent);
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
-  background: white;
-  border-bottom: 1px solid #e0e0e0;
-  transition: all 0.2s ease;
 }
 
-.treatment-plan-panel.fullscreen .panel-header {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-bottom: 1px solid #dee2e6;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-radius: 0;
-}
-
-.panel-header h3 {
-  margin: 0;
-  color: #2c3e50;
-  font-size: 18px;
-}
-
-.panel-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-create, .btn-clear, .btn-expand {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.btn-expand {
-  background: #6c757d;
-  color: white;
-  font-family: inherit;
-  font-size: 14px;
-  padding: 8px 12px;
-  margin-right: 10px;
+.header-title {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  position: relative;
+  gap: 12px;
+}
+
+.header-title h3 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-.btn-expand:hover {
-  background: #5a6268;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+.btn-expand {
+  background: linear-gradient(135deg, rgba(51, 65, 85, 0.8) 0%, rgba(71, 85, 105, 0.8) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #f1f5f9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+  pointer-events: auto;
 }
 
-.btn-expand:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.btn-expand:hover {
+  background: linear-gradient(135deg, rgba(71, 85, 105, 0.9) 0%, rgba(100, 116, 139, 0.9) 100%);
+  border-color: rgba(148, 163, 184, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .btn-expand.expanded {
-  background: #dc3545;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 0%, rgba(220, 38, 38, 0.8) 100%);
+  border-color: rgba(239, 68, 68, 0.5);
   animation: pulseExpanded 0.3s ease;
 }
 
 .btn-expand.expanded:hover {
-  background: #c82333;
-}
-
-.btn-expand svg {
-  transition: transform 0.2s ease;
-}
-
-.btn-expand:hover svg {
-  transform: scale(1.1);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.9) 0%, rgba(185, 28, 28, 0.9) 100%);
+  border-color: rgba(239, 68, 68, 0.8);
 }
 
 @keyframes pulseExpanded {
@@ -341,44 +395,19 @@ watch(() => props.segments, (newSegments) => {
 
 .btn-expand:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.3);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.3);
 }
 
 .btn-expand.expanded:focus {
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
-}
-
-.btn-create {
-  background: #28a745;
-  color: white;
-}
-
-.btn-create:hover:not(:disabled) {
-  background: #218838;
-}
-
-.btn-create:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-}
-
-.btn-clear {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-clear:hover {
-  background: #c82333;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
 }
 
 .no-movements, .create-plan-prompt {
-  padding: 40px 20px;
-  text-align: center;
-  color: #666;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 40px 20px;
   transition: all 0.3s ease;
 }
 
@@ -388,21 +417,170 @@ watch(() => props.segments, (newSegments) => {
   font-size: 1.1em;
 }
 
-.create-plan-prompt {
-  background: #e8f5e8;
-  border: 1px dashed #28a745;
-  margin: 20px;
-  border-radius: 8px;
-  color: #155724;
+.no-movements-content, .create-plan-content {
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
 }
 
-.create-plan-prompt p {
-  margin: 0;
-  font-size: 16px;
+.icon-container {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
 }
 
-.no-movements p {
-  margin: 0;
+.icon-container.success {
+  animation: successPulse 2s ease-in-out infinite;
+}
+
+@keyframes successPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.no-movements-content h4 {
+  margin: 0 0 16px 0;
+  color: #f1f5f9;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.no-movements-content p {
+  margin: 0 0 24px 0;
+  color: #94a3b8;
   font-size: 16px;
+  line-height: 1.5;
+}
+
+.movement-tips {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+}
+
+.movement-tips p {
+  margin: 0 0 12px 0;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.movement-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #94a3b8;
+}
+
+.movement-tips li {
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.create-plan-content h4 {
+  margin: 0 0 16px 0;
+  color: #f1f5f9;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.create-plan-content p {
+  margin: 0 0 24px 0;
+  color: #94a3b8;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.movement-summary {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.summary-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-value {
+  font-size: 18px;
+  color: #06b6d4;
+  font-weight: 700;
+}
+
+.btn-create-large {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  color: white;
+  padding: 16px 32px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+}
+
+.btn-create-large:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+}
+
+.btn-create-large:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+}
+
+.btn-create-large:disabled {
+  background: linear-gradient(135deg, rgba(108, 117, 125, 0.8) 0%, rgba(73, 80, 87, 0.8) 100%);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-create-large:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+}
+
+/* Scrollbar styling */
+.panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.3);
+  border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.5);
 }
 </style>

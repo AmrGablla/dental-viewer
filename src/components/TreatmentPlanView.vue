@@ -123,30 +123,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Current Step Details -->
-    <div class="current-step-details">
-      <h5>Step {{ plan.currentStep }} Details</h5>
-      <div class="step-movements">
-        <div 
-          v-for="tooth in getActiveTeethInCurrentStep()" 
-          :key="tooth.toothId"
-          class="step-tooth"
-        >
-          <span class="tooth-name">{{ tooth.toothName }}</span>
-          <div class="step-tooth-movements">
-            <div 
-              v-for="movement in tooth.movements"
-              :key="movement.direction"
-              class="step-movement"
-            >
-              {{ formatDirection(movement.direction) }}: 
-              {{ (Math.abs(movement.distance) / (movement.userSteps || movement.recommendedSteps)).toFixed(3) }}mm
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -778,41 +754,6 @@ onUnmounted(() => {
   margin-bottom: 2px;
   display: flex;
   align-items: center;
-}
-
-.current-step-details {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.current-step-details h5 {
-  margin: 0 0 15px 0;
-  color: #2c3e50;
-}
-
-.step-movements {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.step-tooth {
-  padding: 10px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border-left: 4px solid #007bff;
-}
-
-.step-tooth-movements {
-  margin-top: 5px;
-}
-
-.step-movement {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 2px;
 }
 
 /* View Mode Selector */

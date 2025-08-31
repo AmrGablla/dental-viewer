@@ -554,7 +554,6 @@ function handleStepChanged(stepNumber: number) {
 
 function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   isTreatmentPlanFullScreen.value = isFullScreen;
-  console.log("Treatment plan full screen:", isFullScreen);
 }
 
 function dismissBackgroundStatus() {
@@ -748,6 +747,8 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
   background: rgba(0, 0, 0, 0.02);
   backdrop-filter: blur(2px);
   animation: fadeInBackdrop 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes fadeInBackdrop {
