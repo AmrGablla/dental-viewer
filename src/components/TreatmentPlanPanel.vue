@@ -540,6 +540,8 @@ watch(() => props.segments, (newSegments) => {
   position: relative;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  margin: 0 auto;
+  width: fit-content;
 }
 
 .btn-create-large:hover:not(:disabled) {
