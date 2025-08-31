@@ -540,17 +540,164 @@ function deleteSegment(segment: any) {
 // Treatment Plan Handlers
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
   currentTreatmentPlan.value = plan;
+  
+  // Store current positions as original positions for progressive movement
+  if (dentalModel.value) {
+    dentalModel.value.segments.forEach(segment => {
+      if (!segment.originalPosition) {
+        segment.originalPosition = segment.mesh.position.clone();
+      }
+    });
+  }
+  
   console.log("Treatment plan created:", plan);
 }
 
 function handlePlanUpdated(plan: OrthodonticTreatmentPlan | null) {
   currentTreatmentPlan.value = plan;
   console.log("Treatment plan updated:", plan);
+  
+  // If no plan, show all segments
+  if (!plan && dentalModel.value) {
+    showAllSegments();
+  }
 }
+
+function showAllSegments() {
+  if (!dentalModel.value) {
+    return;
+  }
+  
+  // Show all segments and apply their final treatment positions
+  if (currentTreatmentPlan.value) {
+    // Apply final step positions (last step of treatment)
+    const finalStep = currentTreatmentPlan.value.totalSteps;
+    dentalModel.value.segments.forEach(segment => {
+      segment.mesh.visible = true;
+      applyProgressiveMovement(segment, finalStep);
+    });
+  } else {
+    // No treatment plan - just show all segments in current positions
+    dentalModel.value.segments.forEach(segment => {
+      segment.mesh.visible = true;
+    });
+  }
+  
+  // Trigger Vue reactivity
+  dentalModel.value = { ...dentalModel.value };
+  console.log("All segments shown");
+}
+
+function applyProgressiveMovement(segment: any, stepNumber: number) {
+  if (!currentTreatmentPlan.value) {
+    return;
+  }
+
+  // Find the tooth movement data for this segment
+  const toothMovement = currentTreatmentPlan.value.teethMovements.find(
+    tooth => tooth.toothId === segment.id
+  );
+
+  if (!toothMovement) {
+    // If no movement data, keep segment in original position
+    if (segment.originalPosition) {
+      segment.mesh.position.copy(segment.originalPosition);
+      segment.mesh.updateMatrixWorld();
+    }
+    return;
+  }
+
+  // Calculate total movement for this step
+  let totalMovement = { x: 0, y: 0, z: 0 };
+
+  toothMovement.movements.forEach(movement => {
+    const movementStartStep = movement.startStep || toothMovement.startStep || 1;
+    const movementDuration = movement.userSteps || movement.recommendedSteps || 1;
+    const movementEndStep = movementStartStep + movementDuration - 1;
+
+    // Check if this movement is active in the current step
+    if (stepNumber >= movementStartStep && stepNumber <= movementEndStep) {
+      // Calculate how many steps into this movement we are
+      const stepsIntoMovement = stepNumber - movementStartStep + 1;
+      const totalSteps = movementDuration;
+      
+      // Calculate the proportion of movement completed
+      const movementProgress = Math.min(stepsIntoMovement / totalSteps, 1);
+      
+      // Apply movement based on direction
+      const movementDistance = movement.distance * movementProgress;
+      
+      switch (movement.direction) {
+        case 'anteroposterior':
+          totalMovement.z += movementDistance;
+          break;
+        case 'vertical':
+          totalMovement.y += movementDistance;
+          break;
+        case 'transverse':
+          totalMovement.x += movementDistance;
+          break;
+      }
+    } else if (stepNumber > movementEndStep) {
+      // If we're past the end of this movement, apply the full movement
+      switch (movement.direction) {
+        case 'anteroposterior':
+          totalMovement.z += movement.distance;
+          break;
+        case 'vertical':
+          totalMovement.y += movement.distance;
+          break;
+        case 'transverse':
+          totalMovement.x += movement.distance;
+          break;
+      }
+    }
+    // If stepNumber < movementStartStep, no movement is applied (stays at original position)
+  });
+
+  // Apply the calculated movement to the segment
+  if (segment.originalPosition) {
+    segment.mesh.position.set(
+      segment.originalPosition.x + totalMovement.x,
+      segment.originalPosition.y + totalMovement.y,
+      segment.originalPosition.z + totalMovement.z
+    );
+    segment.mesh.updateMatrixWorld();
+  }
+
+  console.log(`Applied progressive movement to ${segment.name} for step ${stepNumber}:`, totalMovement);
+}
+
+
 
 function handleStepChanged(stepNumber: number) {
   console.log("Treatment step changed to:", stepNumber);
+  updateSegmentVisibilityForStep(stepNumber);
 }
+
+
+
+function updateSegmentVisibilityForStep(stepNumber: number) {
+  if (!dentalModel.value || !currentTreatmentPlan.value) {
+    return;
+  }
+
+  // Apply progressive movement to all segments, keeping them all visible
+  dentalModel.value.segments.forEach(segment => {
+    // Keep all segments visible
+    segment.mesh.visible = true;
+    
+    // Apply progressive movement based on current step
+    applyProgressiveMovement(segment, stepNumber);
+    
+    console.log(`Applied progressive movement to ${segment.name} for step ${stepNumber}`);
+  });
+  
+  // Trigger Vue reactivity
+  dentalModel.value = { ...dentalModel.value };
+}
+
+
 
 function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   isTreatmentPlanFullScreen.value = isFullScreen;

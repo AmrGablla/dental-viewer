@@ -222,6 +222,8 @@ const handleStepChange = (stepNumber: number) => {
   }
 }
 
+
+
 // Watch for changes in segments to auto-update plan
 watch(() => props.segments, (newSegments) => {
   if (currentPlan.value) {

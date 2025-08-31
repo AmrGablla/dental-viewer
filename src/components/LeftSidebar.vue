@@ -267,6 +267,8 @@ function handleStepChanged(stepNumber: number) {
   emit('stepChanged', stepNumber)
 }
 
+
+
 function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   emit('treatmentPlanFullScreen', isFullScreen)
 }

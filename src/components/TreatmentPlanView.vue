@@ -20,12 +20,37 @@
         </div>
       </div>
       <div class="export-actions">
-        <button @click="exportCurrentStep" class="btn-export">
+        <button @click="exportCurrentStep" class="btn btn-info">
           Export Step {{ plan.currentStep }}
         </button>
-        <button @click="exportAllSteps" class="btn-export-all">
+        <button @click="exportAllSteps" class="btn btn-success">
           Export All Steps
         </button>
+      </div>
+    </div>
+
+    <!-- Step Navigation -->
+    <div class="step-navigation-section">
+      <div class="step-controls">
+        <div class="step-info">
+          <span class="current-step">Step <strong>{{ plan.currentStep }}</strong> of {{ plan.totalSteps }}</span>
+        </div>
+        <div class="step-buttons">
+          <button 
+            @click="selectStep(Math.max(1, plan.currentStep - 1))" 
+            class="btn btn-sm btn-secondary"
+            :disabled="plan.currentStep <= 1"
+          >
+            <Icon name="chevron-left" :size="12" color="currentColor" />
+          </button>
+          <button 
+            @click="selectStep(Math.min(plan.totalSteps, plan.currentStep + 1))" 
+            class="btn btn-sm btn-secondary"
+            :disabled="plan.currentStep >= plan.totalSteps"
+          >
+            <Icon name="chevron-right" :size="12" color="currentColor" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -191,6 +216,18 @@ const getTeethInStep = (stepNumber: number) => {
 const getActiveTeethInCurrentStep = () => {
   return getTeethInStep(props.plan.currentStep)
 }
+
+const selectStep = (stepNumber: number) => {
+  // Update the current step in the plan
+  const updatedPlan = { 
+    ...props.plan, 
+    currentStep: stepNumber
+  }
+  emit('planUpdated', updatedPlan)
+  emit('stepChanged', stepNumber)
+}
+
+
 
 const exportCurrentStep = async () => {
   try {
@@ -559,6 +596,40 @@ onUnmounted(() => {
 .export-actions {
   display: flex;
   gap: 10px;
+}
+
+/* Step Navigation Section */
+.step-navigation-section {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(51, 65, 85, 0.8) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  backdrop-filter: blur(8px);
+}
+
+.step-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.step-info {
+  display: flex;
+  align-items: center;
+}
+
+.current-step {
+  color: #06b6d4;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.step-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .btn-export, .btn-export-all {
