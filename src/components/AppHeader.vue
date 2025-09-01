@@ -3,7 +3,12 @@
     <div class="header-content">
       <!-- Left Section: Logo and Title -->
       <div class="header-left">
-        <AppLogo :title="title" :description="description" />
+        <AppLogo 
+          :title="title" 
+          :description="description" 
+          :clickable="clickable"
+          @click="handleLogoClick"
+        />
       </div>
 
       <!-- Center Section: Optional Content -->
@@ -25,9 +30,18 @@ import AppLogo from './AppLogo.vue'
 interface Props {
   title?: string
   description?: string
+  clickable?: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
+
+const emit = defineEmits<{
+  logoClick: []
+}>()
+
+function handleLogoClick() {
+  emit('logoClick')
+}
 </script>
 
 <style scoped>

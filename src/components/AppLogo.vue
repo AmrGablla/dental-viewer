@@ -1,5 +1,9 @@
 <template>
-  <div class="app-logo" :class="{ 'centered': centered, 'large': large }">
+  <div 
+    class="app-logo" 
+    :class="{ 'centered': centered, 'large': large, 'clickable': clickable }"
+    @click="handleClick"
+  >
     <span class="app-icon">◈</span>
     <div v-if="showText" class="brand-text">
       <h1 v-if="title">{{ title }}</h1>
@@ -15,15 +19,27 @@ interface Props {
   showText?: boolean
   centered?: boolean
   large?: boolean
+  clickable?: boolean
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   title: 'Aligner',
   description: 'Advanced 3D dental model viewer',
   showText: true,
   centered: false,
-  large: false
+  large: false,
+  clickable: false
 })
+
+const emit = defineEmits<{
+  click: []
+}>()
+
+function handleClick() {
+  if (props.clickable) {
+    emit('click')
+  }
+}
 </script>
 
 <style scoped>
@@ -76,5 +92,19 @@ withDefaults(defineProps<Props>(), {
 
 .app-logo.centered .brand-text {
   text-align: center;
+}
+
+.app-logo.clickable {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.app-logo.clickable:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.app-logo.clickable:active {
+  transform: scale(0.98);
 }
 </style>

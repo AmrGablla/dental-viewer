@@ -9,6 +9,8 @@
     <AppHeader 
       title="Aligner" 
       description="3D dental model viewer"
+      :clickable="true"
+      @logoClick="handleLogoClick"
     >
       <template #center>
         <TopToolbar
@@ -885,6 +887,10 @@ function handleLogout() {
   localStorage.removeItem('authToken')
   localStorage.removeItem('user')
   router.push('/login')
+}
+
+function handleLogoClick() {
+  router.push('/cases')
 }
 
 // Intersection Detection Handlers
