@@ -174,6 +174,7 @@
         :isVisible="activeTab === 'treatment'"
         :isFullScreenMode="false"
         :currentTreatmentPlan="currentTreatmentPlan"
+        :reactivityKey="reactivityKey"
         @planCreated="handlePlanCreated"
         @planUpdated="handlePlanUpdated"
         @stepChanged="handleStepChanged"
@@ -184,7 +185,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import Icon from './Icon.vue'
 import SegmentItem from './SegmentItem.vue'
 import TreatmentPlanPanel from './TreatmentPlanPanel.vue'
@@ -217,6 +218,7 @@ const emit = defineEmits<{
 
 // Local state
 const activeTab = ref<'segments' | 'treatment'>('segments')
+const reactivityKey = ref(0)
 
 function toggleOriginalMesh() {
   emit('toggleOriginalMesh')
@@ -254,6 +256,27 @@ function handleToggleSegmentVisibility(segment: ToothSegment) {
 function handleDeleteSegment(segment: ToothSegment) {
   emit('deleteSegment', segment)
 }
+
+// Watch for changes in dentalModel to trigger reactivity updates
+watch(() => props.dentalModel, () => {
+  reactivityKey.value++
+}, { deep: true })
+
+// Also watch segments specifically for movement changes
+watch(() => props.dentalModel?.segments, (segments) => {
+  if (segments) {
+    // Check if any segments have movement
+    const hasMovement = segments.some(segment => 
+      segment.movementHistory && 
+      (Math.abs(segment.movementHistory.axisMovements?.anteroposterior || 0) > 0.1 ||
+       Math.abs(segment.movementHistory.axisMovements?.vertical || 0) > 0.1 ||
+       Math.abs(segment.movementHistory.axisMovements?.transverse || 0) > 0.1)
+    )
+    if (hasMovement) {
+      reactivityKey.value++
+    }
+  }
+}, { deep: true })
 
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
   emit('planCreated', plan)

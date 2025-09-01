@@ -84,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, onUnmounted, withDefaults } from 'vue'
+import { computed, watch, onUnmounted, withDefaults, ref } from 'vue'
 import Icon from './Icon.vue'
 import TreatmentPlanView from './TreatmentPlanView.vue'
 import { OrthodonticPlanService } from '../services/OrthodonticPlanService'
@@ -95,11 +95,13 @@ interface Props {
   isVisible: boolean
   isFullScreenMode?: boolean
   currentTreatmentPlan?: OrthodonticTreatmentPlan | null
+  reactivityKey?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isFullScreenMode: false,
-  currentTreatmentPlan: null
+  currentTreatmentPlan: null,
+  reactivityKey: 0
 })
 const emit = defineEmits<{
   planCreated: [plan: OrthodonticTreatmentPlan]
@@ -114,6 +116,9 @@ const currentPlan = computed(() => props.currentTreatmentPlan)
 
 // Use prop to determine if we're in full screen mode
 const isFullScreen = computed(() => props.isFullScreenMode)
+
+// Reactive movement tracker
+const movementTracker = ref(0)
 
 // Handle escape key to exit full screen
 const handleEscapeKey = (event: KeyboardEvent) => {
@@ -137,6 +142,10 @@ onUnmounted(() => {
 })
 
 const hasMovedSegments = computed(() => {
+  // Access the tracker and reactivity key to ensure reactivity
+  movementTracker.value
+  props.reactivityKey
+  
   return props.segments.some(segment => {
     if (!segment.movementHistory) return false
     
@@ -160,6 +169,10 @@ watch(() => props.isVisible, (isVisible) => {
 
 
 const movedTeethCount = computed(() => {
+  // Access the tracker and reactivity key to ensure reactivity
+  movementTracker.value
+  props.reactivityKey
+  
   return props.segments.filter(segment => {
     if (!segment.movementHistory) return false
     
@@ -173,6 +186,10 @@ const movedTeethCount = computed(() => {
 })
 
 const totalMovementDistance = computed(() => {
+  // Access the tracker and reactivity key to ensure reactivity
+  movementTracker.value
+  props.reactivityKey
+  
   return props.segments.reduce((total, segment) => {
     if (!segment.movementHistory) return total
     
