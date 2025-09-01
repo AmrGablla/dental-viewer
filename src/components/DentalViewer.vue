@@ -1,13 +1,13 @@
 <template>
   <div class="dental-viewer">
     <!-- Loading Overlay -->
-    <LoadingOverlay 
+    <LoadingOverlay
       :isLoading="threeJSManager.isLoading.value"
       :loadingMessage="threeJSManager.loadingMessage.value"
     />
-    
-    <AppHeader 
-      title="Aligner" 
+
+    <AppHeader
+      title="Aligner"
       description="3D dental model viewer"
       :clickable="true"
       @logoClick="handleLogoClick"
@@ -38,16 +38,22 @@
     />
 
     <!-- Intersection Detection Progress -->
-    <div v-if="segmentManager.isIntersectionDetectionRunning.value" class="intersection-progress">
+    <div
+      v-if="segmentManager.isIntersectionDetectionRunning.value"
+      class="intersection-progress"
+    >
       <div class="progress-container">
         <div class="progress-bar">
-          <div 
-            class="progress-fill" 
-            :style="{ width: `${segmentManager.intersectionDetectionProgress.value}%` }"
+          <div
+            class="progress-fill"
+            :style="{
+              width: `${segmentManager.intersectionDetectionProgress.value}%`,
+            }"
           ></div>
         </div>
         <div class="progress-text">
-          Detecting intersections... {{ segmentManager.intersectionDetectionProgress.value }}%
+          Detecting intersections...
+          {{ segmentManager.intersectionDetectionProgress.value }}%
         </div>
       </div>
     </div>
@@ -128,7 +134,7 @@ import { useCameraControls } from "../composables/useCameraControls";
 import { useDirectionalMovement } from "../composables/useDirectionalMovement";
 import { useGeometryManipulation } from "../composables/useGeometryManipulation";
 import { FileHandlerService } from "../services/FileHandlerService";
-// import { SegmentationService } from "../services/SegmentationService";
+
 import type {
   DentalModel,
   InteractionMode,
@@ -204,9 +210,9 @@ const interactionModes: InteractionMode["mode"][] = ["lasso", "pan"];
 
 onMounted(async () => {
   // Load user data
-  const userData = localStorage.getItem('user')
+  const userData = localStorage.getItem("user");
   if (userData) {
-    user.value = JSON.parse(userData)
+    user.value = JSON.parse(userData);
   }
 
   await initializeApp();
@@ -253,10 +259,6 @@ async function initializeApp() {
       scene
     );
 
-    // const { BackendService } = await import("../services/BackendService");
-    // const backendService = new BackendService("http://localhost:8000", THREE);
-    // segmentationService = new SegmentationService(backendService, scene, THREE);
-
     // Initialize intersection detection
     segmentManager.initializeIntersectionDetection(scene);
 
@@ -302,9 +304,9 @@ async function loadCaseData() {
     }
 
     threeJSManager.loadingMessage.value = "Loading case data...";
-    
+
     // Get auth token
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     if (!token) {
       throw new Error("No authentication token found");
     }
@@ -312,9 +314,9 @@ async function loadCaseData() {
     // Fetch case data from backend
     const response = await fetch(`http://localhost:3001/api/cases/${caseId}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     });
 
     if (!response.ok) {
@@ -327,79 +329,85 @@ async function loadCaseData() {
 
     // Load the STL file from id/raw endpoint
     threeJSManager.loadingMessage.value = "Loading STL file...";
-    
+
     const fileUrl = `http://localhost:3001/api/cases/${caseId}/raw`;
     console.log("Loading STL file from:", fileUrl);
-    
+
     // Get auth token
-    const authToken = localStorage.getItem('authToken') || undefined;
-    
+    const authToken = localStorage.getItem("authToken") || undefined;
+
     // Load the STL file using the file handler service
-    const loadedModel = await fileHandlerService?.loadSTLFile(fileUrl, authToken);
-      
-      if (loadedModel) {
-        // Compute bounding box for the loaded mesh
-        loadedModel.geometry.computeBoundingBox();
-        const boundingBox = {
-          min: loadedModel.geometry.boundingBox.min.clone(),
-          max: loadedModel.geometry.boundingBox.max.clone()
-        };
-        
-        console.log("Mesh bounding box:", boundingBox);
-        
-        // Ensure the mesh is visible and has proper material
-        loadedModel.visible = true;
-        if (!loadedModel.material) {
-          loadedModel.material = new THREE.MeshStandardMaterial({ 
-            color: 0xcccccc,
-            metalness: 0.1,
-            roughness: 0.8
-          });
-        }
-        
-        // Create dental model structure
-        dentalModel.value = {
-          originalMesh: loadedModel,
-          segments: [],
-          boundingBox: boundingBox
-        };
-        
-        // Store case metadata separately if needed
-        console.log("Case metadata:", {
-          caseId: caseData.id,
-          caseName: caseData.case_name,
-          fileName: caseData.file_name,
-          uploadedAt: caseData.created_at
+    const loadedModel = await fileHandlerService?.loadSTLFile(
+      fileUrl,
+      authToken
+    );
+
+    if (loadedModel) {
+      // Compute bounding box for the loaded mesh
+      loadedModel.geometry.computeBoundingBox();
+      const boundingBox = {
+        min: loadedModel.geometry.boundingBox.min.clone(),
+        max: loadedModel.geometry.boundingBox.max.clone(),
+      };
+
+      console.log("Mesh bounding box:", boundingBox);
+
+      // Ensure the mesh is visible and has proper material
+      loadedModel.visible = true;
+      if (!loadedModel.material) {
+        loadedModel.material = new THREE.MeshStandardMaterial({
+          color: 0xcccccc,
+          metalness: 0.1,
+          roughness: 0.8,
         });
-        
-        console.log("Dental model loaded successfully:", dentalModel.value);
-        
-        // Load existing segments from backend
-        await loadExistingSegments();
-        
-        // Focus camera on the loaded model
-        if (dentalModel.value) {
-          console.log("Focusing camera on model...");
-          threeJSManager.focusOnModel(dentalModel.value);
-          
-          // Debug scene and camera
-          const scene = threeJSManager.getScene();
-          const camera = threeJSManager.getCamera();
-          const renderer = threeJSManager.getRenderer();
-          
-          console.log("Scene children count:", scene.children.length);
-          console.log("Camera position:", camera.position);
-          console.log("Camera target:", camera.getWorldDirection(new THREE.Vector3()));
-          
-          // Force a render update
-          if (renderer) {
-            console.log("Forcing render update...");
-            renderer.render(scene, camera);
-          }
-        }
-      } else {
-        throw new Error("Failed to load STL file");
       }
+
+      // Create dental model structure
+      dentalModel.value = {
+        originalMesh: loadedModel,
+        segments: [],
+        boundingBox: boundingBox,
+      };
+
+      // Store case metadata separately if needed
+      console.log("Case metadata:", {
+        caseId: caseData.id,
+        caseName: caseData.case_name,
+        fileName: caseData.file_name,
+        uploadedAt: caseData.created_at,
+      });
+
+      console.log("Dental model loaded successfully:", dentalModel.value);
+
+      // Load existing segments from backend
+      await loadExistingSegments();
+
+      // Focus camera on the loaded model
+      if (dentalModel.value) {
+        console.log("Focusing camera on model...");
+        threeJSManager.focusOnModel(dentalModel.value);
+
+        // Debug scene and camera
+        const scene = threeJSManager.getScene();
+        const camera = threeJSManager.getCamera();
+        const renderer = threeJSManager.getRenderer();
+
+        console.log("Scene children count:", scene.children.length);
+        console.log("Camera position:", camera.position);
+        console.log(
+          "Camera target:",
+          camera.getWorldDirection(new THREE.Vector3())
+        );
+
+        // Force a render update
+        if (renderer) {
+          console.log("Forcing render update...");
+          renderer.render(scene, camera);
+        }
+      }
+    } else {
+      throw new Error("Failed to load STL file");
+    }
   } catch (error) {
     console.error("Failed to load case data:", error);
     threeJSManager.loadingMessage.value = "Failed to load case data";
@@ -667,31 +675,31 @@ function startDirectionalMove(
     THREE,
     () => {
       // Update movement history for all selected segments
-      segmentManager.selectedSegments.value.forEach(segment => {
-        segmentManager.updateSegmentMovementHistory(segment, 'directional');
+      segmentManager.selectedSegments.value.forEach((segment) => {
+        segmentManager.updateSegmentMovementHistory(segment, "directional");
       });
-      
+
       // Trigger Vue reactivity by reassigning the dentalModel ref
       if (dentalModel.value) {
         dentalModel.value = { ...dentalModel.value };
       }
-      
-      // Trigger intersection detection after movement
-      if (dentalModel.value) {
-        segmentManager.detectIntersections(dentalModel.value);
-      }
+
+      // Intersection detection disabled - removed to prevent dialog popup during movement
+      // if (dentalModel.value) {
+      //   segmentManager.detectIntersections(dentalModel.value);
+      // }
     }
   );
 }
 
 function stopDirectionalMove() {
   directionalMovement.stopDirectionalMove();
-  
+
   // Update movement history for all selected segments when movement stops
-  segmentManager.selectedSegments.value.forEach(segment => {
-    segmentManager.updateSegmentMovementHistory(segment, 'directional');
+  segmentManager.selectedSegments.value.forEach((segment) => {
+    segmentManager.updateSegmentMovementHistory(segment, "directional");
   });
-  
+
   // Trigger Vue reactivity by reassigning the dentalModel ref
   if (dentalModel.value) {
     dentalModel.value = { ...dentalModel.value };
@@ -702,7 +710,7 @@ function stopDirectionalMove() {
 function toggleOriginalMesh() {
   if (!dentalModel.value) return;
   segmentManager.toggleOriginalMesh(dentalModel.value);
-  
+
   // Trigger Vue reactivity by reassigning the dentalModel ref
   dentalModel.value = { ...dentalModel.value };
 }
@@ -710,7 +718,7 @@ function toggleOriginalMesh() {
 function toggleAllSegments() {
   if (!dentalModel.value) return;
   segmentManager.toggleAllSegments(dentalModel.value);
-  
+
   // Trigger Vue reactivity by reassigning the dentalModel ref
   dentalModel.value = { ...dentalModel.value };
 }
@@ -730,23 +738,23 @@ function deleteSegment(segment: any) {
 // Treatment Plan Handlers
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
   currentTreatmentPlan.value = plan;
-  
+
   // Store current positions as original positions for progressive movement
   if (dentalModel.value) {
-    dentalModel.value.segments.forEach(segment => {
+    dentalModel.value.segments.forEach((segment) => {
       if (!segment.originalPosition) {
         segment.originalPosition = segment.mesh.position.clone();
       }
     });
   }
-  
+
   console.log("Treatment plan created:", plan);
 }
 
 function handlePlanUpdated(plan: OrthodonticTreatmentPlan | null) {
   currentTreatmentPlan.value = plan;
   console.log("Treatment plan updated:", plan);
-  
+
   // If no plan, show all segments
   if (!plan && dentalModel.value) {
     showAllSegments();
@@ -757,22 +765,22 @@ function showAllSegments() {
   if (!dentalModel.value) {
     return;
   }
-  
+
   // Show all segments and apply their final treatment positions
   if (currentTreatmentPlan.value) {
     // Apply final step positions (last step of treatment)
     const finalStep = currentTreatmentPlan.value.totalSteps;
-    dentalModel.value.segments.forEach(segment => {
+    dentalModel.value.segments.forEach((segment) => {
       segment.mesh.visible = true;
       applyProgressiveMovement(segment, finalStep);
     });
   } else {
     // No treatment plan - just show all segments in current positions
-    dentalModel.value.segments.forEach(segment => {
+    dentalModel.value.segments.forEach((segment) => {
       segment.mesh.visible = true;
     });
   }
-  
+
   // Trigger Vue reactivity
   dentalModel.value = { ...dentalModel.value };
   console.log("All segments shown");
@@ -785,7 +793,7 @@ function applyProgressiveMovement(segment: any, stepNumber: number) {
 
   // Find the tooth movement data for this segment
   const toothMovement = currentTreatmentPlan.value.teethMovements.find(
-    tooth => tooth.toothId === segment.id
+    (tooth) => tooth.toothId === segment.id
   );
 
   if (!toothMovement) {
@@ -800,9 +808,11 @@ function applyProgressiveMovement(segment: any, stepNumber: number) {
   // Calculate total movement for this step
   let totalMovement = { x: 0, y: 0, z: 0 };
 
-  toothMovement.movements.forEach(movement => {
-    const movementStartStep = movement.startStep || toothMovement.startStep || 1;
-    const movementDuration = movement.userSteps || movement.recommendedSteps || 1;
+  toothMovement.movements.forEach((movement) => {
+    const movementStartStep =
+      movement.startStep || toothMovement.startStep || 1;
+    const movementDuration =
+      movement.userSteps || movement.recommendedSteps || 1;
     const movementEndStep = movementStartStep + movementDuration - 1;
 
     // Check if this movement is active in the current step
@@ -810,34 +820,34 @@ function applyProgressiveMovement(segment: any, stepNumber: number) {
       // Calculate how many steps into this movement we are
       const stepsIntoMovement = stepNumber - movementStartStep + 1;
       const totalSteps = movementDuration;
-      
+
       // Calculate the proportion of movement completed
       const movementProgress = Math.min(stepsIntoMovement / totalSteps, 1);
-      
+
       // Apply movement based on direction
       const movementDistance = movement.distance * movementProgress;
-      
+
       switch (movement.direction) {
-        case 'anteroposterior':
+        case "anteroposterior":
           totalMovement.z += movementDistance;
           break;
-        case 'vertical':
+        case "vertical":
           totalMovement.y += movementDistance;
           break;
-        case 'transverse':
+        case "transverse":
           totalMovement.x += movementDistance;
           break;
       }
     } else if (stepNumber > movementEndStep) {
       // If we're past the end of this movement, apply the full movement
       switch (movement.direction) {
-        case 'anteroposterior':
+        case "anteroposterior":
           totalMovement.z += movement.distance;
           break;
-        case 'vertical':
+        case "vertical":
           totalMovement.y += movement.distance;
           break;
-        case 'transverse':
+        case "transverse":
           totalMovement.x += movement.distance;
           break;
       }
@@ -855,17 +865,16 @@ function applyProgressiveMovement(segment: any, stepNumber: number) {
     segment.mesh.updateMatrixWorld();
   }
 
-  console.log(`Applied progressive movement to ${segment.name} for step ${stepNumber}:`, totalMovement);
+  console.log(
+    `Applied progressive movement to ${segment.name} for step ${stepNumber}:`,
+    totalMovement
+  );
 }
-
-
 
 function handleStepChanged(stepNumber: number) {
   console.log("Treatment step changed to:", stepNumber);
   updateSegmentVisibilityForStep(stepNumber);
 }
-
-
 
 function updateSegmentVisibilityForStep(stepNumber: number) {
   if (!dentalModel.value || !currentTreatmentPlan.value) {
@@ -873,21 +882,21 @@ function updateSegmentVisibilityForStep(stepNumber: number) {
   }
 
   // Apply progressive movement to all segments, keeping them all visible
-  dentalModel.value.segments.forEach(segment => {
+  dentalModel.value.segments.forEach((segment) => {
     // Keep all segments visible
     segment.mesh.visible = true;
-    
+
     // Apply progressive movement based on current step
     applyProgressiveMovement(segment, stepNumber);
-    
-    console.log(`Applied progressive movement to ${segment.name} for step ${stepNumber}`);
+
+    console.log(
+      `Applied progressive movement to ${segment.name} for step ${stepNumber}`
+    );
   });
-  
+
   // Trigger Vue reactivity
   dentalModel.value = { ...dentalModel.value };
 }
-
-
 
 function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   isTreatmentPlanFullScreen.value = isFullScreen;
@@ -900,13 +909,13 @@ function dismissBackgroundStatus() {
 }
 
 function handleLogout() {
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('user')
-  router.push('/login')
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("user");
+  router.push("/login");
 }
 
 function handleLogoClick() {
-  router.push('/cases')
+  router.push("/cases");
 }
 
 async function loadExistingSegments() {
@@ -917,20 +926,23 @@ async function loadExistingSegments() {
     }
 
     threeJSManager.loadingMessage.value = "Loading existing segments...";
-    
+
     // Get auth token
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     if (!token) {
       throw new Error("No authentication token found");
     }
 
     // Fetch segments from backend
-    const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+    const response = await fetch(
+      `http://localhost:3001/api/cases/${caseId}/segments`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       }
-    });
+    );
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -942,23 +954,41 @@ async function loadExistingSegments() {
 
     const segmentsData = await response.json();
     console.log("Segments data loaded:", segmentsData);
-    
+
     // Log the first segment's data structure to understand available positioning info
     if (segmentsData.segments && segmentsData.segments.length > 0) {
       console.log("First segment data structure:", segmentsData.segments[0]);
-      
+
       // Log coordinate system information
       const firstSegment = segmentsData.segments[0];
       if (firstSegment.center) {
         console.log("Coordinate system analysis:");
         console.log("  Center coordinates:", firstSegment.center);
         console.log("  Coordinate range:", {
-          x: [Math.min(...segmentsData.segments.map((s: any) => s.center?.[0] || 0)), 
-              Math.max(...segmentsData.segments.map((s: any) => s.center?.[0] || 0))],
-          y: [Math.min(...segmentsData.segments.map((s: any) => s.center?.[1] || 0)), 
-              Math.max(...segmentsData.segments.map((s: any) => s.center?.[1] || 0))],
-          z: [Math.min(...segmentsData.segments.map((s: any) => s.center?.[2] || 0)), 
-              Math.max(...segmentsData.segments.map((s: any) => s.center?.[2] || 0))]
+          x: [
+            Math.min(
+              ...segmentsData.segments.map((s: any) => s.center?.[0] || 0)
+            ),
+            Math.max(
+              ...segmentsData.segments.map((s: any) => s.center?.[0] || 0)
+            ),
+          ],
+          y: [
+            Math.min(
+              ...segmentsData.segments.map((s: any) => s.center?.[1] || 0)
+            ),
+            Math.max(
+              ...segmentsData.segments.map((s: any) => s.center?.[1] || 0)
+            ),
+          ],
+          z: [
+            Math.min(
+              ...segmentsData.segments.map((s: any) => s.center?.[2] || 0)
+            ),
+            Math.max(
+              ...segmentsData.segments.map((s: any) => s.center?.[2] || 0)
+            ),
+          ],
         });
       }
     }
@@ -967,24 +997,38 @@ async function loadExistingSegments() {
       // Get the original model's bounding box for reference
       let originalModelBbox: any = null;
       if (dentalModel.value?.originalMesh) {
-        originalModelBbox = new THREE.Box3().setFromObject(dentalModel.value.originalMesh);
+        originalModelBbox = new THREE.Box3().setFromObject(
+          dentalModel.value.originalMesh
+        );
         console.log("Original model bounding box:", originalModelBbox);
       }
-      
+
       // Load each segment
       for (const segmentInfo of segmentsData.segments) {
         try {
           // Load segment mesh from backend - don't center geometry to preserve original positions
           const segmentUrl = `http://localhost:3001/api/cases/${caseId}/segments/${segmentInfo.id}`;
-          const segmentMesh = await fileHandlerService?.loadSTLFile(segmentUrl, token, false);
-          
+          const segmentMesh = await fileHandlerService?.loadSTLFile(
+            segmentUrl,
+            token,
+            false
+          );
+
           if (segmentMesh) {
             // Don't set any position - let the segment render in its natural position
             // The geometry is already in the correct position since we loaded it with centerGeometry: false
-            console.log(`Segment ${segmentInfo.id} loaded with natural positioning`);
-            console.log(`Segment ${segmentInfo.id} position:`, segmentMesh.position);
-            console.log(`Segment ${segmentInfo.id} geometry bounding box:`, segmentMesh.geometry.boundingBox);
-            
+            console.log(
+              `Segment ${segmentInfo.id} loaded with natural positioning`
+            );
+            console.log(
+              `Segment ${segmentInfo.id} position:`,
+              segmentMesh.position
+            );
+            console.log(
+              `Segment ${segmentInfo.id} geometry bounding box:`,
+              segmentMesh.geometry.boundingBox
+            );
+
             // Update the mesh's world matrix
             segmentMesh.updateMatrixWorld();
 
@@ -996,7 +1040,7 @@ async function loadExistingSegments() {
               originalVertices: [], // Will be populated if needed
               centroid: segmentMesh.position.clone(), // Use actual mesh position as centroid
               color: new THREE.Color(segmentInfo.color || 0x00ff00),
-              toothType: segmentInfo.toothType || 'incisor',
+              toothType: segmentInfo.toothType || "incisor",
               isSelected: false,
               originalPosition: segmentMesh.position.clone(),
               movementHistory: {
@@ -1004,15 +1048,15 @@ async function loadExistingSegments() {
                 axisMovements: {
                   anteroposterior: 0,
                   vertical: 0,
-                  transverse: 0
+                  transverse: 0,
                 },
-                movementCount: 0
-              }
+                movementCount: 0,
+              },
             };
 
             // Add to dental model
             dentalModel.value.segments.push(segment);
-            
+
             // Add to scene
             const scene = threeJSManager.getScene();
             if (scene) {
@@ -1021,29 +1065,40 @@ async function loadExistingSegments() {
 
             // Apply segment styling
             segmentManager.updateSegmentAppearance(segment);
-            
-            console.log(`Loaded segment: ${segment.name} at position:`, segmentMesh.position);
-            
+
+            console.log(
+              `Loaded segment: ${segment.name} at position:`,
+              segmentMesh.position
+            );
+
             // Log the final position for debugging
-            console.log(`Final position for segment ${segmentInfo.id}:`, segmentMesh.position);
+            console.log(
+              `Final position for segment ${segmentInfo.id}:`,
+              segmentMesh.position
+            );
           }
         } catch (segmentError) {
-          console.error(`Failed to load segment ${segmentInfo.id}:`, segmentError);
+          console.error(
+            `Failed to load segment ${segmentInfo.id}:`,
+            segmentError
+          );
         }
       }
 
       // Trigger Vue reactivity
       dentalModel.value = { ...dentalModel.value };
-      
-      console.log(`Successfully loaded ${dentalModel.value.segments.length} segments`);
-      
+
+      console.log(
+        `Successfully loaded ${dentalModel.value.segments.length} segments`
+      );
+
       // Focus camera on the model with segments
       if (dentalModel.value.segments.length > 0) {
         threeJSManager.focusOnModel(dentalModel.value);
       }
-      
-      // Detect intersections after loading segments
-      segmentManager.detectIntersections(dentalModel.value);
+
+      // Intersection detection disabled - removed to prevent dialog popup
+      // segmentManager.detectIntersections(dentalModel.value);
     } else {
       console.log("No segments found for this case");
     }
@@ -1074,17 +1129,19 @@ function handleExportIntersectionData() {
   const data = {
     intersections: segmentManager.intersectionResults.value,
     statistics: segmentManager.intersectionStatistics.value,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
-  
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = `intersection-data-${Date.now()}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  
+
   console.log("Exported intersection data");
 }
 
@@ -1103,8 +1160,6 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
     console.error("Failed to initialize Enhanced Lasso Service:", error);
   }
 }
-
-
 </script>
 
 <style scoped>
@@ -1188,13 +1243,18 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
 }
 
 .logout-btn::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
   transition: left 0.6s ease;
 }
 
@@ -1250,19 +1310,28 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
 }
 
 .progress-fill::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
   animation: shimmer 2s infinite;
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .progress-text {
