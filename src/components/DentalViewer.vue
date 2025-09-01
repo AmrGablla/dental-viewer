@@ -1,5 +1,11 @@
 <template>
   <div class="dental-viewer">
+    <!-- Loading Overlay -->
+    <LoadingOverlay 
+      :isLoading="threeJSManager.isLoading.value"
+      :loadingMessage="threeJSManager.loadingMessage.value"
+    />
+    
     <TopToolbar
       :dentalModel="dentalModel"
       :selectedSegments="segmentManager.selectedSegments.value"
@@ -85,6 +91,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, shallowRef, computed } from "vue";
+import { useRoute } from "vue-router";
 import { useThreeJS } from "../composables/useThreeJS";
 import { useThreeJSManager } from "../composables/useThreeJSManager";
 import { useSegmentManager } from "../composables/useSegmentManager";
@@ -109,9 +116,14 @@ import ViewportArea from "./ViewportArea.vue";
 import BackgroundStatusIndicator from "./BackgroundStatusIndicator.vue";
 import TreatmentPlanPanel from "./TreatmentPlanPanel.vue";
 import IntersectionPanel from "./IntersectionPanel.vue";
+import LoadingOverlay from "./LoadingOverlay.vue";
 
 // Use the lazy loading composable
 const { loadThreeJS, loadServices } = useThreeJS();
+
+// Get route params
+const route = useRoute();
+const caseId = route.params.caseId as string;
 
 // Initialize composables
 const threeJSManager = useThreeJSManager();
@@ -229,10 +241,126 @@ async function initializeApp() {
     // Initialize Enhanced Lasso Service
     await initializeEnhancedLasso(renderer, camera, scene);
 
+    // Load case data and STL file
+    await loadCaseData();
+
     threeJSManager.isLoading.value = false;
   } catch (error) {
     console.error("Failed to initialize app:", error);
     threeJSManager.loadingMessage.value = "Failed to load 3D engine";
+  }
+}
+
+// Load case data and STL file
+async function loadCaseData() {
+  try {
+    if (!caseId) {
+      console.error("No case ID provided");
+      return;
+    }
+
+    threeJSManager.loadingMessage.value = "Loading case data...";
+    
+    // Get auth token
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Fetch case data from backend
+    const response = await fetch(`http://localhost:3001/api/cases/${caseId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch case: ${response.statusText}`);
+    }
+
+    const responseData = await response.json();
+    const caseData = responseData.case; // Extract case data from response
+    console.log("Case data loaded:", caseData);
+
+    // Load the STL file
+    if (caseData.file_path) {
+      threeJSManager.loadingMessage.value = "Loading STL file...";
+      
+      // Extract the filename from the file_path (remove 'uploads/' prefix)
+      const fileName = caseData.file_path.replace('uploads/', '');
+      const fileUrl = `http://localhost:3001/uploads/${fileName}`;
+      console.log("Loading STL file from:", fileUrl);
+      
+      // Load the STL file using the file handler service
+      const loadedModel = await fileHandlerService?.loadSTLFile(fileUrl);
+      
+      if (loadedModel) {
+        // Compute bounding box for the loaded mesh
+        loadedModel.geometry.computeBoundingBox();
+        const boundingBox = {
+          min: loadedModel.geometry.boundingBox.min.clone(),
+          max: loadedModel.geometry.boundingBox.max.clone()
+        };
+        
+        console.log("Mesh bounding box:", boundingBox);
+        
+        // Ensure the mesh is visible and has proper material
+        loadedModel.visible = true;
+        if (!loadedModel.material) {
+          loadedModel.material = new THREE.MeshStandardMaterial({ 
+            color: 0xcccccc,
+            metalness: 0.1,
+            roughness: 0.8
+          });
+        }
+        
+        // Create dental model structure
+        dentalModel.value = {
+          originalMesh: loadedModel,
+          segments: [],
+          boundingBox: boundingBox
+        };
+        
+        // Store case metadata separately if needed
+        console.log("Case metadata:", {
+          caseId: caseData.id,
+          caseName: caseData.case_name,
+          fileName: caseData.file_name,
+          uploadedAt: caseData.created_at
+        });
+        
+        console.log("Dental model loaded successfully:", dentalModel.value);
+        
+        // Focus camera on the loaded model
+        if (dentalModel.value) {
+          console.log("Focusing camera on model...");
+          threeJSManager.focusOnModel(dentalModel.value);
+          
+          // Debug scene and camera
+          const scene = threeJSManager.getScene();
+          const camera = threeJSManager.getCamera();
+          const renderer = threeJSManager.getRenderer();
+          
+          console.log("Scene children count:", scene.children.length);
+          console.log("Camera position:", camera.position);
+          console.log("Camera target:", camera.getWorldDirection(new THREE.Vector3()));
+          
+          // Force a render update
+          if (renderer) {
+            console.log("Forcing render update...");
+            renderer.render(scene, camera);
+          }
+        }
+      } else {
+        throw new Error("Failed to load STL file");
+      }
+    } else {
+      throw new Error("No file path found in case data");
+    }
+  } catch (error) {
+    console.error("Failed to load case data:", error);
+    threeJSManager.loadingMessage.value = "Failed to load case data";
   }
 }
 

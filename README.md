@@ -1,279 +1,202 @@
-# 3D Dental Viewer App
+# Dental Viewer with Authentication
 
-A comprehensive web-based 3D dental viewer application with AI-powered segmentation capabilities. Built with Vue.js 3 and Three.js for the frontend, and FastAPI with Open3D for the backend segmentation service.
+A comprehensive dental case management system with 3D visualization capabilities, featuring user authentication and case management.
 
-## 🏗️ Architecture
-
-- **Frontend**: Vue.js 3 + Three.js + TypeScript (Port 5173)
-- **Backend**: FastAPI + Open3D + Python (Port 8000)
-- **Segmentation**: DBSCAN clustering with point cloud analysis
-- **File Formats**: STL input with internal glTF/GLB conversion for enhanced performance
-
-## 🆕 New glTF/GLB Integration
-
-The application now features enhanced 3D file processing:
-- **STL Upload**: Users continue to upload STL files as usual
-- **Internal Conversion**: STL files are automatically converted to glTF/GLB format for better performance
-- **Performance Benefits**: 30-50% smaller file sizes, faster loading, better compression
-- **Multiple Export Formats**: Export segmented teeth as STL, glTF, or GLB
-- **Backwards Compatibility**: All existing functionality remains unchanged
-
-See [GLTF_INTEGRATION.md](./GLTF_INTEGRATION.md) for detailed technical documentation.
-
-## 🚀 Quick Start
-
-### 1. Backend Setup (Required for Segmentation)
-
-**Recommended: Using Conda (most reliable for Open3D)**
-```bash
-# Setup backend with conda environment
-npm run backend-setup
-
-# Start backend server  
-npm run backend
-```
-
-### 2. Frontend Development Server
-
-```bash
-# Start frontend development server
-npm run dev
-```
-
-### 3. Using the Application
-
-1. Open http://localhost:5173 in your browser
-2. Backend API will be available at http://localhost:8000
-3. Upload STL files for automatic segmentation
-4. Use 3D controls to navigate and inspect results
-
-## 📦 NPM Scripts
-
-- `npm run dev` - Start Vue.js frontend development server
-- `npm run backend` - Start FastAPI backend with conda environment
-- `npm run backend-setup` - Create conda environment with Open3D
-- `npm run build` - Build frontend for production
-- `npm run preview` - Preview production build
 ## Features
 
-### 🦷 Core Functionality
-- **STL File Loading**: Load and render STL files of full jaw models (teeth + gums)
-- **3D Visualization**: Real-time 3D rendering with lighting and shadows
-- **Interactive Camera**: Orbit, zoom, and pan controls
-
-### 🤖 AI-Powered Segmentation
-- **Automatic Teeth Segmentation**: Upload STL files to backend for automatic segmentation
-- **Gum Isolation**: Separates gum tissue before segmenting individual teeth
-- **DBSCAN Clustering**: Uses point cloud clustering to identify individual teeth
-- **Watershed Refinement**: Applies distance-transform watershed on voxel grids to split touching teeth
-- **Session Management**: Track segmentation sessions and results
-- **Segment Download**: Download individual teeth as PLY files
-
-### 🔧 Manual Segmentation Tools (Frontend)
-- **Geometric Segmentation**:
-  - Curvature-based segmentation
-  - Concavity detection
-  - K-means clustering
-  - Region growing algorithms
-
-### 🎨 Manual Refinement Tools
-- **Selection Methods**:
-  - Click selection
-  - Lasso selection tool
-  - Brush selection
-  - Rectangle selection
-  - Region-based selection
-
-- **Segment Operations**:
-  - Merge segments
-  - Split segments
-  - Delete segments
-  - Color assignment
-  - Tooth type classification
-
-### 🎯 Interactive Manipulation
-- **Transform Controls**:
-  - Move individual teeth
-  - Rotate teeth around axes
-  - Transform gizmos with axis handles
-  - Multi-segment operations
-
-### 🎨 Visual Features
-- **Color Coding**:
-  - Different colors for each tooth
-  - Separate color for gums (pink by default)
-  - Custom color picker for segments
-  - Visual feedback for selections
-
-### 💾 Export Options
-- Export segmentation data as JSON
-- Include vertex data, colors, and metadata
-- Preserves tooth classifications
-
-## Tech Stack
-
-- **Frontend Framework**: Vue.js 3 with Composition API
-- **3D Graphics**: Three.js
-- **Performance**: three-mesh-bvh for fast mesh operations
-- **Language**: TypeScript for type safety
-- **Build Tool**: Vite for fast development
+- 🔐 **User Authentication**: Secure login/register system with JWT tokens
+- 📁 **Case Management**: Upload, view, and manage dental cases
+- 🦷 **3D Visualization**: Interactive 3D viewer for STL files
+- 📊 **Treatment Planning**: Advanced treatment planning tools
+- 🔍 **Search & Filter**: Find cases quickly with search functionality
+- 📱 **Responsive Design**: Works on desktop and mobile devices
 
 ## Project Structure
 
 ```
-src/
-├── components/
-│   └── DentalViewer.vue        # Main 3D viewer component
-├── services/
-│   ├── STLLoader.ts            # STL file loading service
-│   ├── SegmentationService.ts  # Geometric segmentation algorithms
-│   └── InteractionService.ts   # Manual interaction tools
-├── types/
-│   └── dental.ts               # TypeScript type definitions
-└── utils/
-    └── GeometryUtils.ts        # Geometric computation utilities
+├── backend-auth/           # Node.js authentication backend
+│   ├── server.js          # Main server file
+│   ├── package.json       # Backend dependencies
+│   └── env.example        # Environment variables template
+├── src/                   # Vue.js frontend
+│   ├── components/        # Vue components
+│   │   ├── LoginPage.vue  # Login/Register page
+│   │   ├── CasesPage.vue  # Cases management page
+│   │   └── DentalViewer.vue # 3D viewer component
+│   ├── router.ts          # Vue router configuration
+│   └── main.ts           # Main Vue app entry
+└── README.md             # This file
 ```
 
-## Installation
+## Quick Start
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+### 1. Backend Setup
 
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
+```bash
+# Navigate to backend directory
+cd backend-auth
 
-4. Open your browser to `http://localhost:5173`
+# Install dependencies
+npm install
 
-## Usage
+# Create environment file
+cp env.example .env
 
-### Loading STL Files
-1. Click "Load STL File" button
-2. Select an STL file containing a dental model
-3. The model will be automatically loaded and rendered
+# Edit .env file with your configuration
+# PORT=3001
+# JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+# NODE_ENV=development
 
-### Automatic Segmentation
-1. After loading a model, choose a segmentation method:
-   - **Curvature**: Segments based on surface curvature
-   - **Concavity**: Detects concave regions (tooth boundaries)
-   - **K-Means**: Clusters vertices by spatial proximity
-   - **Region Growing**: Grows regions from seed points
+# Start the server
+npm run dev
+```
 
-2. Adjust parameters using the sliders
-3. Click "Apply Segmentation" to update the segmentation
+The backend will be available at `http://localhost:3001`
 
-### Manual Refinement
-1. Select an interaction mode:
-   - **Select**: Click to select individual segments
-   - **Lasso**: Draw a freehand selection area
-   - **Brush**: Paint-style selection
-   - **Move**: Translate selected segments
-   - **Rotate**: Rotate selected segments
+### 2. Frontend Setup
 
-2. Use the segment list to:
-   - Change colors
-   - Merge segments
-   - Split segments
-   - Delete segments
+```bash
+# Install frontend dependencies (if not already installed)
+npm install
 
-### Exporting Results
-1. Click "Export Model" to download segmentation data
-2. The JSON file contains vertex data, colors, and metadata
+# Start the development server
+npm run dev
+```
 
-## Segmentation Algorithms
+The frontend will be available at `http://localhost:5173`
 
-### Curvature-Based Segmentation
-Uses mean and Gaussian curvature to identify tooth boundaries. High curvature areas typically correspond to edges between teeth.
+### 3. Default Login
 
-### Concavity Detection
-Identifies concave regions where teeth meet the gums or adjacent teeth.
+The system creates a default admin user:
+- **Username**: `admin`
+- **Password**: `admin123`
 
-### K-Means Clustering
-Spatially clusters vertices into a specified number of groups, useful for separating individual teeth.
+## API Endpoints
 
-### Region Growing
-Starts from seed points and grows regions based on geometric similarity (normal vectors, curvature).
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - User login
+- `GET /api/auth/profile` - Get user profile
 
-### DBSCAN Clustering
-Density-based clustering that can handle irregular tooth shapes and automatically determine the number of clusters.
+### Cases
+- `GET /api/cases` - Get user's cases
+- `POST /api/cases/upload` - Upload new case
+- `GET /api/cases/:id` - Get specific case
+- `DELETE /api/cases/:id` - Delete case
 
-## Advanced Features
+## Frontend Routes
 
-### Transform Gizmos
-Interactive 3D handles for precise tooth movement and rotation with visual feedback.
+- `/login` - Login/Register page
+- `/cases` - Cases management page
+- `/viewer/:caseId` - 3D viewer for specific case
 
-### BVH Acceleration
-Uses Bounding Volume Hierarchy for fast ray-mesh intersection testing, enabling smooth interaction with complex models.
+## Features in Detail
 
-### Multi-Selection Support
-Select multiple teeth simultaneously for batch operations.
+### Authentication System
+- JWT-based authentication
+- Secure password hashing with bcrypt
+- Automatic token refresh
+- Protected routes with navigation guards
 
-### Undo/Redo System
-(Planned) Track changes for easy revision of segmentation decisions.
+### Case Management
+- Upload STL files (up to 50MB)
+- Case naming and organization
+- Search and filter functionality
+- Case status tracking
+- Delete cases with confirmation
 
-## Browser Compatibility
-
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
-Requires WebGL 2.0 support for optimal performance.
-
-## Performance Considerations
-
-- STL files up to 50MB are handled efficiently
-- Large models (>100k vertices) may experience slower segmentation
-- Consider using Web Workers for heavy computations (future enhancement)
-
-## Future Enhancements
-
-### Backend Integration
-For complex models, consider integrating with a Python backend using:
-- **FastAPI** for REST API
-- **Open3D** for advanced geometric processing
-- **Trimesh** for mesh operations
-- **NumPy/SciPy** for mathematical computations
-
-### Machine Learning Integration
-- Neural network-based tooth segmentation
-- Automatic tooth numbering
-- Pathology detection
-
-### Additional File Formats
-- PLY files
-- OBJ files with materials
-- DICOM integration for CT scans
+### 3D Viewer Integration
+- Seamless integration with existing 3D viewer
+- Case-specific data loading
+- Treatment planning tools
+- Export capabilities
 
 ## Development
 
-### Adding New Segmentation Methods
-1. Extend `SegmentationService.ts`
-2. Add method to `SegmentationParams` type
-3. Update UI controls in `DentalViewer.vue`
+### Backend Development
+```bash
+cd backend-auth
+npm run dev  # Start with nodemon for auto-reload
+```
 
-### Custom Interaction Tools
-1. Extend `InteractionService.ts`
-2. Add new interaction modes
-3. Implement event handlers
+### Frontend Development
+```bash
+npm run dev  # Start Vite dev server
+npm run build  # Build for production
+npm run preview  # Preview production build
+```
 
-### Contributing
+## Environment Variables
+
+### Backend (.env)
+```env
+PORT=3001
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+NODE_ENV=development
+```
+
+## Database
+
+The system uses SQLite for simplicity:
+- Automatic database creation
+- User and cases tables
+- Foreign key relationships
+- Automatic cleanup of deleted files
+
+## Security Features
+
+- JWT token authentication
+- Password hashing with bcrypt
+- CORS configuration
+- File upload validation
+- SQL injection prevention
+- XSS protection
+
+## File Upload
+
+- Supports STL files only
+- Maximum file size: 50MB
+- Automatic file validation
+- Secure file storage
+- Automatic cleanup on deletion
+
+## Troubleshooting
+
+### Common Issues
+
+1. **CORS Errors**: Ensure backend is running on port 3001
+2. **Database Errors**: Check if database.sqlite file is writable
+3. **File Upload Issues**: Verify file is STL format and under 50MB
+4. **Authentication Errors**: Clear localStorage and re-login
+
+### Logs
+
+Backend logs are displayed in the console. Check for:
+- Database connection errors
+- File upload issues
+- Authentication problems
+
+## Production Deployment
+
+### Backend
+1. Set `NODE_ENV=production`
+2. Use a strong JWT_SECRET
+3. Configure proper CORS origins
+4. Use a production database (PostgreSQL/MySQL)
+
+### Frontend
+1. Build with `npm run build`
+2. Serve static files from a web server
+3. Configure proper API endpoints
+
+## Contributing
+
 1. Fork the repository
 2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details.
-
-## Acknowledgments
-
-- Three.js community for excellent 3D library
-- Vue.js team for the reactive framework
-- Open source dental imaging research community
+MIT License - see LICENSE file for details

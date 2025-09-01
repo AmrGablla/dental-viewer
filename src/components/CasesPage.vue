@@ -1,0 +1,869 @@
+<template>
+  <div class="cases-page">
+    <div class="cases-header">
+      <div class="header-content">
+        <div class="header-left">
+          <h1>My Cases</h1>
+          <p>Manage your dental cases and upload new files</p>
+        </div>
+        <div class="header-right">
+          <div class="user-info">
+            <span>Welcome, {{ user?.username }}</span>
+            <button @click="handleLogout" class="logout-btn">
+              <Icon name="log-out" :size="16" color="currentColor" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cases-content">
+      <div class="actions-bar">
+        <button @click="showUploadModal = true" class="upload-btn">
+          <Icon name="upload" :size="16" color="white" />
+          Upload New Case
+        </button>
+        <div class="search-box">
+          <Icon name="search" :size="16" color="#6b7280" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search cases..."
+            class="search-input"
+          />
+        </div>
+      </div>
+
+      <div class="cases-table-container">
+        <div v-if="loading" class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading cases...</p>
+        </div>
+
+        <div v-else-if="error" class="error-state">
+          <Icon name="alert-circle" :size="48" color="#dc2626" />
+          <h3>Error loading cases</h3>
+          <p>{{ error }}</p>
+          <button @click="loadCases" class="retry-btn">Try Again</button>
+        </div>
+
+        <div v-else-if="filteredCases.length === 0" class="empty-state">
+          <Icon name="folder" :size="48" color="#6b7280" />
+          <h3>No cases found</h3>
+          <p>{{ searchQuery ? 'No cases match your search' : 'Upload your first case to get started' }}</p>
+          <button v-if="!searchQuery" @click="showUploadModal = true" class="upload-btn">
+            <Icon name="upload" :size="16" color="white" />
+            Upload First Case
+          </button>
+        </div>
+
+        <div v-else class="cases-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Case Name</th>
+                <th>File Name</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="caseItem in filteredCases" :key="caseItem.id" class="case-row">
+                <td class="case-name">
+                  <span class="name">{{ caseItem.case_name }}</span>
+                </td>
+                <td class="file-name">
+                  <span>{{ caseItem.file_name }}</span>
+                </td>
+                <td class="status">
+                  <span class="status-badge" :class="caseItem.status">
+                    {{ caseItem.status }}
+                  </span>
+                </td>
+                <td class="created">
+                  {{ formatDate(caseItem.created_at) }}
+                </td>
+                <td class="actions">
+                  <button @click="openCase(caseItem)" class="action-btn view-btn" title="Open Case">
+                    <Icon name="eye" :size="14" color="currentColor" />
+                  </button>
+                  <button @click="deleteCase(caseItem.id)" class="action-btn delete-btn" title="Delete Case">
+                    <Icon name="trash-2" :size="14" color="currentColor" />
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div v-if="showUploadModal" class="modal-overlay" @click="showUploadModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2>Upload New Case</h2>
+          <button class="close-btn" @click="showUploadModal = false">
+            <Icon name="x" :size="20" color="currentColor" />
+          </button>
+        </div>
+
+        <form @submit.prevent="handleUpload" class="upload-form">
+          <div class="form-group">
+            <label for="case-name">Case Name</label>
+            <input
+              id="case-name"
+              v-model="uploadForm.case_name"
+              type="text"
+              placeholder="Enter case name"
+              required
+              :disabled="uploading"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="file-upload">STL File</label>
+            <div class="file-upload-area" :class="{ 'has-file': selectedFile }">
+              <input
+                id="file-upload"
+                ref="fileInput"
+                type="file"
+                accept=".stl"
+                @change="handleFileSelect"
+                :disabled="uploading"
+                style="display: none"
+              />
+              <div v-if="!selectedFile" class="upload-placeholder" @click="$refs.fileInput.click()">
+                <Icon name="upload" :size="32" color="#6b7280" />
+                <p>Click to select STL file</p>
+                <span>or drag and drop</span>
+              </div>
+              <div v-else class="file-info">
+                <Icon name="file" :size="24" color="#06b6d4" />
+                <div class="file-details">
+                  <span class="file-name">{{ selectedFile.name }}</span>
+                  <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
+                </div>
+                <button type="button" @click="clearFile" class="clear-file-btn">
+                  <Icon name="x" :size="16" color="currentColor" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="uploadError" class="error-message">
+            {{ uploadError }}
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" @click="showUploadModal = false" class="cancel-btn" :disabled="uploading">
+              Cancel
+            </button>
+            <button type="submit" class="upload-submit-btn" :disabled="uploading || !selectedFile">
+              <span v-if="uploading">Uploading...</span>
+              <span v-else>Upload Case</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import Icon from './Icon.vue'
+
+const router = useRouter()
+
+// State
+const loading = ref(false)
+const error = ref('')
+const cases = ref([])
+const searchQuery = ref('')
+const showUploadModal = ref(false)
+const uploading = ref(false)
+const uploadError = ref('')
+const selectedFile = ref(null)
+
+// Form data
+const uploadForm = reactive({
+  case_name: ''
+})
+
+// User data
+const user = ref(null)
+
+// API base URL
+const API_BASE = 'http://localhost:3001/api'
+
+// Computed
+const filteredCases = computed(() => {
+  if (!searchQuery.value) return cases.value
+  
+  const query = searchQuery.value.toLowerCase()
+  return cases.value.filter(caseItem => 
+    caseItem.case_name.toLowerCase().includes(query) ||
+    caseItem.file_name.toLowerCase().includes(query)
+  )
+})
+
+// Methods
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken')
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+}
+
+const loadCases = async () => {
+  loading.value = true
+  error.value = ''
+
+  try {
+    const response = await fetch(`${API_BASE}/cases`, {
+      headers: getAuthHeaders()
+    })
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired or invalid
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('user')
+        router.push('/login')
+        return
+      }
+      throw new Error('Failed to load cases')
+    }
+
+    const data = await response.json()
+    cases.value = data.cases || []
+  } catch (err: any) {
+    error.value = err.message || 'Failed to load cases'
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleLogout = () => {
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('user')
+  router.push('/login')
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file && file.name.toLowerCase().endsWith('.stl')) {
+    selectedFile.value = file
+  } else {
+    alert('Please select a valid STL file')
+  }
+}
+
+const clearFile = () => {
+  selectedFile.value = null
+  if (this.$refs.fileInput) {
+    this.$refs.fileInput.value = ''
+  }
+}
+
+const handleUpload = async () => {
+  if (!selectedFile.value || !uploadForm.case_name) return
+
+  uploading.value = true
+  uploadError.value = ''
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    formData.append('case_name', uploadForm.case_name)
+
+    const token = localStorage.getItem('authToken')
+    const response = await fetch(`${API_BASE}/cases/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Upload failed')
+    }
+
+    // Reset form and close modal
+    uploadForm.case_name = ''
+    selectedFile.value = null
+    showUploadModal.value = false
+
+    // Reload cases
+    await loadCases()
+  } catch (err: any) {
+    uploadError.value = err.message || 'Upload failed'
+  } finally {
+    uploading.value = false
+  }
+}
+
+const openCase = (caseItem) => {
+  // Navigate to viewer with case data
+  router.push({
+    name: 'viewer',
+    params: { caseId: caseItem.id },
+    query: { 
+      caseName: caseItem.case_name,
+      fileName: caseItem.file_name
+    }
+  })
+}
+
+const deleteCase = async (caseId) => {
+  if (!confirm('Are you sure you want to delete this case?')) return
+
+  try {
+    const response = await fetch(`${API_BASE}/cases/${caseId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to delete case')
+    }
+
+    // Reload cases
+    await loadCases()
+  } catch (err: any) {
+    alert(err.message || 'Failed to delete case')
+  }
+}
+
+const formatDate = (dateString) => {
+  return new Date(dateString).toLocaleDateString()
+}
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// Lifecycle
+onMounted(() => {
+  // Load user data
+  const userData = localStorage.getItem('user')
+  if (userData) {
+    user.value = JSON.parse(userData)
+  }
+
+  // Load cases
+  loadCases()
+})
+</script>
+
+<style scoped>
+.cases-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.cases-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: white;
+  padding: 24px 0;
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left h1 {
+  margin: 0 0 8px 0;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.header-left p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 16px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.cases-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  color: #f1f5f9;
+}
+
+.actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-btn:hover {
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 300px;
+}
+
+.search-input {
+  border: none;
+  outline: none;
+  font-size: 14px;
+  width: 100%;
+  background: transparent;
+  color: #f1f5f9;
+}
+
+.search-input::placeholder {
+  color: #64748b;
+}
+
+.cases-table-container {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+
+.loading-state, .error-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top: 4px solid #06b6d4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-state h3, .empty-state h3 {
+  margin: 16px 0 8px 0;
+  color: #374151;
+}
+
+.error-state p, .empty-state p {
+  margin: 0 0 16px 0;
+  color: #6b7280;
+}
+
+.retry-btn {
+  background: #06b6d4;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cases-table {
+  overflow-x: auto;
+}
+
+.cases-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cases-table th {
+  background: rgba(15, 23, 42, 0.8);
+  padding: 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #f1f5f9;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.cases-table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  color: #f1f5f9;
+}
+
+.case-row:hover {
+  background: rgba(6, 182, 212, 0.1);
+}
+
+.case-name .name {
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.file-name {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.processing {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-badge.completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.created {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-btn:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+.delete-btn:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.upload-form {
+  margin-bottom: 0;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #374151;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+}
+
+.file-upload-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.file-upload-area:hover {
+  border-color: #06b6d4;
+  background: #f0f9ff;
+}
+
+.file-upload-area.has-file {
+  border-color: #06b6d4;
+  background: #f0f9ff;
+}
+
+.upload-placeholder {
+  color: #6b7280;
+}
+
+.upload-placeholder p {
+  margin: 8px 0 4px 0;
+  font-weight: 600;
+}
+
+.upload-placeholder span {
+  font-size: 14px;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.file-details {
+  flex: 1;
+  text-align: left;
+}
+
+.file-name {
+  display: block;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.file-size {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.clear-file-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.clear-file-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.error-message {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  border: 1px solid #fecaca;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.cancel-btn {
+  padding: 12px 24px;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.upload-submit-btn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.cancel-btn:disabled, .upload-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  
+  .actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-box {
+    min-width: auto;
+  }
+  
+  .cases-table {
+    font-size: 14px;
+  }
+  
+  .cases-table th,
+  .cases-table td {
+    padding: 12px 8px;
+  }
+}
+</style>

@@ -173,4 +173,32 @@ export class FileHandlerService {
     // This would focus on the model after loading
     // Implementation depends on camera access
   }
+
+  // Load STL file from URL
+  async loadSTLFile(url: string): Promise<any> {
+    try {
+      console.log("Loading STL file from URL:", url);
+      
+      // Fetch the STL file
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch STL file: ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+      
+      // Create a File object from the blob
+      const fileName = url.split('/').pop() || 'model.stl';
+      const file = new File([blob], fileName, { type: 'application/octet-stream' });
+      
+      // Load the model using existing logic
+      const dentalModel = await this.loadModel(file);
+      
+      return dentalModel.originalMesh;
+    } catch (error) {
+      console.error("Error loading STL file from URL:", error);
+      throw error;
+    }
+  }
 }

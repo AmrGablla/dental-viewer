@@ -134,6 +134,51 @@
       <rect x="14" y="14" width="7" height="7"></rect>
       <rect x="3" y="14" width="7" height="7"></rect>
     </g>
+    
+    <!-- LogOut -->
+    <g v-if="name === 'log-out'">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+      <polyline points="16,17 21,12 16,7"></polyline>
+      <line x1="21" y1="12" x2="9" y2="12"></line>
+    </g>
+    
+    <!-- Upload -->
+    <g v-if="name === 'upload'">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="7,10 12,5 17,10"></polyline>
+      <line x1="12" y1="5" x2="12" y2="15"></line>
+    </g>
+    
+    <!-- Search -->
+    <g v-if="name === 'search'">
+      <circle cx="11" cy="11" r="8"></circle>
+      <path d="m21 21-4.35-4.35"></path>
+    </g>
+    
+    <!-- Folder -->
+    <g v-if="name === 'folder'">
+      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.89l-.812-1.22A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+    </g>
+    
+    <!-- File -->
+    <g v-if="name === 'file'">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+      <polyline points="14,2 14,8 20,8"></polyline>
+    </g>
+    
+    <!-- X -->
+    <g v-if="name === 'x'">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </g>
+    
+    <!-- Tooth -->
+    <g v-if="name === 'tooth'">
+      <path d="M9 12c0 1.5-1.5 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3z"></path>
+      <path d="M15 12c0 1.5 1.5 3 3 3s3-1.5 3-3-1.5-3-3-3-3 1.5-3 3z"></path>
+      <path d="M12 6c0 1.5-1.5 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3z"></path>
+      <path d="M12 18c0 1.5 1.5 3 3 3s3-1.5 3-3-1.5-3-3-3-3 1.5-3 3z"></path>
+    </g>
   </svg>
 </template>
 
