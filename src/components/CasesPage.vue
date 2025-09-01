@@ -382,17 +382,41 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   color: white;
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+.logout-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.logout-btn:hover::before {
+  left: 100%;
 }
 
 .logout-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
 }
 
 .cases-content {
@@ -521,12 +545,10 @@ onMounted(() => {
   text-align: left;
   font-weight: 600;
   color: #f1f5f9;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-}
+ }
 
 .cases-table td {
   padding: 16px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   color: #f1f5f9;
 }
 

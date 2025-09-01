@@ -3,13 +3,7 @@
     <div class="header-content">
       <!-- Left Section: Logo and Title -->
       <div class="header-left">
-        <div class="app-brand">
-          <span class="app-icon">◈</span>
-          <div class="brand-text">
-            <h1 v-if="title">{{ title }}</h1>
-            <p v-if="description">{{ description }}</p>
-          </div>
-        </div>
+        <AppLogo :title="title" :description="description" />
       </div>
 
       <!-- Center Section: Optional Content -->
@@ -26,6 +20,8 @@
 </template>
 
 <script setup lang="ts">
+import AppLogo from './AppLogo.vue'
+
 interface Props {
   title?: string
   description?: string
@@ -63,37 +59,7 @@ defineProps<Props>()
   align-items: center;
 }
 
-.app-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 20px;
-  font-weight: 700;
-  color: #f1f5f9;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
 
-.app-icon {
-  font-size: 28px;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.brand-text h1 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #f1f5f9;
-}
-
-.brand-text p {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 13px;
-  font-weight: 400;
-}
 
 .header-center {
   flex: 1;

@@ -3,11 +3,12 @@
     <div class="login-container">
       <div class="login-card">
         <div class="login-header">
-          <div class="logo">
-            <Icon name="tooth" :size="48" color="#06b6d4" />
-          </div>
-          <h1>Dental Viewer</h1>
-          <p>Sign in to access your cases</p>
+          <AppLogo 
+            title="Aligner" 
+            description="Sign in to access your cases"
+            :centered="true"
+            :large="true"
+          />
         </div>
 
         <form @submit.prevent="handleLogin" class="login-form">
@@ -116,6 +117,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
+import AppLogo from './AppLogo.vue'
 
 const router = useRouter()
 
@@ -235,23 +237,6 @@ const handleRegister = async () => {
 .login-header {
   text-align: center;
   margin-bottom: 30px;
-}
-
-.logo {
-  margin-bottom: 16px;
-}
-
-.login-header h1 {
-  margin: 0 0 8px 0;
-  color: #f1f5f9;
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.login-header p {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 16px;
 }
 
 .login-form {

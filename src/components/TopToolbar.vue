@@ -1,19 +1,5 @@
 <template>
   <div class="toolbar-content">
-    <div class="file-controls">
-      <input 
-        ref="fileInput" 
-        type="file" 
-        accept=".stl,.obj,.ply,.gltf,.glb" 
-        @change="handleFileUpload"
-        style="display: none"
-      />
-      <button @click="triggerFileUpload" :disabled="isLoading" class="toolbar-btn primary">
-        <span class="btn-icon" :class="{ 'rotating': isLoading }">{{ isLoading ? '⟳' : '⬆' }}</span>
-        {{ getUploadButtonText() }}
-      </button>
-    </div>
-    
     <div class="view-controls" v-if="dentalModel">
       <button 
         v-for="mode in interactionModes" 
@@ -69,13 +55,11 @@ const props = defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
-  fileUpload: [event: Event, autoSegment: boolean]
   setInteractionMode: [mode: InteractionMode['mode']]
   setLassoMode: [mode: LassoMode]
 }>()
 
 // Refs
-const fileInput = ref<HTMLInputElement>()
 const currentLassoMode = ref<LassoMode>('create')
 
 // Lasso modes configuration
@@ -111,15 +95,6 @@ const lassoModes = [
 ]
 
 // Methods
-function triggerFileUpload() {
-  fileInput.value?.click()
-}
-
-function handleFileUpload(event: Event) {
-  const autoSegment = true;
-  emit('fileUpload', event, autoSegment)
-}
-
 function setInteractionMode(mode: InteractionMode['mode']) {
   // Prevent activating lasso mode if no model is loaded
   if (mode === 'lasso' && !props.dentalModel) {
@@ -142,13 +117,6 @@ function isLassoModeDisabled(mode: LassoMode): boolean {
            props.selectedSegments.length === 0
   }
   return !props.dentalModel
-}
-
-function getUploadButtonText(): string {
-  if (props.isLoading) {
-    return 'Processing...'
-  }
-  return 'Load 3D Model';
 }
 
 function getModeIcon(mode: InteractionMode['mode']): string {
@@ -208,7 +176,7 @@ function getLassoModeDescription(): string {
   width: 100%;
 }
 
-.file-controls, .view-controls {
+.view-controls {
   display: flex;
   align-items: center;
   gap: 12px;

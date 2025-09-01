@@ -7,8 +7,8 @@
     />
     
     <AppHeader 
-      title="DentalViewer Pro" 
-      description="Advanced 3D dental model viewer and segmentation tool"
+      title="Aligner" 
+      description=""
     >
       <template #center>
         <TopToolbar
@@ -17,10 +17,15 @@
           :currentMode="currentMode"
           :isLoading="threeJSManager.isLoading.value"
           :interactionModes="interactionModes"
-          @fileUpload="handleFileUpload"
           @setInteractionMode="setInteractionMode"
           @setLassoMode="setLassoMode"
         />
+      </template>
+      <template #actions>
+        <button @click="handleLogout" class="logout-btn">
+          <Icon name="log-out" :size="16" color="currentColor" />
+          Logout
+        </button>
       </template>
     </AppHeader>
 
@@ -98,7 +103,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, shallowRef, computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useThreeJS } from "../composables/useThreeJS";
 import { useThreeJSManager } from "../composables/useThreeJSManager";
 import { useSegmentManager } from "../composables/useSegmentManager";
@@ -125,12 +130,14 @@ import BackgroundStatusIndicator from "./BackgroundStatusIndicator.vue";
 import TreatmentPlanPanel from "./TreatmentPlanPanel.vue";
 import IntersectionPanel from "./IntersectionPanel.vue";
 import LoadingOverlay from "./LoadingOverlay.vue";
+import Icon from "./Icon.vue";
 
 // Use the lazy loading composable
 const { loadThreeJS, loadServices } = useThreeJS();
 
 // Get route params
 const route = useRoute();
+const router = useRouter();
 const caseId = route.params.caseId as string;
 
 // Initialize composables
@@ -172,9 +179,18 @@ const backgroundSegmentationStatus = ref<{
 const isTreatmentPlanFullScreen = ref(false);
 const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 
+// User data
+const user = ref(null);
+
 const interactionModes: InteractionMode["mode"][] = ["lasso", "pan"];
 
 onMounted(async () => {
+  // Load user data
+  const userData = localStorage.getItem('user')
+  if (userData) {
+    user.value = JSON.parse(userData)
+  }
+
   await initializeApp();
 });
 
@@ -865,6 +881,12 @@ function dismissBackgroundStatus() {
   backgroundSegmentationStatus.value.progress = undefined;
 }
 
+function handleLogout() {
+  localStorage.removeItem('authToken')
+  localStorage.removeItem('user')
+  router.push('/login')
+}
+
 // Intersection Detection Handlers
 function handleIntersectionHighlight(intersection: any) {
   console.log("Highlighting intersection:", intersection);
@@ -1070,5 +1092,52 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
   .main-content {
     flex-direction: column;
   }
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 14px;
+  font-weight: 600;
+  backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+.logout-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.6s ease;
+}
+
+.logout-btn:hover::before {
+  left: 100%;
+}
+
+.logout-btn:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
 }
 </style>
