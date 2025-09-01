@@ -6,16 +6,23 @@
       :loadingMessage="threeJSManager.loadingMessage.value"
     />
     
-    <TopToolbar
-      :dentalModel="dentalModel"
-      :selectedSegments="segmentManager.selectedSegments.value"
-      :currentMode="currentMode"
-      :isLoading="threeJSManager.isLoading.value"
-      :interactionModes="interactionModes"
-      @fileUpload="handleFileUpload"
-      @setInteractionMode="setInteractionMode"
-      @setLassoMode="setLassoMode"
-    />
+    <AppHeader 
+      title="DentalViewer Pro" 
+      description="Advanced 3D dental model viewer and segmentation tool"
+    >
+      <template #center>
+        <TopToolbar
+          :dentalModel="dentalModel"
+          :selectedSegments="segmentManager.selectedSegments.value"
+          :currentMode="currentMode"
+          :isLoading="threeJSManager.isLoading.value"
+          :interactionModes="interactionModes"
+          @fileUpload="handleFileUpload"
+          @setInteractionMode="setInteractionMode"
+          @setLassoMode="setLassoMode"
+        />
+      </template>
+    </AppHeader>
 
     <!-- Background Status Indicator -->
     <BackgroundStatusIndicator
@@ -110,6 +117,7 @@ import type {
   LassoMode,
   LassoOperationResult,
 } from "../services/EnhancedLassoService";
+import AppHeader from "./AppHeader.vue";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
 import ViewportArea from "./ViewportArea.vue";
@@ -1026,6 +1034,7 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
   display: flex;
   flex: 1;
   overflow: hidden;
+  height: calc(100vh - 64px); /* Account for header height */
 }
 
 .main-content.treatment-fullscreen {

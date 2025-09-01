@@ -1,62 +1,53 @@
 <template>
-  <div class="top-toolbar">
-    <div class="toolbar-section">
-      <div class="app-title">
-        <span class="app-icon">◈</span>
-        <span>DentalViewer Pro</span>
-      </div>
+  <div class="toolbar-content">
+    <div class="file-controls">
+      <input 
+        ref="fileInput" 
+        type="file" 
+        accept=".stl,.obj,.ply,.gltf,.glb" 
+        @change="handleFileUpload"
+        style="display: none"
+      />
+      <button @click="triggerFileUpload" :disabled="isLoading" class="toolbar-btn primary">
+        <span class="btn-icon" :class="{ 'rotating': isLoading }">{{ isLoading ? '⟳' : '⬆' }}</span>
+        {{ getUploadButtonText() }}
+      </button>
     </div>
     
-    <div class="toolbar-section toolbar-center">
-      <div class="file-controls">
-        <input 
-          ref="fileInput" 
-          type="file" 
-          accept=".stl,.obj,.ply,.gltf,.glb" 
-          @change="handleFileUpload"
-          style="display: none"
-        />
-        <button @click="triggerFileUpload" :disabled="isLoading" class="toolbar-btn primary">
-          <span class="btn-icon" :class="{ 'rotating': isLoading }">{{ isLoading ? '⟳' : '⬆' }}</span>
-          {{ getUploadButtonText() }}
-        </button>
-      </div>
+    <div class="view-controls" v-if="dentalModel">
+      <button 
+        v-for="mode in interactionModes" 
+        :key="mode"
+        @click="setInteractionMode(mode)"
+        :class="{ active: currentMode === mode, disabled: isInteractionModeDisabled(mode) }"
+        class="toolbar-btn mode-btn"
+        :title="getInteractionModeTitle(mode)"
+        :disabled="isInteractionModeDisabled(mode)"
+      >
+        <span class="btn-icon">{{ getModeIcon(mode) }}</span>
+      </button>
       
-      <div class="view-controls" v-if="dentalModel">
-        <button 
-          v-for="mode in interactionModes" 
-          :key="mode"
-          @click="setInteractionMode(mode)"
-          :class="{ active: currentMode === mode, disabled: isInteractionModeDisabled(mode) }"
-          class="toolbar-btn mode-btn"
-          :title="getInteractionModeTitle(mode)"
-          :disabled="isInteractionModeDisabled(mode)"
-        >
-          <span class="btn-icon">{{ getModeIcon(mode) }}</span>
-        </button>
-        
-        <!-- Enhanced Lasso Controls -->
-        <div v-if="currentMode === 'lasso'" class="lasso-controls">
-          <div class="lasso-mode-selector">
-            <button 
-              v-for="lassoMode in lassoModes" 
-              :key="lassoMode.id"
-              @click="setLassoMode(lassoMode.id)"
-              :class="{ 
-                active: currentLassoMode === lassoMode.id,
-                disabled: isLassoModeDisabled(lassoMode.id)
-              }"
-              class="lasso-mode-btn"
-              :title="lassoMode.title"
-              :disabled="isLassoModeDisabled(lassoMode.id)"
-            >
-              <span class="lasso-icon">{{ lassoMode.icon }}</span>
-              <span class="lasso-label">{{ lassoMode.label }}</span>
-            </button>
-          </div>
+      <!-- Enhanced Lasso Controls -->
+      <div v-if="currentMode === 'lasso'" class="lasso-controls">
+        <div class="lasso-mode-selector">
+          <button 
+            v-for="lassoMode in lassoModes" 
+            :key="lassoMode.id"
+            @click="setLassoMode(lassoMode.id)"
+            :class="{ 
+              active: currentLassoMode === lassoMode.id,
+              disabled: isLassoModeDisabled(lassoMode.id)
+            }"
+            class="lasso-mode-btn"
+            :title="lassoMode.title"
+            :disabled="isLassoModeDisabled(lassoMode.id)"
+          >
+            <span class="lasso-icon">{{ lassoMode.icon }}</span>
+            <span class="lasso-label">{{ lassoMode.label }}</span>
+          </button>
         </div>
       </div>
-    </div> 
+    </div>
   </div>
 </template>
 
@@ -208,48 +199,13 @@ function getLassoModeDescription(): string {
 </script>
 
 <style scoped>
-/* Top Toolbar */
-.top-toolbar {
+/* Toolbar Content */
+.toolbar-content {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-  padding: 12px 20px;
-  height: 64px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
-  z-index: 1000;
-}
-
-.toolbar-section {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.toolbar-center {
-  flex: 1;
   justify-content: center;
   gap: 32px;
-}
-
-.app-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 20px;
-  font-weight: 700;
-  color: #f1f5f9;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.app-icon {
-  font-size: 28px;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  width: 100%;
 }
 
 .file-controls, .view-controls {

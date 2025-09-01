@@ -1,22 +1,19 @@
 <template>
   <div class="cases-page">
-    <div class="cases-header">
-      <div class="header-content">
-        <div class="header-left">
-          <h1>My Cases</h1>
-          <p>Manage your dental cases and upload new files</p>
+    <AppHeader 
+      title="My Cases" 
+      description="Manage your dental cases and upload new files"
+    >
+      <template #actions>
+        <div class="user-info">
+          <span>Welcome, {{ user?.username }}</span>
+          <button @click="handleLogout" class="logout-btn">
+            <Icon name="log-out" :size="16" color="currentColor" />
+            Logout
+          </button>
         </div>
-        <div class="header-right">
-          <div class="user-info">
-            <span>Welcome, {{ user?.username }}</span>
-            <button @click="handleLogout" class="logout-btn">
-              <Icon name="log-out" :size="16" color="currentColor" />
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </template>
+    </AppHeader>
 
     <div class="cases-content">
       <div class="actions-bar">
@@ -176,6 +173,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
+import AppHeader from './AppHeader.vue'
 
 const router = useRouter()
 
@@ -374,33 +372,6 @@ onMounted(() => {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
-.cases-header {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: white;
-  padding: 24px 0;
-}
-
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left h1 {
-  margin: 0 0 8px 0;
-  font-size: 32px;
-  font-weight: 700;
-}
-
-.header-left p {
-  margin: 0;
-  color: #94a3b8;
-  font-size: 16px;
-}
-
 .user-info {
   display: flex;
   align-items: center;
@@ -429,6 +400,7 @@ onMounted(() => {
   margin: 0 auto;
   padding: 32px 24px;
   color: #f1f5f9;
+  min-height: calc(100vh - 64px); /* Account for header height */
 }
 
 .actions-bar {
