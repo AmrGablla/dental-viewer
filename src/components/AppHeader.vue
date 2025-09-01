@@ -3,9 +3,9 @@
     <div class="header-content">
       <!-- Left Section: Logo and Title -->
       <div class="header-left">
-        <AppLogo 
-          :title="title" 
-          :description="description" 
+        <AppLogo
+          :title="title"
+          :description="description"
           :clickable="clickable"
           @click="handleLogoClick"
         />
@@ -25,22 +25,22 @@
 </template>
 
 <script setup lang="ts">
-import AppLogo from './AppLogo.vue'
+import AppLogo from "./AppLogo.vue";
 
 interface Props {
-  title?: string
-  description?: string
-  clickable?: boolean
+  title?: string;
+  description?: string;
+  clickable?: boolean;
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  logoClick: []
-}>()
+  logoClick: [];
+}>();
 
 function handleLogoClick() {
-  emit('logoClick')
+  emit("logoClick");
 }
 </script>
 
@@ -63,7 +63,6 @@ function handleLogoClick() {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 1200px;
   margin: 0 auto;
   gap: 16px;
 }
@@ -72,8 +71,6 @@ function handleLogoClick() {
   display: flex;
   align-items: center;
 }
-
-
 
 .header-center {
   flex: 1;
@@ -95,12 +92,12 @@ function handleLogoClick() {
     gap: 16px;
     text-align: center;
   }
-  
+
   .header-center {
     order: 3;
     width: 100%;
   }
-  
+
   .header-right {
     order: 2;
   }
