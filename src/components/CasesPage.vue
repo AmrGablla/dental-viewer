@@ -85,6 +85,9 @@
                   <button @click="openCase(caseItem)" class="action-btn view-btn" title="Open Case">
                     <Icon name="eye" :size="14" color="currentColor" />
                   </button>
+                  <button @click="uploadSegments(caseItem)" class="action-btn segment-btn" title="Upload Segments">
+                    <Icon name="layers" :size="14" color="currentColor" />
+                  </button>
                   <button @click="deleteCase(caseItem.id)" class="action-btn delete-btn" title="Delete Case">
                     <Icon name="trash-2" :size="14" color="currentColor" />
                   </button>
@@ -165,6 +168,64 @@
         </form>
       </div>
     </div>
+
+    <!-- Segment Upload Modal -->
+    <div v-if="showSegmentUploadModal" class="modal-overlay" @click="showSegmentUploadModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2>Upload Segment Files for {{ selectedCaseForSegments?.case_name }}</h2>
+          <button class="close-btn" @click="showSegmentUploadModal = false">
+            <Icon name="x" :size="20" color="currentColor" />
+          </button>
+        </div>
+
+        <form @submit.prevent="handleSegmentUpload" class="upload-form">
+          <div class="form-group">
+            <label for="segment-file-upload">Segment File (STL or JSON)</label>
+            <div class="file-upload-area" :class="{ 'has-file': selectedSegmentFile }">
+              <input
+                id="segment-file-upload"
+                ref="segmentFileInput"
+                type="file"
+                accept=".stl,.json"
+                @change="handleSegmentFileSelect"
+                :disabled="uploading"
+                style="display: none"
+              />
+              <div v-if="!selectedSegmentFile" class="upload-placeholder" @click="$refs.segmentFileInput.click()">
+                <Icon name="upload" :size="32" color="#6b7280" />
+                <p>Click to select segment file</p>
+                <span>STL or JSON format</span>
+              </div>
+              <div v-else class="file-info">
+                <Icon name="file" :size="24" color="#06b6d4" />
+                <div class="file-details">
+                  <span class="file-name">{{ selectedSegmentFile.name }}</span>
+                  <span class="file-size">{{ formatFileSize(selectedSegmentFile.size) }}</span>
+                </div>
+                <button type="button" @click="clearSegmentFile" class="clear-file-btn">
+                  <Icon name="x" :size="16" color="currentColor" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="uploadError" class="error-message">
+            {{ uploadError }}
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" @click="showSegmentUploadModal = false" class="cancel-btn" :disabled="uploading">
+              Done
+            </button>
+            <button type="submit" class="upload-submit-btn" :disabled="uploading || !selectedSegmentFile">
+              <span v-if="uploading">Uploading...</span>
+              <span v-else>Upload Segment</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -182,9 +243,12 @@ const error = ref('')
 const cases = ref([])
 const searchQuery = ref('')
 const showUploadModal = ref(false)
+const showSegmentUploadModal = ref(false)
 const uploading = ref(false)
 const uploadError = ref('')
 const selectedFile = ref(null)
+const selectedSegmentFile = ref(null)
+const selectedCaseForSegments = ref(null)
 
 // Form data
 const uploadForm = reactive({
@@ -275,12 +339,31 @@ const handleUpload = async () => {
   uploadError.value = ''
 
   try {
+    // First, create the case
+    const token = localStorage.getItem('authToken')
+    const createCaseResponse = await fetch(`${API_BASE}/cases`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        case_name: uploadForm.case_name
+      })
+    })
+
+    if (!createCaseResponse.ok) {
+      throw new Error('Failed to create case')
+    }
+
+    const caseData = await createCaseResponse.json()
+    const caseId = caseData.case.id
+
+    // Then upload the file to id/raw
     const formData = new FormData()
     formData.append('file', selectedFile.value)
-    formData.append('case_name', uploadForm.case_name)
 
-    const token = localStorage.getItem('authToken')
-    const response = await fetch(`${API_BASE}/cases/upload`, {
+    const uploadResponse = await fetch(`${API_BASE}/cases/${caseId}/raw`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -288,10 +371,8 @@ const handleUpload = async () => {
       body: formData
     })
 
-    const data = await response.json()
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Upload failed')
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload file')
     }
 
     // Reset form and close modal
@@ -318,6 +399,70 @@ const openCase = (caseItem) => {
       fileName: caseItem.file_name
     }
   })
+}
+
+const uploadSegments = (caseItem) => {
+  selectedCaseForSegments.value = caseItem
+  showSegmentUploadModal.value = true
+}
+
+const handleSegmentFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file && (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.json'))) {
+    selectedSegmentFile.value = file
+  } else {
+    alert('Please select a valid STL or JSON file')
+  }
+}
+
+const clearSegmentFile = () => {
+  selectedSegmentFile.value = null
+  if (this.$refs.segmentFileInput) {
+    this.$refs.segmentFileInput.value = ''
+  }
+}
+
+const handleSegmentUpload = async () => {
+  if (!selectedSegmentFile.value || !selectedCaseForSegments.value) return
+
+  uploading.value = true
+  uploadError.value = ''
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedSegmentFile.value)
+
+    const token = localStorage.getItem('authToken')
+    const response = await fetch(`${API_BASE}/cases/${selectedCaseForSegments.value.id}/segments`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Segment upload failed')
+    }
+
+    // Show success message
+    alert(`Segment "${selectedSegmentFile.value.name}" uploaded successfully!`)
+    
+    // Reset form but keep modal open for more uploads
+    selectedSegmentFile.value = null
+    if (this.$refs.segmentFileInput) {
+      this.$refs.segmentFileInput.value = ''
+    }
+
+    // Don't close modal - allow user to upload more files
+    // Don't reload cases - keep the current state
+  } catch (err: any) {
+    uploadError.value = err.message || 'Segment upload failed'
+  } finally {
+    uploading.value = false
+  }
 }
 
 const deleteCase = async (caseId) => {
@@ -622,6 +767,12 @@ onMounted(() => {
   background: #fee2e2;
   border-color: #ef4444;
   color: #991b1b;
+}
+
+.segment-btn:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
 }
 
 /* Modal styles */

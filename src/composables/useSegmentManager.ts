@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import * as THREE from 'three';
 import type { ToothSegment, DentalModel, IntersectionResult, IntersectionStatistics } from '../types/dental';
 import { IntersectionDetectionService, type IntersectionConfig } from '../services/IntersectionDetectionService';
 
@@ -186,9 +187,8 @@ export function useSegmentManager() {
 
   function changeSegmentColor(segment: ToothSegment, event: Event) {
     const input = event.target as HTMLInputElement;
-    // Note: THREE reference needs to be passed to this function
-    // For now, we'll use a simple color object
-    const color = { hex: input.value } as any;
+    // Create a proper THREE.js Color object
+    const color = new THREE.Color(input.value);
 
     segment.color = color;
     const material = segment.mesh.material as any;

@@ -175,12 +175,18 @@ export class FileHandlerService {
   }
 
   // Load STL file from URL
-  async loadSTLFile(url: string): Promise<any> {
+  async loadSTLFile(url: string, authToken?: string): Promise<any> {
     try {
       console.log("Loading STL file from URL:", url);
       
+      // Prepare headers
+      const headers: HeadersInit = {};
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+      }
+      
       // Fetch the STL file
-      const response = await fetch(url);
+      const response = await fetch(url, { headers });
       if (!response.ok) {
         throw new Error(`Failed to fetch STL file: ${response.statusText}`);
       }
@@ -189,7 +195,8 @@ export class FileHandlerService {
       const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
       
       // Create a File object from the blob
-      const fileName = url.split('/').pop() || 'model.stl';
+      // For raw endpoints, we know it's always an STL file, so use model.stl
+      const fileName = url.includes('/raw') ? 'model.stl' : (url.split('/').pop() || 'model.stl');
       const file = new File([blob], fileName, { type: 'application/octet-stream' });
       
       // Load the model using existing logic

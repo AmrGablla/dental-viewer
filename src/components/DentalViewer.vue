@@ -118,6 +118,7 @@ import type {
   DentalModel,
   InteractionMode,
   OrthodonticTreatmentPlan,
+  ToothSegment,
 } from "../types/dental";
 import type {
   EnhancedLassoService,
@@ -315,8 +316,11 @@ async function loadCaseData() {
     const fileUrl = `http://localhost:3001/api/cases/${caseId}/raw`;
     console.log("Loading STL file from:", fileUrl);
     
+    // Get auth token
+    const authToken = localStorage.getItem('authToken') || undefined;
+    
     // Load the STL file using the file handler service
-    const loadedModel = await fileHandlerService?.loadSTLFile(fileUrl);
+    const loadedModel = await fileHandlerService?.loadSTLFile(fileUrl, authToken);
       
       if (loadedModel) {
         // Compute bounding box for the loaded mesh
@@ -354,6 +358,9 @@ async function loadCaseData() {
         });
         
         console.log("Dental model loaded successfully:", dentalModel.value);
+        
+        // Load existing segments from backend
+        await loadExistingSegments();
         
         // Focus camera on the loaded model
         if (dentalModel.value) {
@@ -885,6 +892,107 @@ function handleLogout() {
 
 function handleLogoClick() {
   router.push('/cases')
+}
+
+async function loadExistingSegments() {
+  try {
+    if (!caseId || !dentalModel.value) {
+      console.log("No case ID or dental model available for loading segments");
+      return;
+    }
+
+    threeJSManager.loadingMessage.value = "Loading existing segments...";
+    
+    // Get auth token
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Fetch segments from backend
+    const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log("No segments found for this case");
+        return;
+      }
+      throw new Error(`Failed to fetch segments: ${response.statusText}`);
+    }
+
+    const segmentsData = await response.json();
+    console.log("Segments data loaded:", segmentsData);
+
+    if (segmentsData.segments && segmentsData.segments.length > 0) {
+      // Load each segment
+      for (const segmentInfo of segmentsData.segments) {
+        try {
+          // Load segment mesh from backend
+          const segmentUrl = `http://localhost:3001/api/cases/${caseId}/segments/${segmentInfo.id}`;
+          const segmentMesh = await fileHandlerService?.loadSTLFile(segmentUrl, token);
+          
+          if (segmentMesh) {
+            // Create segment object
+            const segment: ToothSegment = {
+              id: segmentInfo.id,
+              name: segmentInfo.name || `Segment ${segmentInfo.id}`,
+              mesh: segmentMesh,
+              originalVertices: [], // Will be populated if needed
+              centroid: new THREE.Vector3(),
+              color: new THREE.Color(segmentInfo.color || 0x00ff00),
+              toothType: 'incisor', // Default type, can be updated later
+              isSelected: false,
+              originalPosition: segmentMesh.position.clone(),
+              movementHistory: {
+                totalDistance: 0,
+                axisMovements: {
+                  anteroposterior: 0,
+                  vertical: 0,
+                  transverse: 0
+                },
+                movementCount: 0
+              }
+            };
+
+            // Add to dental model
+            dentalModel.value.segments.push(segment);
+            
+            // Add to scene
+            const scene = threeJSManager.getScene();
+            if (scene) {
+              scene.add(segmentMesh);
+            }
+
+            // Apply segment styling
+            segmentManager.updateSegmentAppearance(segment);
+            
+            console.log(`Loaded segment: ${segment.name}`);
+          }
+        } catch (segmentError) {
+          console.error(`Failed to load segment ${segmentInfo.id}:`, segmentError);
+        }
+      }
+
+      // Trigger Vue reactivity
+      dentalModel.value = { ...dentalModel.value };
+      
+      console.log(`Successfully loaded ${dentalModel.value.segments.length} segments`);
+      
+      // Detect intersections after loading segments
+      segmentManager.detectIntersections(dentalModel.value);
+    } else {
+      console.log("No segments found for this case");
+    }
+  } catch (error) {
+    console.error("Failed to load existing segments:", error);
+  } finally {
+    threeJSManager.loadingMessage.value = "";
+  }
 }
 
 // Intersection Detection Handlers
