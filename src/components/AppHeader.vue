@@ -33,7 +33,7 @@ interface Props {
   clickable?: boolean;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 
 const emit = defineEmits<{
   logoClick: [];

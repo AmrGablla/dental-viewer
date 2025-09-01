@@ -37,6 +37,21 @@
       @dismiss="dismissBackgroundStatus"
     />
 
+    <!-- Intersection Detection Progress -->
+    <div v-if="segmentManager.isIntersectionDetectionRunning.value" class="intersection-progress">
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div 
+            class="progress-fill" 
+            :style="{ width: `${segmentManager.intersectionDetectionProgress.value}%` }"
+          ></div>
+        </div>
+        <div class="progress-text">
+          Detecting intersections... {{ segmentManager.intersectionDetectionProgress.value }}%
+        </div>
+      </div>
+    </div>
+
     <!-- Main Content Area -->
     <div
       class="main-content"
@@ -113,7 +128,7 @@ import { useCameraControls } from "../composables/useCameraControls";
 import { useDirectionalMovement } from "../composables/useDirectionalMovement";
 import { useGeometryManipulation } from "../composables/useGeometryManipulation";
 import { FileHandlerService } from "../services/FileHandlerService";
-import { SegmentationService } from "../services/SegmentationService";
+// import { SegmentationService } from "../services/SegmentationService";
 import type {
   DentalModel,
   InteractionMode,
@@ -160,7 +175,7 @@ const canvasContainer = computed(
 
 // Services - will be initialized after lazy loading
 let fileHandlerService: FileHandlerService | null = null;
-let segmentationService: SegmentationService | null = null;
+// let segmentationService: SegmentationService | null = null;
 let enhancedLassoService: EnhancedLassoService | null = null;
 let THREE: any = null;
 
@@ -238,9 +253,9 @@ async function initializeApp() {
       scene
     );
 
-    const { BackendService } = await import("../services/BackendService");
-    const backendService = new BackendService("http://localhost:8000", THREE);
-    segmentationService = new SegmentationService(backendService, scene, THREE);
+    // const { BackendService } = await import("../services/BackendService");
+    // const backendService = new BackendService("http://localhost:8000", THREE);
+    // segmentationService = new SegmentationService(backendService, scene, THREE);
 
     // Initialize intersection detection
     segmentManager.initializeIntersectionDetection(scene);
@@ -1045,106 +1060,7 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
   }
 }
 
-// File handling
-async function handleFileUpload(event: Event, autoSegment: boolean = false) {
-  console.log("📁 handleFileUpload called with autoSegment:", autoSegment);
-   if (!fileHandlerService) {
-    console.error("❌ fileHandlerService is not initialized");
-    return;
-  }
 
-  const onLoadStart = () => {
-    threeJSManager.isLoading.value = true;
-    threeJSManager.loadingMessage.value = "Loading 3D model...";
-  };
-
-  const onLoadComplete = (model: DentalModel) => {
-    dentalModel.value = model;
-    threeJSManager.focusOnModel(model);
-    threeJSManager.isLoading.value = false;
-    threeJSManager.loadingMessage.value = "Model loaded successfully";
-    
-    // Detect intersections after model is loaded
-    if (model.segments.length > 0) {
-      segmentManager.detectIntersections(model);
-    }
-  };
-
-  const onError = (error: Error) => {
-    alert(error.message);
-    threeJSManager.isLoading.value = false;
-    threeJSManager.loadingMessage.value = "";
-  };
-
-  const startBackgroundAISegmentation = async (file: File) => {
-    console.log(
-      "🤖 startBackgroundAISegmentation called with file:",
-      file.name
-    );
-    if (!segmentationService) {
-      console.error("❌ segmentationService is not initialized");
-      return;
-    }
-    if (!dentalModel.value) {
-      console.error("❌ dentalModel is not loaded");
-      return;
-    }
-
-    await segmentationService.startBackgroundAISegmentation(
-      file,
-      dentalModel.value,
-      (status) => {
-        backgroundSegmentationStatus.value = status;
-      },
-      (result) => {
-        console.log(
-          `✅ Background AI Segmentation completed: ${result.segments.length} teeth found`
-        );
-        setTimeout(() => {
-          backgroundSegmentationStatus.value.isRunning = false;
-          backgroundSegmentationStatus.value.message = "";
-          backgroundSegmentationStatus.value.progress = undefined;
-
-          threeJSManager.loadingMessage.value = `AI found ${result.segments.length} teeth!`;
-          setTimeout(() => {
-            threeJSManager.loadingMessage.value = "";
-          }, 3000);
-        }, 1000);
-      },
-      (error) => {
-        console.error("Background AI Segmentation failed:", error);
-        backgroundSegmentationStatus.value.isRunning = false;
-        backgroundSegmentationStatus.value.message = "";
-        backgroundSegmentationStatus.value.progress = undefined;
-
-        threeJSManager.loadingMessage.value = `AI segmentation failed: ${error.message}`;
-        setTimeout(() => {
-          threeJSManager.loadingMessage.value = "";
-        }, 5000);
-      },
-      (updatedDentalModel) => {
-        // Update the reactive dentalModel ref to trigger Vue reactivity
-        dentalModel.value = updatedDentalModel;
-        console.log(
-          "🔄 Updated dentalModel ref to trigger Vue reactivity and sidebar update"
-        );
-      }
-    );
-  };
-
-  console.log(
-    "📤 Calling fileHandlerService.handleFileUpload with autoSegment:",
-    autoSegment
-  );
-  await fileHandlerService.handleFileUpload(
-    event,
-    autoSegment,
-    onLoadStart,
-    onLoadComplete,
-    onError,
-    startBackgroundAISegmentation
-  );
-}
 </script>
 
 <style scoped>
@@ -1247,5 +1163,68 @@ async function handleFileUpload(event: Event, autoSegment: boolean = false) {
   border-color: rgba(239, 68, 68, 0.5);
   transform: translateY(-1px);
   box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+
+/* Intersection Detection Progress */
+.intersection-progress {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1001;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  min-width: 300px;
+}
+
+.progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-text {
+  color: #f1f5f9;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
 }
 </style>

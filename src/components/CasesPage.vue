@@ -134,7 +134,7 @@
                 :disabled="uploading"
                 style="display: none"
               />
-              <div v-if="!selectedFile" class="upload-placeholder" @click="$refs.fileInput.click()">
+              <div v-if="!selectedFile" class="upload-placeholder" @click="fileInput?.click()">
                 <Icon name="upload" :size="32" color="#6b7280" />
                 <p>Click to select STL file</p>
                 <span>or drag and drop</span>
@@ -192,7 +192,7 @@
                 :disabled="uploading"
                 style="display: none"
               />
-              <div v-if="!selectedSegmentFile" class="upload-placeholder" @click="$refs.segmentFileInput.click()">
+              <div v-if="!selectedSegmentFile" class="upload-placeholder" @click="segmentFileInput?.click()">
                 <Icon name="upload" :size="32" color="#6b7280" />
                 <p>Click to select segment file</p>
                 <span>STL or JSON format</span>
@@ -240,15 +240,19 @@ const router = useRouter()
 // State
 const loading = ref(false)
 const error = ref('')
-const cases = ref([])
+const cases = ref<any[]>([])
 const searchQuery = ref('')
 const showUploadModal = ref(false)
 const showSegmentUploadModal = ref(false)
 const uploading = ref(false)
 const uploadError = ref('')
-const selectedFile = ref(null)
-const selectedSegmentFile = ref(null)
-const selectedCaseForSegments = ref(null)
+const selectedFile = ref<File | null>(null)
+const selectedSegmentFile = ref<File | null>(null)
+const selectedCaseForSegments = ref<any>(null)
+
+// Template refs
+const fileInput = ref<HTMLInputElement | null>(null)
+const segmentFileInput = ref<HTMLInputElement | null>(null)
 
 // Form data
 const uploadForm = reactive({
@@ -256,7 +260,7 @@ const uploadForm = reactive({
 })
 
 // User data
-const user = ref(null)
+const user = ref<any>(null)
 
 // API base URL
 const API_BASE = 'http://localhost:3001/api'
@@ -316,7 +320,7 @@ const handleLogout = () => {
   router.push('/login')
 }
 
-const handleFileSelect = (event) => {
+const handleFileSelect = (event: any) => {
   const file = event.target.files[0]
   if (file && file.name.toLowerCase().endsWith('.stl')) {
     selectedFile.value = file
@@ -327,8 +331,8 @@ const handleFileSelect = (event) => {
 
 const clearFile = () => {
   selectedFile.value = null
-  if (this.$refs.fileInput) {
-    this.$refs.fileInput.value = ''
+  if (fileInput.value) {
+    fileInput.value.value = ''
   }
 }
 
@@ -389,7 +393,7 @@ const handleUpload = async () => {
   }
 }
 
-const openCase = (caseItem) => {
+const openCase = (caseItem: any) => {
   // Navigate to viewer with case data
   router.push({
     name: 'viewer',
@@ -401,12 +405,12 @@ const openCase = (caseItem) => {
   })
 }
 
-const uploadSegments = (caseItem) => {
+const uploadSegments = (caseItem: any) => {
   selectedCaseForSegments.value = caseItem
   showSegmentUploadModal.value = true
 }
 
-const handleSegmentFileSelect = (event) => {
+const handleSegmentFileSelect = (event: any) => {
   const file = event.target.files[0]
   if (file && (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.json'))) {
     selectedSegmentFile.value = file
@@ -417,8 +421,8 @@ const handleSegmentFileSelect = (event) => {
 
 const clearSegmentFile = () => {
   selectedSegmentFile.value = null
-  if (this.$refs.segmentFileInput) {
-    this.$refs.segmentFileInput.value = ''
+  if (segmentFileInput.value) {
+    segmentFileInput.value.value = ''
   }
 }
 
@@ -452,8 +456,8 @@ const handleSegmentUpload = async () => {
     
     // Reset form but keep modal open for more uploads
     selectedSegmentFile.value = null
-    if (this.$refs.segmentFileInput) {
-      this.$refs.segmentFileInput.value = ''
+    if (segmentFileInput.value) {
+      segmentFileInput.value.value = ''
     }
 
     // Don't close modal - allow user to upload more files
@@ -465,7 +469,7 @@ const handleSegmentUpload = async () => {
   }
 }
 
-const deleteCase = async (caseId) => {
+const deleteCase = async (caseId: any) => {
   if (!confirm('Are you sure you want to delete this case?')) return
 
   try {
@@ -485,11 +489,11 @@ const deleteCase = async (caseId) => {
   }
 }
 
-const formatDate = (dateString) => {
+const formatDate = (dateString: any) => {
   return new Date(dateString).toLocaleDateString()
 }
 
-const formatFileSize = (bytes) => {
+const formatFileSize = (bytes: any) => {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']

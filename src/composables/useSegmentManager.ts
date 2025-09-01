@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import * as THREE from 'three';
 import type { ToothSegment, DentalModel, IntersectionResult, IntersectionStatistics } from '../types/dental';
 import { IntersectionDetectionService, type IntersectionConfig } from '../services/IntersectionDetectionService';
+import { IntersectionWorkerService } from '../services/IntersectionWorkerService';
 
 export function useSegmentManager() {
   const selectedSegments = ref<ToothSegment[]>([]);
@@ -19,6 +20,10 @@ export function useSegmentManager() {
   const intersectionResults = ref<IntersectionResult[]>([]);
   const intersectionStatistics = ref<IntersectionStatistics | null>(null);
   const intersectionService = ref<IntersectionDetectionService | null>(null);
+  const intersectionWorkerService = ref<IntersectionWorkerService | null>(null);
+  const isIntersectionDetectionRunning = ref(false);
+  const intersectionDetectionProgress = ref(0);
+  let intersectionDetectionTimeout: number | null = null;
 
   function toggleSegmentSelection(segment: ToothSegment) {
     const index = selectedSegments.value.findIndex((s) => s.id === segment.id);
@@ -90,6 +95,7 @@ export function useSegmentManager() {
 
   // Intersection detection functions
   function initializeIntersectionDetection(scene: any) {
+    // Initialize both the traditional service (for visualizations) and the worker service
     intersectionService.value = new IntersectionDetectionService(scene, {
       severityThresholds: {
         low: 1.0,
@@ -99,31 +105,170 @@ export function useSegmentManager() {
       distanceThreshold: 2.0,
       sampleCount: 200
     });
+
+    // Initialize the worker service
+    intersectionWorkerService.value = new IntersectionWorkerService();
   }
 
   function detectIntersections(dentalModel: DentalModel) {
+    // Clear any existing timeout
+    if (intersectionDetectionTimeout) {
+      clearTimeout(intersectionDetectionTimeout);
+    }
+
+    // Prevent infinite loops by checking if already running
+    if (isIntersectionDetectionRunning.value) {
+      console.log("Intersection detection already running, skipping...");
+      return;
+    }
+
+    // Additional safety check: don't run if segments are still loading
+    if (!dentalModel || !dentalModel.segments || dentalModel.segments.length === 0) {
+      console.log("No segments available for intersection detection, skipping...");
+      return;
+    }
+
+    // Use Web Worker for intersection detection
+    if (intersectionWorkerService.value && intersectionWorkerService.value.isWorkerReady()) {
+      performWorkerIntersectionDetection(dentalModel);
+    } else {
+      // Fallback to traditional method if worker is not ready
+      console.log("Worker not ready, using traditional intersection detection");
+      intersectionDetectionTimeout = setTimeout(() => {
+        performIntersectionDetection(dentalModel);
+      }, 100);
+    }
+  }
+
+  function performWorkerIntersectionDetection(dentalModel: DentalModel) {
+    if (!intersectionWorkerService.value || !dentalModel.segments.length) {
+      intersectionResults.value = [];
+      intersectionStatistics.value = null;
+      return;
+    }
+
+    // Check if all segments are properly loaded with valid meshes
+    const validSegments = dentalModel.segments.filter(segment => 
+      segment && segment.mesh && segment.mesh.geometry && segment.mesh.visible !== undefined
+    );
+
+    if (validSegments.length !== dentalModel.segments.length) {
+      console.log(`Skipping intersection detection: ${validSegments.length}/${dentalModel.segments.length} segments are ready`);
+      return;
+    }
+
+    isIntersectionDetectionRunning.value = true;
+    intersectionDetectionProgress.value = 0;
+    
+    console.log("Starting worker-based intersection detection for", dentalModel.segments.length, "segments");
+
+    intersectionWorkerService.value.detectIntersections(
+      dentalModel.segments,
+      undefined, // config
+      (progress) => {
+        // Progress callback
+        intersectionDetectionProgress.value = progress;
+        console.log(`Intersection detection progress: ${progress}%`);
+      },
+      (results) => {
+        // Complete callback
+        intersectionResults.value = results;
+        
+        // Calculate statistics
+        const statistics = calculateIntersectionStatistics(results);
+        intersectionStatistics.value = statistics;
+        
+        // Create visualizations using the traditional service
+        if (intersectionService.value) {
+          intersectionService.value.createIntersectionVisualizations();
+        }
+        
+        console.log("Worker-based intersection detection completed:", {
+          totalIntersections: results.length,
+          statistics: intersectionStatistics.value
+        });
+        
+        isIntersectionDetectionRunning.value = false;
+        intersectionDetectionProgress.value = 100;
+      },
+      (error) => {
+        // Error callback
+        console.error("Worker-based intersection detection failed:", error);
+        isIntersectionDetectionRunning.value = false;
+        intersectionDetectionProgress.value = 0;
+      }
+    );
+  }
+
+  function performIntersectionDetection(dentalModel: DentalModel) {
     if (!intersectionService.value || !dentalModel.segments.length) {
       intersectionResults.value = [];
       intersectionStatistics.value = null;
       return;
     }
 
-    console.log("Detecting intersections for", dentalModel.segments.length, "segments");
+    // Check if all segments are properly loaded with valid meshes
+    const validSegments = dentalModel.segments.filter(segment => 
+      segment && segment.mesh && segment.mesh.geometry && segment.mesh.visible !== undefined
+    );
+
+    if (validSegments.length !== dentalModel.segments.length) {
+      console.log(`Skipping intersection detection: ${validSegments.length}/${dentalModel.segments.length} segments are ready`);
+      return;
+    }
+
+    isIntersectionDetectionRunning.value = true;
     
-    // Detect intersections
-    const results = intersectionService.value.detectIntersections(dentalModel.segments);
-    intersectionResults.value = results;
-    
-    // Get statistics
-    intersectionStatistics.value = intersectionService.value.getIntersectionStatistics();
-    
-    // Create visualizations
-    intersectionService.value.createIntersectionVisualizations();
-    
-    console.log("Intersection detection completed:", {
-      totalIntersections: results.length,
-      statistics: intersectionStatistics.value
-    });
+    try {
+      console.log("Detecting intersections for", dentalModel.segments.length, "segments");
+      
+      // Detect intersections
+      const results = intersectionService.value.detectIntersections(dentalModel.segments);
+      intersectionResults.value = results;
+      
+      // Get statistics
+      intersectionStatistics.value = intersectionService.value.getIntersectionStatistics();
+      
+      // Create visualizations
+      intersectionService.value.createIntersectionVisualizations();
+      
+      console.log("Intersection detection completed:", {
+        totalIntersections: results.length,
+        statistics: intersectionStatistics.value
+      });
+    } catch (error) {
+      console.error("Error during intersection detection:", error);
+    } finally {
+      isIntersectionDetectionRunning.value = false;
+    }
+  }
+
+  function calculateIntersectionStatistics(results: IntersectionResult[]): IntersectionStatistics {
+    const totalIntersections = results.length;
+    const bySeverity = {
+      low: results.filter(r => r.severity === 'low').length,
+      medium: results.filter(r => r.severity === 'medium').length,
+      high: results.filter(r => r.severity === 'high').length
+    };
+
+    const byType = {
+      contact: results.filter(r => r.intersectionType === 'contact').length,
+      overlap: results.filter(r => r.intersectionType === 'overlap').length,
+      collision: results.filter(r => r.intersectionType === 'collision').length
+    };
+
+    const totalIntersectionVolume = results.reduce((sum, r) => sum + r.intersectionVolume, 0);
+    const averagePenetrationDepth = totalIntersections > 0 
+      ? results.reduce((sum, r) => sum + r.penetrationDepth, 0) / totalIntersections 
+      : 0;
+
+    return {
+      totalIntersections,
+      bySeverity,
+      byType,
+      averagePenetrationDepth,
+      totalIntersectionVolume
+    };
   }
 
   function clearIntersectionVisualizations() {
@@ -275,6 +420,26 @@ export function useSegmentManager() {
     console.log("Cleared existing manual segments for AI segmentation");
   }
 
+  function cleanup() {
+    // Clear any pending intersection detection timeout
+    if (intersectionDetectionTimeout) {
+      clearTimeout(intersectionDetectionTimeout);
+      intersectionDetectionTimeout = null;
+    }
+    
+    // Terminate the worker service
+    if (intersectionWorkerService.value) {
+      intersectionWorkerService.value.terminate();
+      intersectionWorkerService.value = null;
+    }
+    
+    // Reset intersection detection state
+    isIntersectionDetectionRunning.value = false;
+    intersectionDetectionProgress.value = 0;
+    
+    console.log("Cleaned up segment manager resources");
+  }
+
   return {
     // State
     selectedSegments,
@@ -283,6 +448,8 @@ export function useSegmentManager() {
     axisMovementDistances,
     intersectionResults,
     intersectionStatistics,
+    intersectionDetectionProgress,
+    isIntersectionDetectionRunning,
     
     // Methods
     toggleSegmentSelection,
@@ -305,5 +472,8 @@ export function useSegmentManager() {
     hasIntersections,
     updateIntersectionConfig,
     getIntersectionConfig,
+    
+    // Cleanup
+    cleanup,
   };
 }

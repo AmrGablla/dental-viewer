@@ -214,9 +214,9 @@ const createPlan = () => {
   emit('planCreated', plan)
 }
 
-const clearPlan = () => {
-  emit('planUpdated', null)
-}
+// const clearPlan = () => {
+//   emit('planUpdated', null)
+// }
 
 const toggleFullScreen = () => {
   emit('toggleFullScreen', !isFullScreen.value)
