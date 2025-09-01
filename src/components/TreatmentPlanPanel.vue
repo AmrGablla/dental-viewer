@@ -1,36 +1,28 @@
 <template>
   <div class="treatment-plan-panel" :class="{ 'fullscreen': isFullScreen }">
-    <div class="panel-header">
-      <div class="header-content">
-        <div class="header-title">
-          <Icon name="file-text" :size="20" color="#06b6d4" />
-          <h3>Treatment Plan</h3>
-        </div>
-        <div class="header-actions">
-          <button 
-            @click="toggleFullScreen"
-            class="btn-expand"
-            :class="{ 'expanded': isFullScreen }"
-            :title="isFullScreen ? 'Exit Full Screen' : 'Expand to Full Screen'"
-          >
-            <Icon 
-              v-if="!isFullScreen" 
-              name="maximize-2" 
-              :size="16" 
-              color="currentColor" 
-            />
-            <Icon 
-              v-else 
-              name="minimize-2" 
-              :size="16" 
-              color="currentColor" 
-            />
-          </button>
-        </div>
-      </div>
-    </div>
-
     <div class="panel-content">
+      <!-- Fullscreen toggle button -->
+      <div class="fullscreen-toggle">
+        <button 
+          @click="toggleFullScreen"
+          class="btn-expand"
+          :class="{ 'expanded': isFullScreen }"
+          :title="isFullScreen ? 'Exit Full Screen' : 'Expand to Full Screen'"
+        >
+          <Icon 
+            v-if="!isFullScreen" 
+            name="maximize-2" 
+            :size="16" 
+            color="currentColor" 
+          />
+          <Icon 
+            v-else 
+            name="minimize-2" 
+            :size="16" 
+            color="currentColor" 
+          />
+        </button>
+      </div>
       <!-- No movements state -->
       <div v-if="!currentPlan && !hasMovedSegments" class="no-movements">
         <div class="no-movements-content">
@@ -307,45 +299,11 @@ watch(() => props.segments, (newSegments) => {
   }
 }
 
-.panel-header {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(8, 145, 178, 0.1) 100%);
-  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
-  padding: 16px 20px;
-  position: relative;
-}
-
-.panel-header::before {
-  content: '';
+.fullscreen-toggle {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.5), transparent);
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.header-title h3 {
-  margin: 0;
-  color: #f1f5f9;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
 }
 
 .panel-content {
@@ -353,6 +311,8 @@ watch(() => props.segments, (newSegments) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  padding-top: 8px;
 }
 
 .btn-expand {
