@@ -309,17 +309,14 @@ async function loadCaseData() {
     const caseData = responseData.case; // Extract case data from response
     console.log("Case data loaded:", caseData);
 
-    // Load the STL file
-    if (caseData.file_path) {
-      threeJSManager.loadingMessage.value = "Loading STL file...";
-      
-      // Extract the filename from the file_path (remove 'uploads/' prefix)
-      const fileName = caseData.file_path.replace('uploads/', '');
-      const fileUrl = `http://localhost:3001/uploads/${fileName}`;
-      console.log("Loading STL file from:", fileUrl);
-      
-      // Load the STL file using the file handler service
-      const loadedModel = await fileHandlerService?.loadSTLFile(fileUrl);
+    // Load the STL file from id/raw endpoint
+    threeJSManager.loadingMessage.value = "Loading STL file...";
+    
+    const fileUrl = `http://localhost:3001/api/cases/${caseId}/raw`;
+    console.log("Loading STL file from:", fileUrl);
+    
+    // Load the STL file using the file handler service
+    const loadedModel = await fileHandlerService?.loadSTLFile(fileUrl);
       
       if (loadedModel) {
         // Compute bounding box for the loaded mesh
@@ -381,9 +378,6 @@ async function loadCaseData() {
       } else {
         throw new Error("Failed to load STL file");
       }
-    } else {
-      throw new Error("No file path found in case data");
-    }
   } catch (error) {
     console.error("Failed to load case data:", error);
     threeJSManager.loadingMessage.value = "Failed to load case data";
