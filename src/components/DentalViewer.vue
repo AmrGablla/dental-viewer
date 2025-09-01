@@ -914,6 +914,29 @@ function handleLogout() {
   router.push("/login");
 }
 
+// Generate different colors for segments
+function generateSegmentColor(index: number): number {
+  const colors = [
+    0xff6b6b, // Red
+    0x4ecdc4, // Teal
+    0x45b7d1, // Blue
+    0x96ceb4, // Green
+    0xfeca57, // Yellow
+    0xff9ff3, // Pink
+    0x54a0ff, // Light Blue
+    0x5f27cd, // Purple
+    0x00d2d3, // Cyan
+    0xff9f43, // Orange
+    0x10ac84, // Emerald
+    0xee5a24, // Dark Orange
+    0x575fcf, // Indigo
+    0x0abde3, // Sky Blue
+    0x48dbfb, // Light Cyan
+  ];
+  
+  return colors[index % colors.length];
+}
+
 function handleLogoClick() {
   router.push("/cases");
 }
@@ -1032,6 +1055,17 @@ async function loadExistingSegments() {
             // Update the mesh's world matrix
             segmentMesh.updateMatrixWorld();
 
+            // Create segment color - use different colors for different segments
+            const segmentColor = segmentInfo.color || generateSegmentColor(segmentsData.segments.indexOf(segmentInfo));
+            
+            // Update the mesh material to use the segment color
+            if (segmentMesh.material) {
+              segmentMesh.material.color.setHex(segmentColor);
+              segmentMesh.material.transparent = true;
+              segmentMesh.material.opacity = 0.95;
+              segmentMesh.material.side = THREE.DoubleSide;
+            }
+
             // Create segment object
             const segment: ToothSegment = {
               id: segmentInfo.id,
@@ -1039,7 +1073,7 @@ async function loadExistingSegments() {
               mesh: segmentMesh,
               originalVertices: [], // Will be populated if needed
               centroid: segmentMesh.position.clone(), // Use actual mesh position as centroid
-              color: new THREE.Color(segmentInfo.color || 0x00ff00),
+              color: new THREE.Color(segmentColor),
               toothType: segmentInfo.toothType || "incisor",
               isSelected: false,
               originalPosition: segmentMesh.position.clone(),

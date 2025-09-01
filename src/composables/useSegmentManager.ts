@@ -47,6 +47,11 @@ export function useSegmentManager() {
   function updateSegmentAppearance(segment: ToothSegment) {
     const material = segment.mesh.material as any;
 
+    // Ensure the material uses the segment's color
+    if (segment.color && material.color) {
+      material.color.copy(segment.color);
+    }
+
     if (segment.isSelected) {
       material.emissive.setHex(0x333333);
       material.emissiveIntensity = 0.2;
