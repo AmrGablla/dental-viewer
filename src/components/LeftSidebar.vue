@@ -161,6 +161,7 @@
               @resetIndividualPosition="handleResetIndividualPosition"
               @toggleSegmentVisibility="handleToggleSegmentVisibility"
               @deleteSegment="handleDeleteSegment"
+              @renameSegment="handleRenameSegment"
             />
           </div>
         </div>
@@ -210,6 +211,7 @@ const emit = defineEmits<{
   resetIndividualPosition: [segment: ToothSegment]
   toggleSegmentVisibility: [segment: ToothSegment]
   deleteSegment: [segment: ToothSegment]
+  renameSegment: [segment: ToothSegment, newName: string]
   planCreated: [plan: OrthodonticTreatmentPlan]
   planUpdated: [plan: OrthodonticTreatmentPlan | null]
   stepChanged: [stepNumber: number]
@@ -255,6 +257,10 @@ function handleToggleSegmentVisibility(segment: ToothSegment) {
 
 function handleDeleteSegment(segment: ToothSegment) {
   emit('deleteSegment', segment)
+}
+
+function handleRenameSegment(segment: ToothSegment, newName: string) {
+  emit('renameSegment', segment, newName)
 }
 
 // Watch for changes in dentalModel to trigger reactivity updates

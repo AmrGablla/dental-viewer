@@ -9,7 +9,23 @@
         <span class="segment-selection-indicator">
           <span class="selection-dot" :class="{ active: isSelected }"></span>
         </span>
-        <span class="segment-name">{{ segment.name }}</span>
+        <span 
+          v-if="!isEditing" 
+          class="segment-name" 
+          @dblclick.stop="startEditing"
+        >
+          {{ segment.name }}
+        </span>
+        <input
+          v-else
+          ref="nameInput"
+          v-model="editingName"
+          class="segment-name-input"
+          @blur="saveName"
+          @keyup.enter="saveName"
+          @keyup.esc="cancelEditing"
+          @click.stop
+        />
         <span class="segment-type">{{ segment.toothType }}</span>
       </div>
       <div class="segment-controls">
@@ -96,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import type { ToothSegment } from '../types/dental'
 
@@ -107,6 +123,11 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+// Reactive state for editing
+const isEditing = ref(false)
+const editingName = ref('')
+const nameInput = ref<HTMLInputElement>()
 
 // Computed property to check if segment is selected
 const isSelected = computed(() => {
@@ -120,6 +141,7 @@ const emit = defineEmits<{
   resetIndividualPosition: [segment: ToothSegment]
   toggleSegmentVisibility: [segment: ToothSegment]
   deleteSegment: [segment: ToothSegment]
+  renameSegment: [segment: ToothSegment, newName: string]
 }>()
 
 function toggleSegmentSelection() {
@@ -140,6 +162,29 @@ function toggleSegmentVisibility() {
 
 function deleteSegment() {
   emit('deleteSegment', props.segment)
+}
+
+// Rename functionality
+function startEditing() {
+  editingName.value = props.segment.name
+  isEditing.value = true
+  nextTick(() => {
+    nameInput.value?.focus()
+    nameInput.value?.select()
+  })
+}
+
+function saveName() {
+  const newName = editingName.value.trim()
+  if (newName && newName !== props.segment.name) {
+    emit('renameSegment', props.segment, newName)
+  }
+  isEditing.value = false
+}
+
+function cancelEditing() {
+  isEditing.value = false
+  editingName.value = ''
 }
 </script>
 
@@ -263,6 +308,26 @@ function deleteSegment() {
   font-weight: 600;
   color: #f1f5f9;
   font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.segment-name:hover {
+  background-color: rgba(6, 182, 212, 0.1);
+}
+
+.segment-name-input {
+  font-weight: 600;
+  color: #f1f5f9;
+  font-size: 13px;
+  background: rgba(6, 182, 212, 0.2);
+  border: 1px solid rgba(6, 182, 212, 0.5);
+  border-radius: 4px;
+  padding: 2px 4px;
+  outline: none;
+  min-width: 80px;
 }
 
 .segment-type {

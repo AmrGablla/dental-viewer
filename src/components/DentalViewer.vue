@@ -72,7 +72,8 @@
         @toggleOriginalMesh="toggleOriginalMesh"
         @toggleAllSegments="toggleAllSegments"
         @toggleSegmentSelection="segmentManager.toggleSegmentSelection"
-        @changeSegmentColor="segmentManager.changeSegmentColor"
+        @changeSegmentColor="handleChangeSegmentColor"
+        @renameSegment="renameSegment"
         @resetIndividualPosition="segmentManager.resetIndividualPosition"
         @toggleSegmentVisibility="segmentManager.toggleSegmentVisibility"
         @deleteSegment="deleteSegment"
@@ -381,6 +382,9 @@ async function loadCaseData() {
 
       // Load existing segments from backend
       await loadExistingSegments();
+      
+      // Migrate any existing segments to database if needed
+      await migrateExistingSegments();
 
       // Focus camera on the loaded model
       if (dentalModel.value) {
@@ -735,6 +739,92 @@ function deleteSegment(segment: any) {
   console.log("🔄 Triggered Vue reactivity after deleting segment");
 }
 
+async function renameSegment(segment: any, newName: string) {
+  if (!dentalModel.value) return;
+  
+  try {
+    // Update the segment name locally
+    segment.name = newName;
+    
+    // Update the mesh name as well
+    if (segment.mesh) {
+      segment.mesh.name = newName;
+    }
+    
+    // Save to database if we have a case ID
+    const caseId = route.params.caseId as string;
+    if (caseId && segment.id) {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/${segment.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: newName })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save segment name to database');
+        }
+        
+        console.log(`✅ Segment "${segment.name}" renamed to "${newName}" and saved to database`);
+      }
+    }
+    
+    // Trigger Vue reactivity
+    dentalModel.value = { ...dentalModel.value };
+    
+  } catch (error) {
+    console.error('Error renaming segment:', error);
+    // Revert the name change on error
+    segment.name = segment.name;
+    alert('Failed to save segment name. Please try again.');
+  }
+}
+
+async function handleChangeSegmentColor(segment: any, event: Event) {
+  if (!dentalModel.value) return;
+  
+  try {
+    // Update the segment color locally
+    segmentManager.changeSegmentColor(segment, event);
+    
+    // Save to database if we have a case ID
+    const caseId = route.params.caseId as string;
+    if (caseId && segment.id) {
+      const input = event.target as HTMLInputElement;
+      const colorHex = input.value;
+      
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/${segment.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ color: colorHex })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save segment color to database');
+        }
+        
+        console.log(`✅ Segment "${segment.name}" color updated to "${colorHex}" and saved to database`);
+      }
+    }
+    
+    // Trigger Vue reactivity
+    dentalModel.value = { ...dentalModel.value };
+    
+  } catch (error) {
+    console.error('Error updating segment color:', error);
+    alert('Failed to save segment color. Please try again.');
+  }
+}
+
 // Treatment Plan Handlers
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
   currentTreatmentPlan.value = plan;
@@ -914,6 +1004,36 @@ function handleLogout() {
   router.push("/login");
 }
 
+// Migrate existing segments to database
+async function migrateExistingSegments() {
+  try {
+    const caseId = route.params.caseId as string;
+    if (!caseId) return;
+
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/migrate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.migrated > 0) {
+        console.log(`✅ Migrated ${result.migrated} segments to database`);
+        // Reload segments after migration
+        await loadExistingSegments();
+      }
+    }
+  } catch (error) {
+    console.error('Error migrating segments:', error);
+  }
+}
+
 // Generate different colors for segments
 function generateSegmentColor(index: number): number {
   const colors = [
@@ -976,7 +1096,6 @@ async function loadExistingSegments() {
     }
 
     const segmentsData = await response.json();
-    console.log("Segments data loaded:", segmentsData);
 
     // Log the first segment's data structure to understand available positioning info
     if (segmentsData.segments && segmentsData.segments.length > 0) {
@@ -1055,7 +1174,7 @@ async function loadExistingSegments() {
             // Update the mesh's world matrix
             segmentMesh.updateMatrixWorld();
 
-            // Create segment color - use different colors for different segments
+            // Create segment color - use database color if available, otherwise generate one
             const segmentColor = segmentInfo.color || generateSegmentColor(segmentsData.segments.indexOf(segmentInfo));
             
             // Update the mesh material to use the segment color
@@ -1074,7 +1193,7 @@ async function loadExistingSegments() {
               originalVertices: [], // Will be populated if needed
               centroid: segmentMesh.position.clone(), // Use actual mesh position as centroid
               color: new THREE.Color(segmentColor),
-              toothType: segmentInfo.toothType || "incisor",
+              toothType: segmentInfo.tooth_type || "incisor",
               isSelected: false,
               originalPosition: segmentMesh.position.clone(),
               movementHistory: {

@@ -343,6 +343,9 @@ export function useSegmentManager() {
     segment.color = color;
     const material = segment.mesh.material as any;
     material.color = color;
+    
+    // Save color to database if we have a case ID and segment ID
+    // Note: This will be handled by the parent component that has access to the case ID
   }
 
   function deleteSegment(segment: ToothSegment, scene: any, dentalModel: DentalModel) {

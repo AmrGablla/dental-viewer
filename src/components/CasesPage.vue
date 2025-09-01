@@ -435,6 +435,11 @@ const handleSegmentUpload = async () => {
   try {
     const formData = new FormData()
     formData.append('file', selectedSegmentFile.value)
+    
+    // Extract segment name from filename
+    const fileName = selectedSegmentFile.value.name
+    const segmentName = fileName.replace(/^segment-/, '').replace(/\.[^/.]+$/, '')
+    formData.append('name', segmentName)
 
     const token = localStorage.getItem('authToken')
     const response = await fetch(`${API_BASE}/cases/${selectedCaseForSegments.value.id}/segments`, {
@@ -452,7 +457,7 @@ const handleSegmentUpload = async () => {
     }
 
     // Show success message
-    alert(`Segment "${selectedSegmentFile.value.name}" uploaded successfully!`)
+    alert(`Segment "${segmentName}" uploaded successfully!`)
     
     // Reset form but keep modal open for more uploads
     selectedSegmentFile.value = null

@@ -196,7 +196,15 @@ export class FileHandlerService {
       
       // Create a File object from the blob
       // For raw endpoints, we know it's always an STL file, so use model.stl
-      const fileName = url.includes('/raw') ? 'model.stl' : (url.split('/').pop() || 'model.stl');
+      // For segment endpoints, we also know it's an STL file
+      let fileName = 'model.stl';
+      if (url.includes('/raw')) {
+        fileName = 'model.stl';
+      } else if (url.includes('/segments/')) {
+        fileName = 'segment.stl';
+      } else {
+        fileName = url.split('/').pop() || 'model.stl';
+      }
       const file = new File([blob], fileName, { type: 'application/octet-stream' });
       
       // Load the model using existing logic, but with centerGeometry parameter

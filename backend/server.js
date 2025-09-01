@@ -53,6 +53,19 @@ function initDatabase() {
       FOREIGN KEY (user_id) REFERENCES users (id)
     )`);
 
+    // Segments table
+    db.run(`CREATE TABLE IF NOT EXISTS segments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      name TEXT NOT NULL,
+      color TEXT DEFAULT '#00ff00',
+      tooth_type TEXT DEFAULT 'incisor',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (case_id) REFERENCES cases (id) ON DELETE CASCADE
+    )`);
+
     // Insert default admin user if not exists
     db.get("SELECT id FROM users WHERE username = 'admin'", (err, row) => {
       if (!row) {
@@ -413,7 +426,7 @@ app.post('/api/cases/:id/raw', authenticateToken, rawUpload.single('file'), (req
     const caseId = req.params.id;
     
     // Verify case exists and belongs to user
-    db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [caseId, req.user.id], (err, caseData) => {
+    db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [parseInt(caseId), req.user.id], (err, caseData) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -471,7 +484,7 @@ app.post('/api/cases/:id/segments', authenticateToken, segmentUpload.single('fil
     const caseId = req.params.id;
     
     // Verify case exists and belongs to user
-    db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [caseId, req.user.id], (err, caseData) => {
+    db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [parseInt(caseId), req.user.id], (err, caseData) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -479,11 +492,28 @@ app.post('/api/cases/:id/segments', authenticateToken, segmentUpload.single('fil
         return res.status(404).json({ error: 'Case not found' });
       }
 
-      res.json({ 
-        message: 'Segment file uploaded successfully',
-        file_path: req.file.path,
-        filename: req.file.filename
-      });
+      // Extract segment name from filename or use default
+      const segmentName = req.body.name || req.file.filename.replace(/^segment-/, '').replace(/\.[^/.]+$/, '');
+      
+      // Save segment metadata to database
+      db.run(
+        "INSERT INTO segments (case_id, filename, name, color, tooth_type) VALUES (?, ?, ?, ?, ?)",
+        [parseInt(caseId), req.file.filename, segmentName, req.body.color || '#00ff00', req.body.tooth_type || 'incisor'],
+        function(err) {
+          if (err) {
+            console.error('Error saving segment metadata:', err);
+            return res.status(500).json({ error: 'Failed to save segment metadata' });
+          }
+
+          res.json({ 
+            message: 'Segment file uploaded successfully',
+            file_path: req.file.path,
+            filename: req.file.filename,
+            segment_id: this.lastID,
+            name: segmentName
+          });
+        }
+      );
     });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
@@ -493,10 +523,9 @@ app.post('/api/cases/:id/segments', authenticateToken, segmentUpload.single('fil
 // Get segments list for case
 app.get('/api/cases/:id/segments', authenticateToken, (req, res) => {
   const caseId = req.params.id;
-  const segmentsDir = `./uploads/${caseId}/segments`;
   
   // Verify case exists and belongs to user
-  db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [caseId, req.user.id], (err, caseData) => {
+  db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [parseInt(caseId), req.user.id], (err, caseData) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -504,22 +533,57 @@ app.get('/api/cases/:id/segments', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'Case not found' });
     }
 
-    if (!fs.existsSync(segmentsDir)) {
-      return res.json({ segments: [] });
-    }
-
-    fs.readdir(segmentsDir, (err, files) => {
+    // Get segments from database
+    db.all("SELECT * FROM segments WHERE case_id = ? ORDER BY created_at ASC", [parseInt(caseId)], (err, segments) => {
       if (err) {
-        return res.status(500).json({ error: 'Error reading segments directory' });
+        return res.status(500).json({ error: 'Error reading segments from database' });
       }
 
-      const segments = files.map(filename => ({
-        id: filename,
-        name: filename.replace(/^segment-/, '').replace(/\.[^/.]+$/, ''),
-        filename: filename
-      }));
+      // Check if files still exist and add file info
+      const segmentsWithFileInfo = segments.map(segment => {
+        const filePath = `./uploads/${caseId}/segments/${segment.filename}`;
+        const fileExists = fs.existsSync(filePath);
+        
+        return {
+          id: segment.id,
+          name: segment.name,
+          filename: segment.filename,
+          color: segment.color,
+          tooth_type: segment.tooth_type,
+          created_at: segment.created_at,
+          updated_at: segment.updated_at,
+          file_exists: fileExists
+        };
+      });
 
-      res.json({ segments: segments });
+      // If no segments in database, check filesystem for backward compatibility
+      if (segmentsWithFileInfo.length === 0) {
+        const segmentsDir = `./uploads/${caseId}/segments`;
+        if (fs.existsSync(segmentsDir)) {
+          fs.readdir(segmentsDir, (err, files) => {
+            if (err) {
+              return res.json({ segments: [] });
+            }
+
+            const legacySegments = files.map(filename => ({
+              id: filename,
+              name: filename.replace(/^segment-/, '').replace(/\.[^/.]+$/, ''),
+              filename: filename,
+              color: '#00ff00',
+              tooth_type: 'incisor',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              file_exists: true
+            }));
+
+            res.json({ segments: legacySegments });
+          });
+        } else {
+          res.json({ segments: [] });
+        }
+      } else {
+        res.json({ segments: segmentsWithFileInfo });
+      }
     });
   });
 });
@@ -528,7 +592,6 @@ app.get('/api/cases/:id/segments', authenticateToken, (req, res) => {
 app.get('/api/cases/:id/segments/:segmentId', authenticateToken, (req, res) => {
   const caseId = req.params.id;
   const segmentId = req.params.segmentId;
-  const filePath = `./uploads/${caseId}/segments/${segmentId}`;
   
   // Verify case exists and belongs to user
   db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [caseId, req.user.id], (err, caseData) => {
@@ -539,11 +602,221 @@ app.get('/api/cases/:id/segments/:segmentId', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'Case not found' });
     }
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Segment file not found' });
+    // Get segment info from database
+    db.get("SELECT * FROM segments WHERE id = ? AND case_id = ?", [parseInt(segmentId), parseInt(caseId)], (err, segment) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!segment) {
+        return res.status(404).json({ error: 'Segment not found' });
+      }
+
+      const filePath = `./uploads/${caseId}/segments/${segment.filename}`;
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'Segment file not found' });
+      }
+
+      res.sendFile(path.resolve(filePath));
+    });
+  });
+});
+
+// Update segment metadata (name, color, tooth_type)
+app.put('/api/cases/:id/segments/:segmentId', authenticateToken, (req, res) => {
+  const caseId = req.params.id;
+  const segmentId = req.params.segmentId;
+  
+  // Verify case exists and belongs to user
+  db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [parseInt(caseId), req.user.id], (err, caseData) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!caseData) {
+      return res.status(404).json({ error: 'Case not found' });
     }
 
-    res.sendFile(path.resolve(filePath));
+    // Verify segment exists and belongs to this case
+    db.get("SELECT * FROM segments WHERE id = ? AND case_id = ?", [parseInt(segmentId), parseInt(caseId)], (err, segment) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!segment) {
+        return res.status(404).json({ error: 'Segment not found' });
+      }
+
+      // Update segment metadata
+      const { name, color, tooth_type } = req.body;
+      const updates = [];
+      const values = [];
+      
+      if (name !== undefined) {
+        updates.push('name = ?');
+        values.push(name);
+      }
+      if (color !== undefined) {
+        updates.push('color = ?');
+        values.push(color);
+      }
+      if (tooth_type !== undefined) {
+        updates.push('tooth_type = ?');
+        values.push(tooth_type);
+      }
+      
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+      
+      updates.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(parseInt(segmentId), parseInt(caseId));
+      
+      const query = `UPDATE segments SET ${updates.join(', ')} WHERE id = ? AND case_id = ?`;
+      
+      db.run(query, values, function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to update segment' });
+        }
+        
+        res.json({ 
+          message: 'Segment updated successfully',
+          segment_id: segmentId
+        });
+      });
+    });
+  });
+});
+
+// Delete segment
+app.delete('/api/cases/:id/segments/:segmentId', authenticateToken, (req, res) => {
+  const caseId = req.params.id;
+  const segmentId = req.params.segmentId;
+  
+  // Verify case exists and belongs to user
+  db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [parseInt(caseId), req.user.id], (err, caseData) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!caseData) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    // Get segment info before deletion
+    db.get("SELECT * FROM segments WHERE id = ? AND case_id = ?", [parseInt(segmentId), parseInt(caseId)], (err, segment) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      if (!segment) {
+        return res.status(404).json({ error: 'Segment not found' });
+      }
+
+      // Delete segment file
+      const filePath = `./uploads/${caseId}/segments/${segment.filename}`;
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      // Delete segment from database
+      db.run("DELETE FROM segments WHERE id = ? AND case_id = ?", [parseInt(segmentId), parseInt(caseId)], function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to delete segment' });
+        }
+        
+        res.json({ 
+          message: 'Segment deleted successfully',
+          segment_id: segmentId
+        });
+      });
+    });
+  });
+});
+
+// Migrate existing segments to database (for backward compatibility)
+app.post('/api/cases/:id/segments/migrate', authenticateToken, (req, res) => {
+  const caseId = req.params.id;
+  
+  // Verify case exists and belongs to user
+  db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [caseId, req.user.id], (err, caseData) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!caseData) {
+      return res.status(404).json({ error: 'Case not found' });
+    }
+
+    const segmentsDir = `./uploads/${caseId}/segments`;
+    if (!fs.existsSync(segmentsDir)) {
+      return res.json({ message: 'No segments directory found', migrated: 0 });
+    }
+
+    fs.readdir(segmentsDir, (err, files) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error reading segments directory' });
+      }
+
+      let migratedCount = 0;
+      const stlFiles = files.filter(file => file.endsWith('.stl'));
+
+      if (stlFiles.length === 0) {
+        return res.json({ message: 'No STL files found', migrated: 0 });
+      }
+
+      // Check which files are already in database
+      db.all("SELECT filename FROM segments WHERE case_id = ?", [parseInt(caseId)], (err, existingSegments) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        const existingFilenames = existingSegments.map(s => s.filename);
+        const newFiles = stlFiles.filter(file => !existingFilenames.includes(file));
+
+        if (newFiles.length === 0) {
+          return res.json({ message: 'All segments already migrated', migrated: 0 });
+        }
+
+        // Insert new segments into database
+        let completed = 0;
+        newFiles.forEach(filename => {
+          const segmentName = filename.replace(/^segment-/, '').replace(/\.[^/.]+$/, '');
+          
+          db.run(
+            "INSERT INTO segments (case_id, filename, name, color, tooth_type) VALUES (?, ?, ?, ?, ?)",
+            [parseInt(caseId), filename, segmentName, '#00ff00', 'incisor'],
+            function(err) {
+              if (err) {
+                console.error('Error migrating segment:', err);
+              } else {
+                migratedCount++;
+              }
+              
+              completed++;
+              if (completed === newFiles.length) {
+                res.json({ 
+                  message: `Migrated ${migratedCount} segments to database`,
+                  migrated: migratedCount
+                });
+              }
+            }
+          );
+        });
+      });
+    });
+  });
+});
+
+// Debug endpoint to check segments in database
+app.get('/api/debug/segments/:caseId', authenticateToken, (req, res) => {
+  const caseId = req.params.caseId;
+  
+  db.all("SELECT * FROM segments WHERE case_id = ?", [parseInt(caseId)], (err, segments) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    res.json({ 
+      caseId: caseId,
+      segments: segments,
+      count: segments.length
+    });
   });
 });
 
