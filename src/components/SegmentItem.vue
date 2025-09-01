@@ -31,11 +31,19 @@
       <div class="segment-controls">
         <input 
           type="color" 
-          :value="'#' + segment.color.getHexString()"
+          :value="segmentColorHex"
           @change="changeSegmentColor"
           @click.stop
           class="color-picker"
         />
+        <button 
+          class="btn btn-sm btn-random-color" 
+          @click.stop="generateRandomColor"
+          title="Generate random color"
+          :style="{ backgroundColor: segmentColorHex }"
+        >
+          <Icon name="shuffle" :size="12" color="currentColor" />
+        </button>
       </div>
     </div>
     
@@ -134,6 +142,11 @@ const isSelected = computed(() => {
   return props.selectedSegments.some(s => s.id === props.segment.id)
 })
 
+// Computed property for segment color hex
+const segmentColorHex = computed(() => {
+  return getSegmentColorHex();
+})
+
 // Emits
 const emit = defineEmits<{
   toggleSegmentSelection: [segment: ToothSegment]
@@ -142,6 +155,7 @@ const emit = defineEmits<{
   toggleSegmentVisibility: [segment: ToothSegment]
   deleteSegment: [segment: ToothSegment]
   renameSegment: [segment: ToothSegment, newName: string]
+  generateRandomColor: [segment: ToothSegment]
 }>()
 
 function toggleSegmentSelection() {
@@ -185,6 +199,32 @@ function saveName() {
 function cancelEditing() {
   isEditing.value = false
   editingName.value = ''
+}
+
+function generateRandomColor() {
+  emit('generateRandomColor', props.segment)
+}
+
+function getSegmentColorHex(): string {
+  const color = props.segment.color;
+  
+  // If it's a THREE.js Color object
+  if (color && typeof color.getHexString === 'function') {
+    return '#' + color.getHexString();
+  }
+  
+  // If it's already a hex string
+  if (typeof color === 'string' && (color as string).startsWith('#')) {
+    return color as string;
+  }
+  
+  // If it's a number (hex value)
+  if (typeof color === 'number') {
+    return '#' + (color as number).toString(16).padStart(6, '0');
+  }
+  
+  // Default fallback
+  return '#00ff00';
 }
 </script>
 
@@ -353,6 +393,46 @@ function cancelEditing() {
   cursor: pointer;
   background: none;
   overflow: hidden;
+}
+
+.btn-random-color {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-random-color::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.btn-random-color:hover::before {
+  opacity: 1;
+}
+
+.btn-random-color:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-random-color svg {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 .segment-expanded {

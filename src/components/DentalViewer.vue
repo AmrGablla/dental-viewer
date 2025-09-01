@@ -74,6 +74,7 @@
         @toggleSegmentSelection="segmentManager.toggleSegmentSelection"
         @changeSegmentColor="handleChangeSegmentColor"
         @renameSegment="renameSegment"
+        @generateRandomColor="handleGenerateRandomColor"
         @resetIndividualPosition="segmentManager.resetIndividualPosition"
         @toggleSegmentVisibility="segmentManager.toggleSegmentVisibility"
         @deleteSegment="deleteSegment"
@@ -823,6 +824,89 @@ async function handleChangeSegmentColor(segment: any, event: Event) {
     console.error('Error updating segment color:', error);
     alert('Failed to save segment color. Please try again.');
   }
+}
+
+async function handleGenerateRandomColor(segment: any) {
+  if (!dentalModel.value) return;
+  
+  try {
+    // Generate a random color
+    const randomColor = generateRandomHexColor();
+    
+    // Update the segment color locally
+    segment.color.setHex(randomColor);
+    const material = segment.mesh.material as any;
+    if (material && material.color) {
+      material.color.setHex(randomColor);
+    }
+    
+    // Save to database if we have a case ID
+    const caseId = route.params.caseId as string;
+    if (caseId && segment.id) {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/${segment.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ color: `#${randomColor.toString(16).padStart(6, '0')}` })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save random color to database');
+        }
+        
+        console.log(`✅ Segment "${segment.name}" assigned random color and saved to database`);
+      }
+    }
+    
+    // Trigger Vue reactivity
+    dentalModel.value = { ...dentalModel.value };
+    
+  } catch (error) {
+    console.error('Error generating random color:', error);
+    alert('Failed to save random color. Please try again.');
+  }
+}
+
+function generateRandomHexColor(): number {
+  // Generate a random color with good contrast and visibility
+  const hue = Math.random() * 360;
+  const saturation = 0.6 + Math.random() * 0.4; // 60-100% saturation
+  const lightness = 0.4 + Math.random() * 0.3; // 40-70% lightness for good visibility
+  
+  // Convert HSL to RGB
+  const h = hue / 360;
+  const s = saturation;
+  const l = lightness;
+  
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+  const m = l - c / 2;
+  
+  let r, g, b;
+  if (h < 1/6) {
+    r = c; g = x; b = 0;
+  } else if (h < 2/6) {
+    r = x; g = c; b = 0;
+  } else if (h < 3/6) {
+    r = 0; g = c; b = x;
+  } else if (h < 4/6) {
+    r = 0; g = x; b = c;
+  } else if (h < 5/6) {
+    r = x; g = 0; b = c;
+  } else {
+    r = c; g = 0; b = x;
+  }
+  
+  // Convert to hex
+  const red = Math.round((r + m) * 255);
+  const green = Math.round((g + m) * 255);
+  const blue = Math.round((b + m) * 255);
+  
+  return (red << 16) | (green << 8) | blue;
 }
 
 // Treatment Plan Handlers

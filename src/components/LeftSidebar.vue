@@ -162,6 +162,7 @@
               @toggleSegmentVisibility="handleToggleSegmentVisibility"
               @deleteSegment="handleDeleteSegment"
               @renameSegment="handleRenameSegment"
+              @generateRandomColor="handleGenerateRandomColor"
             />
           </div>
         </div>
@@ -212,6 +213,7 @@ const emit = defineEmits<{
   toggleSegmentVisibility: [segment: ToothSegment]
   deleteSegment: [segment: ToothSegment]
   renameSegment: [segment: ToothSegment, newName: string]
+  generateRandomColor: [segment: ToothSegment]
   planCreated: [plan: OrthodonticTreatmentPlan]
   planUpdated: [plan: OrthodonticTreatmentPlan | null]
   stepChanged: [stepNumber: number]
@@ -261,6 +263,10 @@ function handleDeleteSegment(segment: ToothSegment) {
 
 function handleRenameSegment(segment: ToothSegment, newName: string) {
   emit('renameSegment', segment, newName)
+}
+
+function handleGenerateRandomColor(segment: ToothSegment) {
+  emit('generateRandomColor', segment)
 }
 
 // Watch for changes in dentalModel to trigger reactivity updates
