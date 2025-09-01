@@ -8,7 +8,7 @@
     
     <AppHeader 
       title="Aligner" 
-      description=""
+      description="3D dental model viewer"
     >
       <template #center>
         <TopToolbar

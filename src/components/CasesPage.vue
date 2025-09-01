@@ -1,7 +1,6 @@
 <template>
   <div class="cases-page">
     <AppHeader 
-      title="My Cases" 
       description="Manage your dental cases and upload new files"
     >
       <template #actions>
