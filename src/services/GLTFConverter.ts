@@ -47,7 +47,7 @@ export class GLTFConverterService {
       console.log(`Converting ${file.name} from STL to ${options.binary ? 'GLB' : 'glTF'}...`)
       
       // First, load the STL file
-      const mesh = await this.loadSTLFile(file)
+      const mesh = await this.loadSTLFile(file, true) // Center geometry for main models
       
       // Create a scene to export
       const scene = new Scene()
@@ -209,7 +209,7 @@ export class GLTFConverterService {
   /**
    * Load STL file using the existing STL loader
    */
-  private async loadSTLFile(file: File): Promise<Mesh> {
+  private async loadSTLFile(file: File, centerGeometry: boolean = true): Promise<Mesh> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       
@@ -222,10 +222,15 @@ export class GLTFConverterService {
           const vertexCount = geometry.getAttribute('position')?.count || 0
           console.log('STL parsed successfully, vertices:', vertexCount.toLocaleString())
           
-          // Center the geometry
-          geometry.computeBoundingBox()
-          const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
-          geometry.translate(-center.x, -center.y, -center.z)
+          // Center the geometry only if requested (for main models, not segments)
+          if (centerGeometry) {
+            geometry.computeBoundingBox()
+            const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
+            geometry.translate(-center.x, -center.y, -center.z)
+            console.log('Geometry centered at origin')
+          } else {
+            console.log('Geometry positioning preserved (not centered)')
+          }
           
           // Create mesh with dental material
           const material = this.createDentalMaterial()

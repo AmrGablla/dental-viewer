@@ -71,6 +71,11 @@ export class BackendService {
       // Parse the STL data using the STLLoader
       try {
         const geometry = this.stlLoader.parseSTLFromArrayBuffer(arrayBuffer);
+        
+        // Don't center the geometry for segments to preserve original positions
+        // The geometry should already be in the correct position relative to the main model
+        geometry.computeBoundingBox();
+        
         const material = new this.THREE.MeshStandardMaterial({
           color: color,
           side: this.THREE.DoubleSide,
@@ -82,8 +87,7 @@ export class BackendService {
         });
         const mesh = new this.THREE.Mesh(geometry, material);
         
-        // Position the mesh at the center
-        mesh.position.set(0, 0, 0);
+        // Don't set position to center - let the segment positioning logic handle it
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         

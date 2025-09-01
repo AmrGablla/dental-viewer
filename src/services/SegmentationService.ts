@@ -204,7 +204,7 @@ export class SegmentationService {
     try {
       console.log(`🔧 Creating segment from data:`, segmentData);
       
-      // Load actual segment mesh from backend
+      // Load actual segment mesh from backend - don't center geometry to preserve original positions
       let mesh = await this.backendService.loadSegmentAsMesh(sessionId, segmentData.filename, segmentData.color);
       console.log(`📦 Loaded mesh for segment:`, mesh);
 

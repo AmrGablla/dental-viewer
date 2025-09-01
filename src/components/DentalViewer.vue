@@ -942,25 +942,61 @@ async function loadExistingSegments() {
 
     const segmentsData = await response.json();
     console.log("Segments data loaded:", segmentsData);
+    
+    // Log the first segment's data structure to understand available positioning info
+    if (segmentsData.segments && segmentsData.segments.length > 0) {
+      console.log("First segment data structure:", segmentsData.segments[0]);
+      
+      // Log coordinate system information
+      const firstSegment = segmentsData.segments[0];
+      if (firstSegment.center) {
+        console.log("Coordinate system analysis:");
+        console.log("  Center coordinates:", firstSegment.center);
+        console.log("  Coordinate range:", {
+          x: [Math.min(...segmentsData.segments.map((s: any) => s.center?.[0] || 0)), 
+              Math.max(...segmentsData.segments.map((s: any) => s.center?.[0] || 0))],
+          y: [Math.min(...segmentsData.segments.map((s: any) => s.center?.[1] || 0)), 
+              Math.max(...segmentsData.segments.map((s: any) => s.center?.[1] || 0))],
+          z: [Math.min(...segmentsData.segments.map((s: any) => s.center?.[2] || 0)), 
+              Math.max(...segmentsData.segments.map((s: any) => s.center?.[2] || 0))]
+        });
+      }
+    }
 
     if (segmentsData.segments && segmentsData.segments.length > 0) {
+      // Get the original model's bounding box for reference
+      let originalModelBbox: any = null;
+      if (dentalModel.value?.originalMesh) {
+        originalModelBbox = new THREE.Box3().setFromObject(dentalModel.value.originalMesh);
+        console.log("Original model bounding box:", originalModelBbox);
+      }
+      
       // Load each segment
       for (const segmentInfo of segmentsData.segments) {
         try {
-          // Load segment mesh from backend
+          // Load segment mesh from backend - don't center geometry to preserve original positions
           const segmentUrl = `http://localhost:3001/api/cases/${caseId}/segments/${segmentInfo.id}`;
-          const segmentMesh = await fileHandlerService?.loadSTLFile(segmentUrl, token);
+          const segmentMesh = await fileHandlerService?.loadSTLFile(segmentUrl, token, false);
           
           if (segmentMesh) {
+            // Don't set any position - let the segment render in its natural position
+            // The geometry is already in the correct position since we loaded it with centerGeometry: false
+            console.log(`Segment ${segmentInfo.id} loaded with natural positioning`);
+            console.log(`Segment ${segmentInfo.id} position:`, segmentMesh.position);
+            console.log(`Segment ${segmentInfo.id} geometry bounding box:`, segmentMesh.geometry.boundingBox);
+            
+            // Update the mesh's world matrix
+            segmentMesh.updateMatrixWorld();
+
             // Create segment object
             const segment: ToothSegment = {
               id: segmentInfo.id,
               name: segmentInfo.name || `Segment ${segmentInfo.id}`,
               mesh: segmentMesh,
               originalVertices: [], // Will be populated if needed
-              centroid: new THREE.Vector3(),
+              centroid: segmentMesh.position.clone(), // Use actual mesh position as centroid
               color: new THREE.Color(segmentInfo.color || 0x00ff00),
-              toothType: 'incisor', // Default type, can be updated later
+              toothType: segmentInfo.toothType || 'incisor',
               isSelected: false,
               originalPosition: segmentMesh.position.clone(),
               movementHistory: {
@@ -986,7 +1022,10 @@ async function loadExistingSegments() {
             // Apply segment styling
             segmentManager.updateSegmentAppearance(segment);
             
-            console.log(`Loaded segment: ${segment.name}`);
+            console.log(`Loaded segment: ${segment.name} at position:`, segmentMesh.position);
+            
+            // Log the final position for debugging
+            console.log(`Final position for segment ${segmentInfo.id}:`, segmentMesh.position);
           }
         } catch (segmentError) {
           console.error(`Failed to load segment ${segmentInfo.id}:`, segmentError);
@@ -997,6 +1036,11 @@ async function loadExistingSegments() {
       dentalModel.value = { ...dentalModel.value };
       
       console.log(`Successfully loaded ${dentalModel.value.segments.length} segments`);
+      
+      // Focus camera on the model with segments
+      if (dentalModel.value.segments.length > 0) {
+        threeJSManager.focusOnModel(dentalModel.value);
+      }
       
       // Detect intersections after loading segments
       segmentManager.detectIntersections(dentalModel.value);

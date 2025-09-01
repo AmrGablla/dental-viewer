@@ -175,7 +175,7 @@ export class FileHandlerService {
   }
 
   // Load STL file from URL
-  async loadSTLFile(url: string, authToken?: string): Promise<any> {
+  async loadSTLFile(url: string, authToken?: string, centerGeometry: boolean = true): Promise<any> {
     try {
       console.log("Loading STL file from URL:", url);
       
@@ -199,13 +199,87 @@ export class FileHandlerService {
       const fileName = url.includes('/raw') ? 'model.stl' : (url.split('/').pop() || 'model.stl');
       const file = new File([blob], fileName, { type: 'application/octet-stream' });
       
-      // Load the model using existing logic
-      const dentalModel = await this.loadModel(file);
+      // Load the model using existing logic, but with centerGeometry parameter
+      const dentalModel = await this.loadModelWithOptions(file, centerGeometry);
       
       return dentalModel.originalMesh;
     } catch (error) {
       console.error("Error loading STL file from URL:", error);
       throw error;
     }
+  }
+
+  private async loadModelWithOptions(file: File, centerGeometry: boolean = true): Promise<DentalModel> {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    let mesh: any = null;
+    let convertedModel: any = undefined;
+    let geometry: any = null;
+    let boundingBox: any = null;
+
+    if (ext === 'stl') {
+      // For segments (when centerGeometry is false), skip glTF conversion to preserve positioning
+      if (!centerGeometry) {
+        console.log("Loading STL directly (skipping glTF conversion) to preserve segment positioning");
+        mesh = await this.stlLoader.loadSTL(file, centerGeometry);
+        geometry = mesh.geometry;
+      } else {
+        try {
+          console.log("Converting STL to glTF format...");
+          const result = await this.stlLoader.loadSTLAsGLTF(file, true);
+          mesh = result.mesh;
+          convertedModel = result.convertedModel;
+          geometry = mesh.geometry;
+        } catch (err) {
+          console.warn("STL glTF conversion failed, falling back to STL loader", err);
+          mesh = await this.stlLoader.loadSTL(file, centerGeometry);
+          geometry = mesh.geometry;
+        }
+      }
+    } else if (ext === 'obj') {
+      mesh = await this.objLoader.loadOBJ(file);
+      // mesh is a THREE.Group, compute bounding box for all children
+      let box: any = null;
+      mesh.traverse((child: any) => {
+        if (child.isMesh) {
+          child.geometry.computeBoundingBox();
+          if (!box) {
+            box = child.geometry.boundingBox.clone();
+          } else {
+            box.union(child.geometry.boundingBox);
+          }
+        }
+      });
+      geometry = { boundingBox: box };
+    } else if (ext === 'ply') {
+      mesh = await this.plyLoader.loadPLY(file);
+      geometry = mesh.geometry;
+    } else if (ext === 'gltf' || ext === 'glb') {
+      mesh = await this.gltfLoader.loadGLTF(file);
+      geometry = mesh.geometry;
+    } else {
+      throw new Error('Unsupported file type: ' + ext);
+    }
+
+    // Compute bounding box
+    if (geometry && geometry.boundingBox) {
+      boundingBox = {
+        min: geometry.boundingBox.min.clone() || { x: 0, y: 0, z: 0 },
+        max: geometry.boundingBox.max.clone() || { x: 0, y: 0, z: 0 },
+      };
+    } else {
+      // fallback
+      boundingBox = { min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } };
+    }
+
+    const rawMesh = markRaw(mesh);
+    rawMesh.visible = true;
+    this.scene.add(rawMesh);
+
+    return {
+      originalMesh: rawMesh,
+      segments: [],
+      boundingBox,
+      ...(convertedModel ? { convertedModel } : {}),
+    };
   }
 }

@@ -66,7 +66,7 @@ export class STLLoaderService {
     }
   }
 
-  async loadSTL(file: File): Promise<Mesh> {
+  async loadSTL(file: File, centerGeometry: boolean = true): Promise<Mesh> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       
@@ -85,10 +85,15 @@ export class STLLoaderService {
             geometry.computeVertexNormals() // Ensure we have normals
           }
           
-          // Center the geometry
-          geometry.computeBoundingBox()
-          const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
-          geometry.translate(-center.x, -center.y, -center.z)
+          // Center the geometry only if requested (for main models, not segments)
+          if (centerGeometry) {
+            geometry.computeBoundingBox()
+            const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
+            geometry.translate(-center.x, -center.y, -center.z)
+            console.log('Geometry centered at origin')
+          } else {
+            console.log('Geometry positioning preserved (not centered)')
+          }
           
           // Create mesh with enhanced material for better lighting
           const material = new MeshStandardMaterial({ 
@@ -127,15 +132,20 @@ export class STLLoaderService {
     })
   }
 
-  async loadSTLFromURL(url: string): Promise<Mesh> {
+  async loadSTLFromURL(url: string, centerGeometry: boolean = true): Promise<Mesh> {
     return new Promise((resolve, reject) => {
       this.loader.load(
         url,
         (geometry) => {
-          // Center the geometry
-          geometry.computeBoundingBox()
-          const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
-          geometry.translate(-center.x, -center.y, -center.z)
+          // Center the geometry only if requested (for main models, not segments)
+          if (centerGeometry) {
+            geometry.computeBoundingBox()
+            const center = geometry.boundingBox?.getCenter(new Vector3()) || new Vector3()
+            geometry.translate(-center.x, -center.y, -center.z)
+            console.log('Geometry centered at origin')
+          } else {
+            console.log('Geometry positioning preserved (not centered)')
+          }
           
           const material = new MeshStandardMaterial({ 
             color: 0xf8f8f8,        // Slightly off-white for better visual appeal
