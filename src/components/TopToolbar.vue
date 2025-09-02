@@ -1,7 +1,7 @@
 <template>
   <div class="toolbar-content">
     <div class="view-controls" v-if="dentalModel">
-      <button 
+      <!-- <button 
         v-for="mode in interactionModes" 
         :key="mode"
         @click="setInteractionMode(mode)"
@@ -11,10 +11,10 @@
         :disabled="isInteractionModeDisabled(mode)"
       >
         <span class="btn-icon">{{ getModeIcon(mode) }}</span>
-      </button>
+      </button> -->
       
       <!-- Enhanced Lasso Controls -->
-      <div v-if="currentMode === 'lasso'" class="lasso-controls">
+      <!-- <div v-if="currentMode === 'lasso'" class="lasso-controls">
         <div class="lasso-mode-selector">
           <button 
             v-for="lassoMode in lassoModes" 
@@ -32,7 +32,7 @@
             <span class="lasso-label">{{ lassoMode.label }}</span>
           </button>
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>

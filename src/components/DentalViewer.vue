@@ -57,7 +57,7 @@
       class="main-content"
       :class="{ 'treatment-fullscreen': isTreatmentPlanFullScreen }"
     >
-      <LeftSidebar
+      <!-- <LeftSidebar
         v-show="!isTreatmentPlanFullScreen"
         :dentalModel="dentalModel"
         :selectedSegments="segmentManager.selectedSegments.value"
@@ -74,7 +74,7 @@
         @planUpdated="handlePlanUpdated"
         @stepChanged="handleStepChanged"
         @treatmentPlanFullScreen="handleTreatmentPlanFullScreen"
-      />
+      /> -->
 
       <ViewportArea
         v-show="!isTreatmentPlanFullScreen"

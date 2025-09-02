@@ -85,9 +85,9 @@
                   <button @click="openCase(caseItem)" class="action-btn view-btn" title="Open Case">
                     <Icon name="eye" :size="14" color="currentColor" />
                   </button>
-                  <button @click="uploadSegments(caseItem)" class="action-btn segment-btn" title="Upload Segments">
+                  <!-- <button @click="uploadSegments(caseItem)" class="action-btn segment-btn" title="Upload Segments">
                     <Icon name="layers" :size="14" color="currentColor" />
-                  </button>
+                  </button> -->
                   <button @click="deleteCase(caseItem.id)" class="action-btn delete-btn" title="Delete Case">
                     <Icon name="trash-2" :size="14" color="currentColor" />
                   </button>
