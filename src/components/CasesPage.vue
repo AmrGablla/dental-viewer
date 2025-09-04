@@ -234,6 +234,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import AppHeader from './AppHeader.vue'
+import { errorHandlingService } from '../services/ErrorHandlingService'
 
 const router = useRouter()
 
@@ -278,11 +279,7 @@ const filteredCases = computed(() => {
 
 // Methods
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('authToken')
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
+  return errorHandlingService.getAuthHeaders()
 }
 
 const loadCases = async () => {
@@ -295,14 +292,7 @@ const loadCases = async () => {
     })
 
     if (!response.ok) {
-      if (response.status === 401) {
-        // Token expired or invalid
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('user')
-        router.push('/login')
-        return
-      }
-      throw new Error('Failed to load cases')
+      await errorHandlingService.handleApiError(response, 'Failed to load cases')
     }
 
     const data = await response.json()
@@ -344,20 +334,16 @@ const handleUpload = async () => {
 
   try {
     // First, create the case
-    const token = localStorage.getItem('authToken')
     const createCaseResponse = await fetch(`${API_BASE}/cases`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         case_name: uploadForm.case_name
       })
     })
 
     if (!createCaseResponse.ok) {
-      throw new Error('Failed to create case')
+      await errorHandlingService.handleApiError(createCaseResponse, 'Failed to create case')
     }
 
     const caseData = await createCaseResponse.json()
@@ -370,13 +356,13 @@ const handleUpload = async () => {
     const uploadResponse = await fetch(`${API_BASE}/cases/${caseId}/raw`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
       },
       body: formData
     })
 
     if (!uploadResponse.ok) {
-      throw new Error('Failed to upload file')
+      await errorHandlingService.handleApiError(uploadResponse, 'Failed to upload file')
     }
 
     // Reset form and close modal

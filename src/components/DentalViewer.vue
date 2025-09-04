@@ -136,6 +136,7 @@ import { useCameraControls } from "../composables/useCameraControls";
 import { useDirectionalMovement } from "../composables/useDirectionalMovement";
 import { useGeometryManipulation } from "../composables/useGeometryManipulation";
 import { FileHandlerService } from "../services/FileHandlerService";
+import { errorHandlingService } from "../services/ErrorHandlingService";
 
 import type {
   DentalModel,
@@ -322,7 +323,7 @@ async function loadCaseData() {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch case: ${response.statusText}`);
+      await errorHandlingService.handleApiError(response, `Failed to fetch case: ${response.statusText}`);
     }
 
     const responseData = await response.json();
@@ -415,6 +416,7 @@ async function loadCaseData() {
     }
   } catch (error) {
     console.error("Failed to load case data:", error);
+    errorHandlingService.handleFetchError(error);
     threeJSManager.loadingMessage.value = "Failed to load case data";
   }
 }
@@ -766,9 +768,9 @@ async function renameSegment(segment: any, newName: string) {
           body: JSON.stringify({ name: newName })
         });
         
-        if (!response.ok) {
-          throw new Error('Failed to save segment name to database');
-        }
+            if (!response.ok) {
+      await errorHandlingService.handleApiError(response, 'Failed to save segment name to database');
+    }
         
         console.log(`✅ Segment "${segment.name}" renamed to "${newName}" and saved to database`);
       }
@@ -809,9 +811,9 @@ async function handleChangeSegmentColor(segment: any, event: Event) {
           body: JSON.stringify({ color: colorHex })
         });
         
-        if (!response.ok) {
-          throw new Error('Failed to save segment color to database');
-        }
+            if (!response.ok) {
+      await errorHandlingService.handleApiError(response, 'Failed to save segment color to database');
+    }
         
         console.log(`✅ Segment "${segment.name}" color updated to "${colorHex}" and saved to database`);
       }
@@ -822,6 +824,7 @@ async function handleChangeSegmentColor(segment: any, event: Event) {
     
   } catch (error) {
     console.error('Error updating segment color:', error);
+    errorHandlingService.handleFetchError(error);
     alert('Failed to save segment color. Please try again.');
   }
 }
@@ -854,9 +857,9 @@ async function handleGenerateRandomColor(segment: any) {
           body: JSON.stringify({ color: `#${randomColor.toString(16).padStart(6, '0')}` })
         });
         
-        if (!response.ok) {
-          throw new Error('Failed to save random color to database');
-        }
+            if (!response.ok) {
+      await errorHandlingService.handleApiError(response, 'Failed to save random color to database');
+    }
         
         console.log(`✅ Segment "${segment.name}" assigned random color and saved to database`);
       }
@@ -867,6 +870,7 @@ async function handleGenerateRandomColor(segment: any) {
     
   } catch (error) {
     console.error('Error generating random color:', error);
+    errorHandlingService.handleFetchError(error);
     alert('Failed to save random color. Please try again.');
   }
 }
@@ -1105,16 +1109,19 @@ async function migrateExistingSegments() {
       }
     });
 
-    if (response.ok) {
-      const result = await response.json();
-      if (result.migrated > 0) {
-        console.log(`✅ Migrated ${result.migrated} segments to database`);
-        // Reload segments after migration
-        await loadExistingSegments();
-      }
+    if (!response.ok) {
+      await errorHandlingService.handleApiError(response, 'Failed to migrate segments');
+    }
+
+    const result = await response.json();
+    if (result.migrated > 0) {
+      console.log(`✅ Migrated ${result.migrated} segments to database`);
+      // Reload segments after migration
+      await loadExistingSegments();
     }
   } catch (error) {
     console.error('Error migrating segments:', error);
+    errorHandlingService.handleFetchError(error);
   }
 }
 
@@ -1176,7 +1183,7 @@ async function loadExistingSegments() {
         console.log("No segments found for this case");
         return;
       }
-      throw new Error(`Failed to fetch segments: ${response.statusText}`);
+      await errorHandlingService.handleApiError(response, `Failed to fetch segments: ${response.statusText}`);
     }
 
     const segmentsData = await response.json();
@@ -1341,6 +1348,7 @@ async function loadExistingSegments() {
     }
   } catch (error) {
     console.error("Failed to load existing segments:", error);
+    errorHandlingService.handleFetchError(error);
   } finally {
     threeJSManager.loadingMessage.value = "";
   }

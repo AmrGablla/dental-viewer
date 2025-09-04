@@ -1,4 +1,5 @@
 import { STLLoaderService } from './STLLoader';
+import { errorHandlingService } from './ErrorHandlingService';
 
 export class BackendService {
   private baseUrl: string;
@@ -36,7 +37,7 @@ export class BackendService {
       });
 
       if (!response.ok) {
-        throw new Error(`Backend segmentation failed: ${response.status} ${response.statusText}`);
+        await errorHandlingService.handleApiError(response, `Backend segmentation failed: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -44,6 +45,7 @@ export class BackendService {
       return result;
     } catch (error) {
       console.error('Backend segmentation request failed:', error);
+      errorHandlingService.handleFetchError(error);
       throw error;
     }
   }
@@ -100,6 +102,7 @@ export class BackendService {
       
     } catch (error) {
       console.error('Error loading segment mesh:', error);
+      errorHandlingService.handleFetchError(error);
       return this.createPlaceholderMesh(color);
     }
   }

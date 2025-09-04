@@ -1,5 +1,6 @@
 import { markRaw } from 'vue';
 import type { DentalModel } from '../types/dental';
+import { errorHandlingService } from './ErrorHandlingService';
 
 export class FileHandlerService {
   private stlLoader: any;
@@ -188,7 +189,7 @@ export class FileHandlerService {
       // Fetch the STL file
       const response = await fetch(url, { headers });
       if (!response.ok) {
-        throw new Error(`Failed to fetch STL file: ${response.statusText}`);
+        await errorHandlingService.handleApiError(response, `Failed to fetch STL file: ${response.statusText}`);
       }
       
       const arrayBuffer = await response.arrayBuffer();
@@ -213,6 +214,7 @@ export class FileHandlerService {
       return dentalModel.originalMesh;
     } catch (error) {
       console.error("Error loading STL file from URL:", error);
+      errorHandlingService.handleFetchError(error);
       throw error;
     }
   }
