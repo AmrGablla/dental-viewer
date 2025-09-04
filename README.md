@@ -14,7 +14,7 @@ A comprehensive dental case management system with 3D visualization capabilities
 ## Project Structure
 
 ```
-├── backend-auth/           # Node.js authentication backend
+├── backend/           # Node.js backend
 │   ├── server.js          # Main server file
 │   ├── package.json       # Backend dependencies
 │   └── env.example        # Environment variables template
