@@ -8,6 +8,8 @@ A comprehensive dental case management system with 3D visualization capabilities
 - 📁 **Case Management**: Upload, view, and manage dental cases
 - 🦷 **3D Visualization**: Interactive 3D viewer for STL files
 - 📊 **Treatment Planning**: Advanced treatment planning tools
+- ✂️ **Dental-Aware Segmentation**: Semi-automated tooth isolation using
+  enamel–dentin contrast, surface orientation and anatomical heuristics
 - 🔍 **Search & Filter**: Find cases quickly with search functionality
 - 📱 **Responsive Design**: Works on desktop and mobile devices
 

@@ -138,6 +138,7 @@ import { useGeometryManipulation } from "../composables/useGeometryManipulation"
 import { FileHandlerService } from "../services/FileHandlerService";
 import { errorHandlingService } from "../services/ErrorHandlingService";
 import { useToast } from "../composables/useToast";
+import type { DentalSegmentationService } from "../services/DentalSegmentationService";
 
 import type {
   DentalModel,
@@ -188,6 +189,7 @@ const canvasContainer = computed(
 let fileHandlerService: FileHandlerService | null = null;
 // let segmentationService: SegmentationService | null = null;
 let enhancedLassoService: EnhancedLassoService | null = null;
+let dentalSegmentationService: DentalSegmentationService | null = null;
 let THREE: any = null;
 
 // Enhanced Lasso state
@@ -289,6 +291,7 @@ async function initializeApp() {
 
     // Initialize Enhanced Lasso Service
     await initializeEnhancedLasso(renderer, camera, scene);
+    await initializeDentalSegmentation();
 
     // Load case data and STL file
     await loadCaseData();
@@ -559,9 +562,26 @@ async function handleLassoCreateSegment(selectedVertices: number[]) {
   try {
     threeJSManager.isLoading.value = true;
     threeJSManager.loadingMessage.value = "Creating segment...";
+    let verticesToUse = selectedVertices;
+
+    // Use dental-aware region growing to refine the rough lasso selection
+    if (dentalSegmentationService) {
+      const refined = dentalSegmentationService.autoSegmentFromSeed(
+        selectedVertices,
+        dentalModel.value.originalMesh,
+        {
+          intensityThreshold: 0.12,
+          normalThreshold: Math.PI / 10,
+          maxDistance: 6
+        }
+      );
+      if (refined.length > selectedVertices.length) {
+        verticesToUse = refined;
+      }
+    }
 
     const newSegment = await geometryManipulation.createSegmentFromVertices(
-      selectedVertices,
+      verticesToUse,
       dentalModel.value.originalMesh,
       dentalModel.value,
       THREE
@@ -1405,6 +1425,17 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
     );
   } catch (error) {
     console.error("Failed to initialize Enhanced Lasso Service:", error);
+  }
+}
+
+async function initializeDentalSegmentation() {
+  try {
+    const { default: DentalSegmentationService } = await import(
+      "../services/DentalSegmentationService"
+    );
+    dentalSegmentationService = new DentalSegmentationService();
+  } catch (error) {
+    console.error("Failed to initialize Dental Segmentation Service:", error);
   }
 }
 </script>
