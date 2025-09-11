@@ -137,6 +137,7 @@ import { useDirectionalMovement } from "../composables/useDirectionalMovement";
 import { useGeometryManipulation } from "../composables/useGeometryManipulation";
 import { FileHandlerService } from "../services/FileHandlerService";
 import { errorHandlingService } from "../services/ErrorHandlingService";
+import { useToast } from "../composables/useToast";
 
 import type {
   DentalModel,
@@ -173,6 +174,7 @@ const segmentManager = useSegmentManager();
 const cameraControls = useCameraControls();
 const directionalMovement = useDirectionalMovement();
 const geometryManipulation = useGeometryManipulation();
+const toastService = useToast();
 
 // Refs
 const viewportRef = ref<typeof ViewportArea>();
@@ -550,7 +552,7 @@ function handleLassoOperationResult(result: LassoOperationResult) {
 
 async function handleLassoCreateSegment(selectedVertices: number[]) {
   if (!dentalModel.value?.originalMesh || selectedVertices.length === 0) {
-    alert("No vertices found inside lasso area.");
+    toastService.error("No Vertices Found", "No vertices found inside lasso area.");
     return;
   }
 
@@ -592,7 +594,7 @@ async function handleLassoCreateSegment(selectedVertices: number[]) {
     }
   } catch (error) {
     console.error("Error creating segment:", error);
-    alert("Error creating segment. Try selecting a smaller area.");
+    toastService.error("Segment Creation Failed", "Error creating segment. Try selecting a smaller area.");
   } finally {
     threeJSManager.isLoading.value = false;
     threeJSManager.loadingMessage.value = "";
@@ -621,7 +623,7 @@ function handleLassoAddToSegment(
   targetSegmentId?: string
 ) {
   if (!targetSegmentId || selectedVertices.length === 0) {
-    alert("Please select a segment first to add vertices to it.");
+    toastService.warning("No Segment Selected", "Please select a segment first to add vertices to it.");
     return;
   }
 
@@ -629,7 +631,7 @@ function handleLassoAddToSegment(
     (s) => s.id === targetSegmentId
   );
   if (!targetSegment) {
-    alert("Target segment not found.");
+    toastService.error("Segment Not Found", "Target segment not found.");
     return;
   }
 
@@ -646,7 +648,7 @@ function handleLassoSubtractFromSegment(
   targetSegmentId?: string
 ) {
   if (!targetSegmentId || selectedVertices.length === 0) {
-    alert("Please select a segment first to remove vertices from it.");
+    toastService.warning("No Segment Selected", "Please select a segment first to remove vertices from it.");
     return;
   }
 
@@ -654,7 +656,7 @@ function handleLassoSubtractFromSegment(
     (s) => s.id === targetSegmentId
   );
   if (!targetSegment) {
-    alert("Target segment not found.");
+    toastService.error("Segment Not Found", "Target segment not found.");
     return;
   }
 
@@ -783,7 +785,7 @@ async function renameSegment(segment: any, newName: string) {
     console.error('Error renaming segment:', error);
     // Revert the name change on error
     segment.name = segment.name;
-    alert('Failed to save segment name. Please try again.');
+    toastService.error('Save Failed', 'Failed to save segment name. Please try again.');
   }
 }
 
@@ -825,7 +827,7 @@ async function handleChangeSegmentColor(segment: any, event: Event) {
   } catch (error) {
     console.error('Error updating segment color:', error);
     errorHandlingService.handleFetchError(error);
-    alert('Failed to save segment color. Please try again.');
+    toastService.error('Save Failed', 'Failed to save segment color. Please try again.');
   }
 }
 
@@ -871,7 +873,7 @@ async function handleGenerateRandomColor(segment: any) {
   } catch (error) {
     console.error('Error generating random color:', error);
     errorHandlingService.handleFetchError(error);
-    alert('Failed to save random color. Please try again.');
+    toastService.error('Save Failed', 'Failed to save random color. Please try again.');
   }
 }
 

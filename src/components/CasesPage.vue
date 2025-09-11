@@ -235,8 +235,12 @@ import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import AppHeader from './AppHeader.vue'
 import { errorHandlingService } from '../services/ErrorHandlingService'
+import { useToast } from '../composables/useToast'
+import { useConfirmDialog } from '../composables/useConfirmDialog'
 
 const router = useRouter()
+const toastService = useToast()
+const confirmDialogService = useConfirmDialog()
 
 // State
 const loading = ref(false)
@@ -315,7 +319,7 @@ const handleFileSelect = (event: any) => {
   if (file && file.name.toLowerCase().endsWith('.stl')) {
     selectedFile.value = file
   } else {
-    alert('Please select a valid STL file')
+    toastService.error('Invalid File Type', 'Please select a valid STL file')
   }
 }
 
@@ -384,10 +388,6 @@ const openCase = (caseItem: any) => {
   router.push({
     name: 'viewer',
     params: { caseId: caseItem.id },
-    query: { 
-      caseName: caseItem.case_name,
-      fileName: caseItem.file_name
-    }
   })
 }
 
@@ -401,7 +401,7 @@ const handleSegmentFileSelect = (event: any) => {
   if (file && (file.name.toLowerCase().endsWith('.stl') || file.name.toLowerCase().endsWith('.json'))) {
     selectedSegmentFile.value = file
   } else {
-    alert('Please select a valid STL or JSON file')
+    toastService.error('Invalid File Type', 'Please select a valid STL or JSON file')
   }
 }
 
@@ -443,7 +443,7 @@ const handleSegmentUpload = async () => {
     }
 
     // Show success message
-    alert(`Segment "${segmentName}" uploaded successfully!`)
+    toastService.success('Upload Successful', `Segment "${segmentName}" uploaded successfully!`)
     
     // Reset form but keep modal open for more uploads
     selectedSegmentFile.value = null
@@ -461,7 +461,8 @@ const handleSegmentUpload = async () => {
 }
 
 const deleteCase = async (caseId: any) => {
-  if (!confirm('Are you sure you want to delete this case?')) return
+  const confirmed = await confirmDialogService.confirmDelete('Are you sure you want to delete this case?')
+  if (!confirmed) return
 
   try {
     const response = await fetch(`${API_BASE}/cases/${caseId}`, {
@@ -476,7 +477,7 @@ const deleteCase = async (caseId: any) => {
     // Reload cases
     await loadCases()
   } catch (err: any) {
-    alert(err.message || 'Failed to delete case')
+    toastService.error('Delete Failed', err.message || 'Failed to delete case')
   }
 }
 
