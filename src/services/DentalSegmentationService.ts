@@ -7,6 +7,8 @@ export interface SegmentationOptions {
   normalThreshold?: number
   /** Maximum distance from the seed region to expand, limiting growth across teeth. */
   maxDistance?: number
+  /** Maximum average normal deviation around a vertex to prevent crossing sharp ridges. */
+  curvatureThreshold?: number
 }
 
 /**
@@ -35,16 +37,24 @@ export class DentalSegmentationService {
     const visited = new Set<number>(seedVertices)
     const queue: number[] = [...seedVertices]
 
-    // Determine seed characteristics
-    const seedIndex = seedVertices[0]
-    const seedNormal = new THREE.Vector3(
-      normals.getX(seedIndex),
-      normals.getY(seedIndex),
-      normals.getZ(seedIndex)
-    ).normalize()
-    const seedColour = colors
-      ? new THREE.Color(colors.getX(seedIndex), colors.getY(seedIndex), colors.getZ(seedIndex))
-      : null
+    // Running sums for dynamic region statistics
+    const regionNormalSum = new THREE.Vector3()
+    const regionColourSum = colors ? new THREE.Color() : null
+    for (const v of seedVertices) {
+      regionNormalSum.add(new THREE.Vector3(
+        normals.getX(v),
+        normals.getY(v),
+        normals.getZ(v)
+      ).normalize())
+      if (regionColourSum) {
+        regionColourSum.add(new THREE.Color(
+          colors!.getX(v),
+          colors!.getY(v),
+          colors!.getZ(v)
+        ))
+      }
+    }
+    let regionCount = seedVertices.length
 
     const seedCentroid = new THREE.Vector3()
     for (const v of seedVertices) {
@@ -60,10 +70,12 @@ export class DentalSegmentationService {
     const intensityThreshold = options.intensityThreshold ?? 0.15
     const normalThreshold = options.normalThreshold ?? (Math.PI / 8) // 22.5°
     const maxDistance = options.maxDistance ?? 5 // mm
+    const curvatureThreshold = options.curvatureThreshold ?? (Math.PI / 6) // 30°
 
     const tmpPos = new THREE.Vector3()
     const tmpNormal = new THREE.Vector3()
     const tmpColour = new THREE.Color()
+    const tmpNormal2 = new THREE.Vector3()
 
     while (queue.length > 0) {
       const v = queue.shift()!
@@ -87,21 +99,45 @@ export class DentalSegmentationService {
           normals.getY(nb),
           normals.getZ(nb)
         ).normalize()
-        const angle = tmpNormal.angleTo(seedNormal)
+
+        const avgNormal = regionNormalSum.clone().divideScalar(regionCount).normalize()
+        const angle = tmpNormal.angleTo(avgNormal)
         if (angle > normalThreshold) continue
 
-        if (seedColour && colors) {
+        if (regionColourSum && colors) {
+          const avgColour = regionColourSum.clone().multiplyScalar(1 / regionCount)
           tmpColour.set(colors.getX(nb), colors.getY(nb), colors.getZ(nb))
           const colourDiff = Math.sqrt(
-            Math.pow(tmpColour.r - seedColour.r, 2) +
-            Math.pow(tmpColour.g - seedColour.g, 2) +
-            Math.pow(tmpColour.b - seedColour.b, 2)
+            Math.pow(tmpColour.r - avgColour.r, 2) +
+            Math.pow(tmpColour.g - avgColour.g, 2) +
+            Math.pow(tmpColour.b - avgColour.b, 2)
           )
           if (colourDiff > intensityThreshold) continue
         }
 
+        // Estimate local curvature to avoid crossing sharp ridges between teeth
+        const nbNeighbours = adjacency.get(nb)
+        if (nbNeighbours && nbNeighbours.size > 0) {
+          let total = 0
+          let c = 0
+          for (const nn of nbNeighbours) {
+            tmpNormal2.set(
+              normals.getX(nn),
+              normals.getY(nn),
+              normals.getZ(nn)
+            ).normalize()
+            total += tmpNormal.angleTo(tmpNormal2)
+            c++
+          }
+          const curvature = total / c
+          if (curvature > curvatureThreshold) continue
+        }
+
         visited.add(nb)
         queue.push(nb)
+        regionNormalSum.add(tmpNormal)
+        if (regionColourSum) regionColourSum.add(tmpColour)
+        regionCount++
       }
     }
 

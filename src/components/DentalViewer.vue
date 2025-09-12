@@ -571,7 +571,8 @@ async function handleLassoCreateSegment(selectedVertices: number[]) {
         dentalModel.value.originalMesh,
         {
           intensityThreshold: 0.12,
-          normalThreshold: Math.PI / 10,
+          normalThreshold: Math.PI / 12,
+          curvatureThreshold: Math.PI / 9,
           maxDistance: 6
         }
       );
