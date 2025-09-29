@@ -49,7 +49,7 @@ function handleLogoClick() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, #414343 0%, #414343 100%);
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
   padding: 12px 20px;
   height: 64px;

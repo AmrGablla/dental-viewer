@@ -179,6 +179,15 @@
       <path d="M12 6c0 1.5-1.5 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3z"></path>
       <path d="M12 18c0 1.5 1.5 3 3 3s3-1.5 3-3-1.5-3-3-3-3 1.5-3 3z"></path>
     </g>
+    
+    <!-- Shuffle -->
+    <g v-if="name === 'shuffle'">
+      <polyline points="16,3 21,3 21,8"></polyline>
+      <line x1="4" y1="6" x2="21" y2="6"></line>
+      <polyline points="21,16 21,21 16,21"></polyline>
+      <line x1="4" y1="18" x2="21" y2="18"></line>
+      <line x1="4" y1="12" x2="21" y2="12"></line>
+    </g>
   </svg>
 </template>
 

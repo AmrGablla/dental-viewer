@@ -9,17 +9,41 @@
         <span class="segment-selection-indicator">
           <span class="selection-dot" :class="{ active: isSelected }"></span>
         </span>
-        <span class="segment-name">{{ segment.name }}</span>
+        <span 
+          v-if="!isEditing" 
+          class="segment-name" 
+          @dblclick.stop="startEditing"
+        >
+          {{ segment.name }}
+        </span>
+        <input
+          v-else
+          ref="nameInput"
+          v-model="editingName"
+          class="segment-name-input"
+          @blur="saveName"
+          @keyup.enter="saveName"
+          @keyup.esc="cancelEditing"
+          @click.stop
+        />
         <span class="segment-type">{{ segment.toothType }}</span>
       </div>
       <div class="segment-controls">
         <input 
           type="color" 
-          :value="'#' + segment.color.getHexString()"
+          :value="segmentColorHex"
           @change="changeSegmentColor"
           @click.stop
           class="color-picker"
         />
+        <button 
+          class="btn btn-sm btn-random-color" 
+          @click.stop="generateRandomColor"
+          title="Generate random color"
+          :style="{ backgroundColor: segmentColorHex }"
+        >
+          <Icon name="shuffle" :size="12" color="currentColor" />
+        </button>
       </div>
     </div>
     
@@ -96,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import type { ToothSegment } from '../types/dental'
 
@@ -108,9 +132,19 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// Reactive state for editing
+const isEditing = ref(false)
+const editingName = ref('')
+const nameInput = ref<HTMLInputElement>()
+
 // Computed property to check if segment is selected
 const isSelected = computed(() => {
   return props.selectedSegments.some(s => s.id === props.segment.id)
+})
+
+// Computed property for segment color hex
+const segmentColorHex = computed(() => {
+  return getSegmentColorHex();
 })
 
 // Emits
@@ -120,6 +154,8 @@ const emit = defineEmits<{
   resetIndividualPosition: [segment: ToothSegment]
   toggleSegmentVisibility: [segment: ToothSegment]
   deleteSegment: [segment: ToothSegment]
+  renameSegment: [segment: ToothSegment, newName: string]
+  generateRandomColor: [segment: ToothSegment]
 }>()
 
 function toggleSegmentSelection() {
@@ -141,12 +177,63 @@ function toggleSegmentVisibility() {
 function deleteSegment() {
   emit('deleteSegment', props.segment)
 }
+
+// Rename functionality
+function startEditing() {
+  editingName.value = props.segment.name
+  isEditing.value = true
+  nextTick(() => {
+    nameInput.value?.focus()
+    nameInput.value?.select()
+  })
+}
+
+function saveName() {
+  const newName = editingName.value.trim()
+  if (newName && newName !== props.segment.name) {
+    emit('renameSegment', props.segment, newName)
+  }
+  isEditing.value = false
+}
+
+function cancelEditing() {
+  isEditing.value = false
+  editingName.value = ''
+}
+
+function generateRandomColor() {
+  emit('generateRandomColor', props.segment)
+}
+
+function getSegmentColorHex(): string {
+  const color = props.segment.color;
+  
+  // If it's a THREE.js Color object
+  if (color && typeof color.getHexString === 'function') {
+    return '#' + color.getHexString();
+  }
+  
+  // If it's already a hex string
+  if (typeof color === 'string' && (color as string).startsWith('#')) {
+    return color as string;
+  }
+  
+  // If it's a number (hex value)
+  if (typeof color === 'number') {
+    return '#' + (color as number).toString(16).padStart(6, '0');
+  }
+  
+  // Default fallback
+  return '#00ff00';
+}
 </script>
 
 <style scoped>
 .segment-item {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(51, 65, 85, 0.4) 100%);
-  border: 1px solid rgba(6, 182, 212, 0.15);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.2);
   border-radius: 12px;
   padding: 12px;
   margin-bottom: 8px;
@@ -157,7 +244,10 @@ function deleteSegment() {
   cursor: pointer;
   user-select: none;
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(81, 202, 205, 0.1),
+    inset 0 1px 0 rgba(81, 202, 205, 0.1);
 }
 
 .segment-item::before {
@@ -167,15 +257,20 @@ function deleteSegment() {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(81, 202, 205, 0.5), transparent);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 .segment-item.selected {
-  border-color: rgba(6, 182, 212, 0.8);
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(8, 145, 178, 0.2) 100%);
-  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.3), 0 0 0 1px rgba(6, 182, 212, 0.3);
+  border-color: rgba(81, 202, 205, 0.8);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.15) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(81, 202, 205, 0.2) 0%, rgba(75, 184, 187, 0.2) 100%);
+  box-shadow: 
+    0 6px 25px rgba(81, 202, 205, 0.4), 
+    0 0 0 1px rgba(81, 202, 205, 0.4),
+    inset 0 1px 0 rgba(81, 202, 205, 0.2);
   transform: translateY(-1px);
 }
 
@@ -184,22 +279,27 @@ function deleteSegment() {
 }
 
 .segment-item:hover:not(.selected) {
-  border-color: rgba(6, 182, 212, 0.3);
+  border-color: rgba(81, 202, 205, 0.4);
   transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    0 4px 12px rgba(81, 202, 205, 0.2);
 }
 
 .segment-item:hover.selected {
-  box-shadow: 0 6px 25px rgba(6, 182, 212, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.4);
+  box-shadow: 
+    0 8px 30px rgba(81, 202, 205, 0.5), 
+    0 0 0 1px rgba(81, 202, 205, 0.5),
+    inset 0 1px 0 rgba(81, 202, 205, 0.3);
 }
 
 .segment-item:hover .selection-dot:not(.active) {
-  border-color: rgba(6, 182, 212, 0.6);
+  border-color: rgba(81, 202, 205, 0.6);
   transform: scale(1.1);
 }
 
 .segment-item:hover .selection-dot.active {
-  box-shadow: 0 0 16px rgba(6, 182, 212, 0.8), 0 0 6px rgba(6, 182, 212, 1);
+  box-shadow: 0 0 16px rgba(81, 202, 205, 0.8), 0 0 6px rgba(81, 202, 205, 1);
 }
 
 .segment-item:active {
@@ -232,7 +332,7 @@ function deleteSegment() {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid rgba(6, 182, 212, 0.3);
+  border: 2px solid rgba(81, 202, 205, 0.3);
   background: transparent;
   transition: all 0.3s ease;
   position: relative;
@@ -241,9 +341,9 @@ function deleteSegment() {
 }
 
 .selection-dot.active {
-  border-color: #06b6d4;
-  background: #06b6d4;
-  box-shadow: 0 0 12px rgba(6, 182, 212, 0.6), 0 0 4px rgba(6, 182, 212, 0.8);
+  border-color: #51CACD;
+  background: #51CACD;
+  box-shadow: 0 0 12px rgba(81, 202, 205, 0.6), 0 0 4px rgba(81, 202, 205, 0.8);
   transform: scale(1.1);
 }
 
@@ -263,6 +363,26 @@ function deleteSegment() {
   font-weight: 600;
   color: #f1f5f9;
   font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.segment-name:hover {
+  background-color: rgba(81, 202, 205, 0.1);
+}
+
+.segment-name-input {
+  font-weight: 600;
+  color: #f1f5f9;
+  font-size: 13px;
+  background: rgba(81, 202, 205, 0.2);
+  border: 1px solid rgba(81, 202, 205, 0.5);
+  border-radius: 4px;
+  padding: 2px 4px;
+  outline: none;
+  min-width: 80px;
 }
 
 .segment-type {
@@ -288,6 +408,46 @@ function deleteSegment() {
   cursor: pointer;
   background: none;
   overflow: hidden;
+}
+
+.btn-random-color {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-random-color::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.btn-random-color:hover::before {
+  opacity: 1;
+}
+
+.btn-random-color:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-random-color svg {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 .segment-expanded {
@@ -352,8 +512,10 @@ function deleteSegment() {
 }
 
 .individual-movement-info {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.05) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.6) 0%, rgba(55, 57, 57, 0.6) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.2);
   border-radius: 8px;
   padding: 8px;
   margin-top: 8px;
@@ -378,7 +540,7 @@ function deleteSegment() {
 .distance-value {
   font-size: 11px;
   font-weight: 700;
-  color: #06b6d4;
+  color: #51CACD;
 }
 
 .axis-breakdown {

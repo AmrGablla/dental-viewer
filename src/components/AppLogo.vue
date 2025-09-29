@@ -1,10 +1,17 @@
 <template>
   <div 
     class="app-logo" 
-    :class="{ 'centered': centered, 'large': large, 'clickable': clickable }"
+    :class="{ 'centered': centered, 'large': large, 'extra-large': extraLarge, 'clickable': clickable }"
     @click="handleClick"
   >
-    <span class="app-icon">◈</span>
+    <img 
+      src="/logo-1x.png" 
+      srcset="/logo-1x.png 1x, /logo.png 2x"
+      alt="Logo" 
+      class="app-icon"
+      :class="{ 'large': large }"
+      fetchpriority="high"
+    />
     <div v-if="showText" class="brand-text">
       <h1 v-if="title">{{ title }}</h1>
       <p v-if="description">{{ description }}</p>
@@ -19,15 +26,17 @@ interface Props {
   showText?: boolean
   centered?: boolean
   large?: boolean
+  extraLarge?: boolean
   clickable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: 'Aligner',
+  title: 'My Line',
   description: 'Advanced 3D dental model viewer',
   showText: true,
   centered: false,
   large: false,
+  extraLarge: false,
   clickable: false
 })
 
@@ -56,7 +65,8 @@ function handleClick() {
 }
 
 .app-logo.large .app-icon {
-  font-size: 48px;
+  width: 48px;
+  height: 48px;
 }
 
 .app-logo.large .brand-text h1 {
@@ -67,13 +77,30 @@ function handleClick() {
   font-size: 18px;
 }
 
+.app-logo.extra-large .app-icon {
+  width: 120px;
+  height: 120px;
+}
+
+.app-logo.extra-large .brand-text h1 {
+  font-size: 40px;
+}
+
+.app-logo.extra-large .brand-text p {
+  font-size: 20px;
+}
+
 .app-icon {
-  font-size: 32px;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: all 0.3s ease;
+}
+
+.app-icon.large {
+  width: 48px;
+  height: 48px;
 }
 
 .brand-text h1 {
@@ -101,7 +128,10 @@ function handleClick() {
 
 .app-logo.clickable:hover {
   transform: scale(1.05);
-  filter: brightness(1.1);
+}
+
+.app-logo.clickable:hover .app-icon {
+  filter: drop-shadow(0 4px 8px rgba(81, 202, 205, 0.4)) brightness(1.1);
 }
 
 .app-logo.clickable:active {

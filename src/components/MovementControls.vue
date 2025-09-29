@@ -115,12 +115,17 @@ function stopDirectionalMove() {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.3);
   border-radius: 16px;
   padding: 12px;
   backdrop-filter: blur(12px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(81, 202, 205, 0.1),
+    inset 0 1px 0 rgba(81, 202, 205, 0.1);
   z-index: 100;
   transition: all 0.3s ease;
 }
@@ -130,8 +135,10 @@ function stopDirectionalMove() {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.3) 0%, rgba(51, 65, 85, 0.3) 100%);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.05) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.3) 0%, rgba(55, 57, 57, 0.3) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.2);
   border-radius: 12px;
   padding: 8px;
   backdrop-filter: blur(8px);
@@ -156,8 +163,8 @@ function stopDirectionalMove() {
 }
 
 .control-btn {
-  background: linear-gradient(135deg, rgba(51, 65, 85, 0.8) 0%, rgba(71, 85, 105, 0.8) 100%);
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  background: linear-gradient(135deg, rgba(65, 67, 67, 0.8) 0%, rgba(55, 57, 57, 0.8) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.3);
   border-radius: 8px;
   color: #f1f5f9;
   cursor: pointer;
@@ -171,15 +178,15 @@ function stopDirectionalMove() {
 }
 
 .control-btn:hover {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.3) 0%, rgba(8, 145, 178, 0.3) 100%);
-  border-color: rgba(6, 182, 212, 0.6);
+  background: linear-gradient(135deg, rgba(81, 202, 205, 0.3) 0%, rgba(75, 184, 187, 0.3) 100%);
+  border-color: rgba(81, 202, 205, 0.6);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
+  box-shadow: 0 4px 12px rgba(81, 202, 205, 0.4);
 }
 
 .control-btn:active {
   transform: translateY(0);
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.4) 0%, rgba(8, 145, 178, 0.4) 100%);
+  background: linear-gradient(135deg, rgba(81, 202, 205, 0.4) 0%, rgba(75, 184, 187, 0.4) 100%);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
@@ -237,17 +244,17 @@ function stopDirectionalMove() {
 
 .movement-display {
   padding-left: 12px;
-  border-left: 1px solid rgba(6, 182, 212, 0.2);
+  border-left: 1px solid rgba(81, 202, 205, 0.2);
 }
 
 .distance-text {
   font-size: 11px;
   font-weight: 600;
-  color: #06b6d4;
-  background: rgba(6, 182, 212, 0.1);
+  color: #51CACD;
+  background: rgba(81, 202, 205, 0.1);
   padding: 6px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(6, 182, 212, 0.3);
+  border: 1px solid rgba(81, 202, 205, 0.3);
   white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }

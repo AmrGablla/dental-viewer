@@ -1,5 +1,13 @@
-import * as THREE from 'three'
 import type { ToothSegment, DentalModel } from '../types/dental'
+
+// Lazy load Three.js to avoid blocking initial bundle
+let THREE: any = null;
+const loadThreeJS = async () => {
+  if (!THREE) {
+    THREE = await import('three');
+  }
+  return THREE;
+};
 
 export type LassoMode = 'create' | 'add' | 'subtract' | 'select'
 
@@ -17,26 +25,21 @@ export interface LassoOperation {
 
 export class EnhancedLassoService {
   private canvas: HTMLCanvasElement | null = null
-  private camera: THREE.Camera | null = null
-  private scene: THREE.Scene | null = null
+  private camera: any = null
+  private scene: any = null
   
   // Lasso state
   private isActive = false
   private currentOperation: LassoOperation | null = null
   private lassoPath: SVGPathElement | null = null
-  private previewMesh: THREE.Mesh | null = null
-  private previewMaterial = new THREE.MeshBasicMaterial({
-    color: 0x00ff00,
-    transparent: true,
-    opacity: 0.3,
-    side: THREE.DoubleSide
-  })
+  private previewMesh: any = null
+  private previewMaterial: any = null
   
   constructor(
     canvas: HTMLCanvasElement,
-    camera: THREE.Camera,
-    _renderer: THREE.WebGLRenderer,
-    scene: THREE.Scene
+    camera: any,
+    _renderer: any,
+    scene: any
   ) {
     this.canvas = canvas
     this.camera = camera
@@ -62,7 +65,7 @@ export class EnhancedLassoService {
   /**
    * Update the lasso path with a new point
    */
-  updateLasso(point: { x: number, y: number }): void {
+  async updateLasso(point: { x: number, y: number }): Promise<void> {
     if (!this.isActive || !this.currentOperation) return
     
     const lastPoint = this.currentOperation.points[this.currentOperation.points.length - 1]
@@ -77,7 +80,7 @@ export class EnhancedLassoService {
       
       // Update preview in real-time if in preview mode
       if (this.shouldShowPreview()) {
-        this.updatePreview()
+        await this.updatePreview()
       }
     }
   }
@@ -85,13 +88,13 @@ export class EnhancedLassoService {
   /**
    * Complete the lasso operation and return the result
    */
-  finishLasso(dentalModel: DentalModel): LassoOperationResult | null {
+  async finishLasso(dentalModel: DentalModel): Promise<LassoOperationResult | null> {
     if (!this.isActive || !this.currentOperation || this.currentOperation.points.length < 3) {
       this.cleanup()
       return null
     }
     
-    const result = this.processLassoOperation(dentalModel)
+    const result = await this.processLassoOperation(dentalModel)
     this.cleanup()
     return result
   }
@@ -157,13 +160,13 @@ export class EnhancedLassoService {
     
     const styles = {
       create: {
-        stroke: "#00ff00",
-        fill: "rgba(0, 255, 0, 0.15)",
+        stroke: "#51CACD",
+        fill: "rgba(81, 202, 205, 0.15)",
         strokeDasharray: "5,3"
       },
       add: {
-        stroke: "#0066ff",
-        fill: "rgba(0, 102, 255, 0.15)",
+        stroke: "#4AB8BB",
+        fill: "rgba(75, 184, 187, 0.15)",
         strokeDasharray: "3,2"
       },
       subtract: {
@@ -172,8 +175,8 @@ export class EnhancedLassoService {
         strokeDasharray: "2,2"
       },
       select: {
-        stroke: "#ffaa00",
-        fill: "rgba(255, 170, 0, 0.1)",
+        stroke: "#3FA4A7",
+        fill: "rgba(63, 164, 167, 0.1)",
         strokeDasharray: "4,4"
       }
     }
@@ -217,10 +220,28 @@ export class EnhancedLassoService {
   }
   
   /**
+   * Initialize preview material with lazy-loaded Three.js
+   */
+  private async initializePreviewMaterial(): Promise<void> {
+    if (!this.previewMaterial) {
+      const ThreeJS = await loadThreeJS();
+      this.previewMaterial = new ThreeJS.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.3,
+        side: ThreeJS.DoubleSide
+      });
+    }
+  }
+
+  /**
    * Update preview visualization
    */
-  private updatePreview(): void {
+  private async updatePreview(): Promise<void> {
     if (!this.currentOperation || !this.scene) return
+    
+    // Initialize preview material if needed
+    await this.initializePreviewMaterial();
     
     // Remove existing preview
     if (this.previewMesh) {
@@ -231,22 +252,23 @@ export class EnhancedLassoService {
     // Create new preview based on current lasso area
     // This is a simplified preview - in a real implementation, 
     // you'd calculate which vertices are actually selected
-    const previewGeometry = new THREE.BufferGeometry()
+    const ThreeJS = await loadThreeJS();
+    const previewGeometry = new ThreeJS.BufferGeometry()
     // Add preview geometry creation logic here
     
-    this.previewMesh = new THREE.Mesh(previewGeometry, this.previewMaterial)
+    this.previewMesh = new ThreeJS.Mesh(previewGeometry, this.previewMaterial)
     this.scene.add(this.previewMesh)
   }
   
   /**
    * Process the completed lasso operation
    */
-  private processLassoOperation(dentalModel: DentalModel): LassoOperationResult {
+  private async processLassoOperation(dentalModel: DentalModel): Promise<LassoOperationResult> {
     if (!this.currentOperation) {
       throw new Error('No active lasso operation')
     }
     
-    const selectedVertices = this.getVerticesInsideLasso(
+    const selectedVertices = await this.getVerticesInsideLasso(
       dentalModel.originalMesh,
       this.currentOperation.points
     )
@@ -262,12 +284,13 @@ export class EnhancedLassoService {
   /**
    * Get vertices inside the lasso area
    */
-  private getVerticesInsideLasso(mesh: THREE.Mesh, lassoPoints: LassoPoint[]): number[] {
+  private async getVerticesInsideLasso(mesh: any, lassoPoints: LassoPoint[]): Promise<number[]> {
     if (!this.camera || !this.canvas) return []
     
+    const ThreeJS = await loadThreeJS();
     const selectedVertices: number[] = []
     const positions = mesh.geometry.attributes.position
-    const vector = new THREE.Vector3()
+    const vector = new ThreeJS.Vector3()
     const rect = this.canvas.getBoundingClientRect()
     
     for (let i = 0; i < positions.count; i++) {

@@ -2,7 +2,7 @@
   <div class="splash-screen">
     <div class="splash-content">
       <div class="logo-container">
-        <div class="dental-icon">🦷</div>
+        <img src="/logo-1x.png" srcset="/logo-1x.png 1x, /logo.png 2x" alt="Logo" class="dental-icon" fetchpriority="high" />
         <h1 class="app-title">3D Dental Viewer</h1>
         <p class="app-subtitle">STL Segmentation Tool</p>
       </div>
@@ -48,7 +48,7 @@ defineProps<Props>()
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: linear-gradient(135deg, #414343 0%, #414343 50%, #414343 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -67,17 +67,20 @@ defineProps<Props>()
 }
 
 .dental-icon {
-  font-size: 4rem;
+  width: 80px;
+  height: 80px;
   margin-bottom: 1rem;
   display: block;
   animation: pulse 2s ease-in-out infinite;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(81, 202, 205, 0.3));
 }
 
 .app-title {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #60a5fa, #34d399);
+  background: linear-gradient(135deg, #51CACD, #51CACD);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -95,19 +98,22 @@ defineProps<Props>()
 
 .progress-bar {
   width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+  height: 8px;
+  background: linear-gradient(135deg, rgba(45, 47, 47, 0.8) 0%, rgba(35, 37, 37, 0.6) 100%);
+  border-radius: 6px;
   overflow: hidden;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(81, 202, 205, 0.2);
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #60a5fa, #34d399);
-  border-radius: 2px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #51CACD 0%, #4AB8BB 50%, #3FA4A7 100%);
+  border-radius: 6px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   animation: shimmer 2s infinite;
+  box-shadow: 0 0 12px rgba(81, 202, 205, 0.4);
 }
 
 .loading-text {

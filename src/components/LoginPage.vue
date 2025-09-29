@@ -4,10 +4,9 @@
       <div class="login-card">
         <div class="login-header">
           <AppLogo 
-            title="Aligner" 
-            description="Sign in to access your cases"
+            :showText="false"
             :centered="true"
-            :large="true"
+            :extraLarge="true"
           />
         </div>
 
@@ -216,7 +215,11 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(81, 202, 205, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(81, 202, 205, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(65, 67, 67, 0.8) 0%, transparent 50%),
+    linear-gradient(135deg, #2a2c2c 0%, #1a1c1c 25%, #252727 50%, #1e2020 75%, #2a2c2c 100%);
   padding: 20px;
 }
 
@@ -226,12 +229,14 @@ const handleRegister = async () => {
 }
 
 .login-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
   backdrop-filter: blur(20px);
   border-radius: 20px;
   padding: 40px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(81, 202, 205, 0.1);
+  border: 1px solid rgba(81, 202, 205, 0.3);
 }
 
 .login-header {
@@ -263,15 +268,15 @@ const handleRegister = async () => {
   font-size: 16px;
   transition: all 0.3s ease;
   box-sizing: border-box;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(65, 67, 67, 0.6);
   color: #f1f5f9;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #06b6d4;
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
-  background: rgba(15, 23, 42, 0.8);
+  border-color: #51CACD;
+  box-shadow: 0 0 0 3px rgba(81, 202, 205, 0.2);
+  background: rgba(65, 67, 67, 0.8);
 }
 
 .form-group input::placeholder {
@@ -279,7 +284,7 @@ const handleRegister = async () => {
 }
 
 .form-group input:disabled {
-  background-color: rgba(15, 23, 42, 0.4);
+  background-color: rgba(65, 67, 67, 0.4);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -297,7 +302,7 @@ const handleRegister = async () => {
 .login-btn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 50%, #3FA4A7 100%);
   color: white;
   border: none;
   border-radius: 10px;
@@ -308,9 +313,9 @@ const handleRegister = async () => {
 }
 
 .login-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  background: linear-gradient(135deg, #5DD0D3 0%, #51CACD 50%, #4AB8BB 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 12px rgba(81, 202, 205, 0.3);
 }
 
 .login-btn:disabled {
@@ -332,7 +337,7 @@ const handleRegister = async () => {
 }
 
 .login-footer a {
-  color: #06b6d4;
+  color: #51CACD;
   text-decoration: none;
   font-weight: 600;
 }
@@ -357,13 +362,15 @@ const handleRegister = async () => {
 }
 
 .modal-content {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.95) 100%);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
   border-radius: 16px;
   padding: 30px;
   max-width: 400px;
   width: 100%;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(81, 202, 205, 0.1);
+  border: 1px solid rgba(81, 202, 205, 0.3);
 }
 
 .modal-header {
@@ -391,7 +398,7 @@ const handleRegister = async () => {
 }
 
 .close-btn:hover {
-  background: rgba(6, 182, 212, 0.1);
+  background: rgba(81, 202, 205, 0.1);
   color: #f1f5f9;
 }
 
@@ -402,7 +409,7 @@ const handleRegister = async () => {
 .register-btn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 50%, #3FA4A7 100%);
   color: white;
   border: none;
   border-radius: 10px;
@@ -413,9 +420,9 @@ const handleRegister = async () => {
 }
 
 .register-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: linear-gradient(135deg, #5DD0D3 0%, #51CACD 50%, #4AB8BB 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 12px rgba(81, 202, 205, 0.3);
 }
 
 .register-btn:disabled {

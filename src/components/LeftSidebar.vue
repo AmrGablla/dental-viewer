@@ -161,6 +161,8 @@
               @resetIndividualPosition="handleResetIndividualPosition"
               @toggleSegmentVisibility="handleToggleSegmentVisibility"
               @deleteSegment="handleDeleteSegment"
+              @renameSegment="handleRenameSegment"
+              @generateRandomColor="handleGenerateRandomColor"
             />
           </div>
         </div>
@@ -210,6 +212,8 @@ const emit = defineEmits<{
   resetIndividualPosition: [segment: ToothSegment]
   toggleSegmentVisibility: [segment: ToothSegment]
   deleteSegment: [segment: ToothSegment]
+  renameSegment: [segment: ToothSegment, newName: string]
+  generateRandomColor: [segment: ToothSegment]
   planCreated: [plan: OrthodonticTreatmentPlan]
   planUpdated: [plan: OrthodonticTreatmentPlan | null]
   stepChanged: [stepNumber: number]
@@ -255,6 +259,14 @@ function handleToggleSegmentVisibility(segment: ToothSegment) {
 
 function handleDeleteSegment(segment: ToothSegment) {
   emit('deleteSegment', segment)
+}
+
+function handleRenameSegment(segment: ToothSegment, newName: string) {
+  emit('renameSegment', segment, newName)
+}
+
+function handleGenerateRandomColor(segment: ToothSegment) {
+  emit('generateRandomColor', segment)
 }
 
 // Watch for changes in dentalModel to trigger reactivity updates
@@ -304,7 +316,7 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   min-width: 320px;
   max-width: 320px;
   height: calc(100vh - 64px); /* Subtract toolbar height */
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #414343 0%, #414343 100%);
   border-right: 1px solid rgba(148, 163, 184, 0.2);
   overflow-y: auto;
   overflow-x: hidden;
@@ -343,8 +355,8 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
 
 .tab-button.active {
   background: rgba(6, 182, 212, 0.1);
-  color: #06b6d4;
-  border-bottom: 2px solid #06b6d4;
+  color: #51CACD;
+  border-bottom: 2px solid #51CACD;
 }
 
 .tab-icon {
@@ -353,7 +365,7 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
 
 .tab-badge {
   background: rgba(6, 182, 212, 0.2);
-  color: #06b6d4;
+  color: #51CACD;
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 10px;
@@ -362,7 +374,7 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
 }
 
 .tab-button.active .tab-badge {
-  background: #06b6d4;
+  background: #51CACD;
   color: white;
 }
 
@@ -404,12 +416,17 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
 
 /* Panel Styles - keeping existing styles but adjusting for tabs */
 .panel {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(51, 65, 85, 0.8) 100%);
-  border: 1px solid rgba(6, 182, 212, 0.2);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.2);
   border-radius: 12px;
   overflow: visible;
   backdrop-filter: blur(12px);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 
+    0 6px 24px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(81, 202, 205, 0.1),
+    inset 0 1px 0 rgba(81, 202, 205, 0.1);
   position: relative;
   flex-shrink: 0;
   margin: 12px;
@@ -422,7 +439,7 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(81, 202, 205, 0.5), transparent);
 }
 
 .panel-header {
@@ -430,13 +447,13 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(8, 145, 178, 0.1) 100%);
-  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+  background: linear-gradient(135deg, rgba(81, 202, 205, 0.1) 0%, rgba(75, 184, 187, 0.1) 100%);
+  border-bottom: 1px solid rgba(81, 202, 205, 0.2);
 }
 
 .panel-icon {
   font-size: 16px;
-  color: #06b6d4;
+  color: #51CACD;
 }
 
 .panel-title {
@@ -447,7 +464,7 @@ function handleTreatmentPlanFullScreen(isFullScreen: boolean) {
 }
 
 .panel-badge {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #51CACD, #51CACD);
   color: #ffffff;
   font-size: 11px;
   font-weight: 700;
