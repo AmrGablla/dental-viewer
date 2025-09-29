@@ -274,7 +274,7 @@ watch(() => props.segments, (newSegments) => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #414343 0%, #414343 100%);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 12px;
   overflow: hidden;
@@ -288,7 +288,7 @@ watch(() => props.segments, (newSegments) => {
   right: 0;
   bottom: 0;
   z-index: 1000;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #414343 0%, #414343 100%);
   animation: expandToFullscreen 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 0 50px rgba(0, 0, 0, 0.15);
   border-radius: 0;
@@ -434,11 +434,16 @@ watch(() => props.segments, (newSegments) => {
 }
 
 .movement-tips {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.2);
   border-radius: 12px;
   padding: 20px;
   text-align: left;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(81, 202, 205, 0.1);
 }
 
 .movement-tips p {
@@ -473,14 +478,19 @@ watch(() => props.segments, (newSegments) => {
 }
 
 .movement-summary {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
+  border: 1px solid rgba(81, 202, 205, 0.2);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 24px;
   display: flex;
   gap: 20px;
   justify-content: center;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(81, 202, 205, 0.1);
 }
 
 .summary-item {
@@ -500,12 +510,12 @@ watch(() => props.segments, (newSegments) => {
 
 .summary-value {
   font-size: 18px;
-  color: #06b6d4;
+  color: #51CACD;
   font-weight: 700;
 }
 
 .btn-create-large {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 50%, #3FA4A7 100%);
   border: none;
   color: white;
   padding: 16px 32px;

@@ -70,11 +70,12 @@ defineExpose({
 .viewport {
   flex: 1;
   position: relative;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: #ffffff;
   overflow: hidden;
   border-radius: 20px;
   margin: 8px;
-  box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .canvas-container {

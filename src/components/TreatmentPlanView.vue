@@ -621,7 +621,7 @@ onUnmounted(() => {
 }
 
 .current-step {
-  color: #06b6d4;
+  color: #51CACD;
   font-size: 13px;
   font-weight: 600;
 }
@@ -921,9 +921,9 @@ onUnmounted(() => {
 }
 
 .view-mode-btn.active {
-  background: #007bff;
+  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 100%);
   color: white;
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(81, 202, 205, 0.3);
 }
 
 /* Gantt Chart Styles */
@@ -1289,10 +1289,10 @@ onUnmounted(() => {
 }
 
 .timeline-milestone.active .milestone-number {
-  background: #007bff;
+  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 100%);
   color: white;
   transform: scale(1.1);
-  box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+  box-shadow: 0 4px 8px rgba(81, 202, 205, 0.4);
 }
 
 .timeline-milestone.completed .milestone-number {
@@ -1630,9 +1630,9 @@ onUnmounted(() => {
 }
 
 .step-analysis-card.current-step {
-  border-color: #007bff;
-  background: linear-gradient(135deg, rgba(0, 123, 255, 0.05), white);
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+  border-color: #51CACD;
+  background: linear-gradient(135deg, rgba(81, 202, 205, 0.05), white);
+  box-shadow: 0 2px 8px rgba(81, 202, 205, 0.2);
 }
 
 .step-header {

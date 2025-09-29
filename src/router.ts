@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginPage from './components/LoginPage.vue'
-import CasesPage from './components/CasesPage.vue'
-import DentalViewer from './components/DentalViewer.vue'
+
+// Lazy load components to break critical request chain
+const LoginPage = () => import('./components/LoginPage.vue')
+const CasesPage = () => import('./components/CasesPage.vue')
+const DentalViewer = () => import('./components/DentalViewer.vue')
 
 const routes = [
   {

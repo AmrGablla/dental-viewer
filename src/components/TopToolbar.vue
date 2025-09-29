@@ -223,7 +223,7 @@ function getLassoModeDescription(): string {
 }
 
 .toolbar-btn.primary {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #51CACD, #51CACD);
   border-color: rgba(6, 182, 212, 0.5);
   color: #ffffff;
 }
@@ -245,10 +245,10 @@ function getLassoModeDescription(): string {
 }
 
 .toolbar-btn.active {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
-  border-color: rgba(6, 182, 212, 0.8);
+  background: linear-gradient(135deg, #51CACD, #4AB8BB);
+  border-color: rgba(81, 202, 205, 0.8);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 2px 8px rgba(81, 202, 205, 0.3);
 }
 
 .toolbar-btn.disabled {
@@ -296,7 +296,7 @@ function getLassoModeDescription(): string {
 }
 
 .selected-count {
-  color: #06b6d4;
+  color: #51CACD;
   background: rgba(6, 182, 212, 0.2);
   border: 1px solid rgba(6, 182, 212, 0.3);
 }
@@ -304,16 +304,21 @@ function getLassoModeDescription(): string {
 /* Enhanced Lasso Controls */
 .lasso-controls {
    align-items: center; 
-  background: rgba(30, 41, 59, 0.8);
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
   border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  backdrop-filter: blur(4px);
+  border: 1px solid rgba(81, 202, 205, 0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(81, 202, 205, 0.1);
 }
 
 .lasso-mode-selector {
   display: flex;
   gap: 4px;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(45, 47, 47, 0.6);
   border-radius: 8px;
   padding: 4px;
 }
@@ -339,7 +344,7 @@ function getLassoModeDescription(): string {
 }
 
 .lasso-mode-btn.active {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #51CACD, #51CACD);
   color: white;
 }
 

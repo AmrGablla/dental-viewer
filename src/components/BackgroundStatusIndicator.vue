@@ -16,7 +16,7 @@
           <Icon name="alert-triangle" :size="16" color="#ef4444" />
         </div>
         <div v-else class="info-icon">
-          <Icon name="info" :size="16" color="#06b6d4" />
+          <Icon name="info" :size="16" color="#51CACD" />
         </div>
       </div>
       
@@ -71,7 +71,7 @@ defineEmits<{
   top: 80px;
   right: 20px;
   max-width: 400px;
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background: linear-gradient(135deg, #414343 0%, #414343 100%);
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
   padding: 16px;
@@ -120,7 +120,7 @@ defineEmits<{
 }
 
 .info-icon {
-  color: #06b6d4;
+  color: #51CACD;
   font-size: 18px;
 }
 
@@ -161,7 +161,7 @@ defineEmits<{
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, #51CACD, #51CACD);
   border-radius: 3px;
   transition: width 0.3s ease;
 }

@@ -1,8 +1,16 @@
 import { ref } from 'vue';
-import * as THREE from 'three';
 import type { ToothSegment, DentalModel, IntersectionResult, IntersectionStatistics } from '../types/dental';
 import { IntersectionDetectionService, type IntersectionConfig } from '../services/IntersectionDetectionService';
 import { IntersectionWorkerService } from '../services/IntersectionWorkerService';
+
+// Lazy load Three.js to avoid blocking initial bundle
+let THREE: any = null;
+const loadThreeJS = async () => {
+  if (!THREE) {
+    THREE = await import('three');
+  }
+  return THREE;
+};
 
 export function useSegmentManager() {
   const selectedSegments = ref<ToothSegment[]>([]);
@@ -335,10 +343,12 @@ export function useSegmentManager() {
     );
   }
 
-  function changeSegmentColor(segment: ToothSegment, event: Event) {
+  async function changeSegmentColor(segment: ToothSegment, event: Event) {
     const input = event.target as HTMLInputElement;
+    // Load Three.js if not already loaded
+    const ThreeJS = await loadThreeJS();
     // Create a proper THREE.js Color object
-    const color = new THREE.Color(input.value);
+    const color = new ThreeJS.Color(input.value);
 
     segment.color = color;
     const material = segment.mesh.material as any;

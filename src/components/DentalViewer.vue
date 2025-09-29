@@ -5,9 +5,9 @@
       :isLoading="threeJSManager.isLoading.value"
       :loadingMessage="threeJSManager.loadingMessage.value"
     />
-
-    <AppHeader
-      title="Aligner"
+    
+    <AppHeader 
+      title="My Line" 
       description="3D dental model viewer"
       :clickable="true"
       @logoClick="handleLogoClick"
@@ -294,6 +294,12 @@ async function initializeApp() {
     await loadCaseData();
 
     threeJSManager.isLoading.value = false;
+    
+    // Load segments after initial render is complete (non-blocking)
+    setTimeout(async () => {
+      await loadSegmentsInBackground();
+    }, 100);
+    
   } catch (error) {
     console.error("Failed to initialize app:", error);
     threeJSManager.loadingMessage.value = "Failed to load 3D engine";
@@ -384,13 +390,7 @@ async function loadCaseData() {
 
       console.log("Dental model loaded successfully:", dentalModel.value);
 
-      // Load existing segments from backend
-      await loadExistingSegments();
-      
-      // Migrate any existing segments to database if needed
-      await migrateExistingSegments();
-
-      // Focus camera on the loaded model
+      // Focus camera on the loaded model first (non-blocking)
       if (dentalModel.value) {
         console.log("Focusing camera on model...");
         threeJSManager.focusOnModel(dentalModel.value);
@@ -492,7 +492,7 @@ function handleLassoMouseDown(event: MouseEvent) {
   );
 }
 
-function handleLassoMouseMove(event: MouseEvent) {
+async function handleLassoMouseMove(event: MouseEvent) {
   if (
     currentMode.value !== "lasso" ||
     !enhancedLassoService ||
@@ -510,10 +510,10 @@ function handleLassoMouseMove(event: MouseEvent) {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
 
-  enhancedLassoService.updateLasso({ x, y });
+  await enhancedLassoService.updateLasso({ x, y });
 }
 
-function handleLassoMouseUp(_event: MouseEvent) {
+async function handleLassoMouseUp(_event: MouseEvent) {
   if (
     currentMode.value !== "lasso" ||
     !enhancedLassoService ||
@@ -521,7 +521,7 @@ function handleLassoMouseUp(_event: MouseEvent) {
   )
     return;
 
-  const result = enhancedLassoService.finishLasso(dentalModel.value!);
+  const result = await enhancedLassoService.finishLasso(dentalModel.value!);
 
   if (result) {
     handleLassoOperationResult(result);
@@ -1094,6 +1094,43 @@ function handleLogout() {
   router.push("/login");
 }
 
+// Load segments in background after initial render
+async function loadSegmentsInBackground() {
+  try {
+    console.log("🔄 Starting background segment loading...");
+    
+    // Show a subtle loading indicator for segments
+    threeJSManager.loadingMessage.value = "Loading segments...";
+    
+    // Run migration and segment loading in parallel
+    const [migrationResult, segmentsResult] = await Promise.allSettled([
+      migrateExistingSegments(),
+      loadExistingSegments()
+    ]);
+    
+    // Handle migration results
+    if (migrationResult.status === 'fulfilled') {
+      console.log("✅ Segment migration completed");
+    } else {
+      console.warn("⚠️ Segment migration failed:", migrationResult.reason);
+    }
+    
+    // Handle segment loading results
+    if (segmentsResult.status === 'fulfilled') {
+      console.log("✅ Segment loading completed");
+    } else {
+      console.warn("⚠️ Segment loading failed:", segmentsResult.reason);
+    }
+    
+    // Clear loading message
+    threeJSManager.loadingMessage.value = "";
+    console.log("🎉 Background segment loading completed");
+  } catch (error) {
+    console.error("❌ Background segment loading failed:", error);
+    threeJSManager.loadingMessage.value = "";
+  }
+}
+
 // Migrate existing segments to database
 async function migrateExistingSegments() {
   try {
@@ -1103,13 +1140,19 @@ async function migrateExistingSegments() {
     const token = localStorage.getItem('authToken');
     if (!token) return;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/migrate`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
-      }
+      },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       await errorHandlingService.handleApiError(response, 'Failed to migrate segments');
@@ -1118,8 +1161,7 @@ async function migrateExistingSegments() {
     const result = await response.json();
     if (result.migrated > 0) {
       console.log(`✅ Migrated ${result.migrated} segments to database`);
-      // Reload segments after migration
-      await loadExistingSegments();
+      // Note: Segment loading is handled separately in parallel
     }
   } catch (error) {
     console.error('Error migrating segments:', error);
@@ -1161,7 +1203,7 @@ async function loadExistingSegments() {
       return;
     }
 
-    threeJSManager.loadingMessage.value = "Loading existing segments...";
+    // Loading message is handled at a higher level
 
     // Get auth token
     const token = localStorage.getItem("authToken");
@@ -1169,7 +1211,10 @@ async function loadExistingSegments() {
       throw new Error("No authentication token found");
     }
 
-    // Fetch segments from backend
+    // Fetch segments from backend with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for segment loading
+    
     const response = await fetch(
       `http://localhost:3001/api/cases/${caseId}/segments`,
       {
@@ -1177,8 +1222,11 @@ async function loadExistingSegments() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        signal: controller.signal
       }
     );
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -1415,11 +1463,75 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: #ffffff;
   color: #f1f5f9;
   font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
     sans-serif;
   overflow: hidden;
+  position: relative;
+}
+
+.dental-viewer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px; /* Only cover the header area */
+  background: 
+    radial-gradient(circle at 15% 85%, rgba(81, 202, 205, 0.2) 0%, transparent 60%),
+    radial-gradient(circle at 85% 15%, rgba(81, 202, 205, 0.15) 0%, transparent 55%),
+    radial-gradient(circle at 50% 50%, rgba(81, 202, 205, 0.08) 0%, transparent 70%),
+    radial-gradient(circle at 25% 25%, rgba(65, 67, 67, 0.9) 0%, transparent 45%),
+    radial-gradient(circle at 75% 75%, rgba(45, 47, 47, 0.8) 0%, transparent 50%),
+    linear-gradient(135deg, #2a2c2c 0%, #1a1c1c 20%, #252727 40%, #1e2020 60%, #2a2c2c 80%, #1a1c1c 100%);
+  animation: backgroundShift 25s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dental-viewer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px; /* Only cover the header area */
+  background-image: 
+    linear-gradient(45deg, transparent 40%, rgba(81, 202, 205, 0.03) 50%, transparent 60%),
+    linear-gradient(-45deg, transparent 40%, rgba(81, 202, 205, 0.02) 50%, transparent 60%);
+  background-size: 80px 80px;
+  animation: patternMove 35s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes backgroundShift {
+  0%, 100% { 
+    transform: translateX(0) translateY(0) scale(1);
+    opacity: 1;
+  }
+  25% { 
+    transform: translateX(-15px) translateY(-8px) scale(1.02);
+    opacity: 0.8;
+  }
+  50% { 
+    transform: translateX(8px) translateY(-15px) scale(0.98);
+    opacity: 0.9;
+  }
+  75% { 
+    transform: translateX(-8px) translateY(12px) scale(1.01);
+    opacity: 0.85;
+  }
+}
+
+@keyframes patternMove {
+  0% { 
+    background-position: 0 0, 0 0;
+  }
+  100% { 
+    background-position: 80px 80px, -80px -80px;
+  }
 }
 
 .main-content {
@@ -1427,6 +1539,9 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
   flex: 1;
   overflow: hidden;
   height: calc(100vh - 64px); /* Account for header height */
+  background: #ffffff;
+  position: relative;
+  z-index: 1;
 }
 
 .main-content.treatment-fullscreen {
@@ -1523,13 +1638,13 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 1001;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  min-width: 300px;
+  background: linear-gradient(135deg, rgba(65, 67, 67, 0.98) 0%, rgba(55, 57, 57, 0.95) 50%, rgba(45, 47, 47, 0.92) 100%);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(81, 202, 205, 0.4);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(81, 202, 205, 0.2);
+  min-width: 350px;
 }
 
 .progress-container {
@@ -1541,19 +1656,22 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
 
 .progress-bar {
   width: 100%;
-  height: 8px;
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 4px;
+  height: 12px;
+  background: linear-gradient(135deg, rgba(45, 47, 47, 0.8) 0%, rgba(35, 37, 37, 0.6) 100%);
+  border-radius: 8px;
   overflow: hidden;
   position: relative;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(81, 202, 205, 0.2);
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #06b6d4, #3b82f6);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #51CACD 0%, #4AB8BB 50%, #3FA4A7 100%);
+  border-radius: 8px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  box-shadow: 0 0 12px rgba(81, 202, 205, 0.4);
 }
 
 .progress-fill::after {
