@@ -1,6 +1,6 @@
 <template>
   <div class="toolbar-content">
-    <div class="view-controls" v-if="dentalModel">
+    <div class="view-controls">
       <!-- <button 
         v-for="mode in interactionModes" 
         :key="mode"
@@ -12,7 +12,7 @@
       >
         <span class="btn-icon">{{ getModeIcon(mode) }}</span>
       </button> -->
-      
+
       <!-- Enhanced Lasso Controls -->
       <!-- <div v-if="currentMode === 'lasso'" class="lasso-controls">
         <div class="lasso-mode-selector">
@@ -36,135 +36,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref } from 'vue'
-import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
-import type { LassoMode } from '../services/EnhancedLassoService'
-
-// Props
-interface Props {
-  dentalModel: DentalModel | null
-  selectedSegments: ToothSegment[]
-  currentMode: InteractionMode['mode']
-  isLoading: boolean
-  interactionModes: InteractionMode['mode'][]
-}
-
-const props = defineProps<Props>()
-
-// Emits
-const emit = defineEmits<{
-  setInteractionMode: [mode: InteractionMode['mode']]
-  setLassoMode: [mode: LassoMode]
-}>()
-
-// Refs
-const currentLassoMode = ref<LassoMode>('create')
-
-// Lasso modes configuration
-const lassoModes = [
-  {
-    id: 'create' as LassoMode,
-    label: 'Create',
-    icon: '✨',
-    title: 'Create new segment from selection'
-  },
-  {
-    id: 'select' as LassoMode,
-    label: 'Select',
-    icon: '◯',
-    title: 'Select multiple segments'
-  },
-  {
-    id: 'add' as LassoMode,
-    label: 'Add',
-    icon: '➕',
-    title: props.selectedSegments.length === 0 
-      ? 'Select a segment first, then use lasso to add vertices to it'
-      : `Add vertices to selected segment: ${props.selectedSegments[0]?.name}`
-  },
-  {
-    id: 'subtract' as LassoMode,
-    label: 'Remove',
-    icon: '➖',
-    title: props.selectedSegments.length === 0
-      ? 'Select a segment first, then use lasso to remove vertices from it'
-      : `Remove vertices from selected segment: ${props.selectedSegments[0]?.name}`
-  }
-]
-
-// Methods
-function setInteractionMode(mode: InteractionMode['mode']) {
-  // Prevent activating lasso mode if no model is loaded
-  if (mode === 'lasso' && !props.dentalModel) {
-    return
-  }
-  console.log('Setting interaction mode:', mode)
-  emit('setInteractionMode', mode)
-}
-
-function setLassoMode(mode: LassoMode) {
-  currentLassoMode.value = mode
-  emit('setLassoMode', mode)
-}
-
-function isLassoModeDisabled(mode: LassoMode): boolean {
-  if (mode === 'add' || mode === 'subtract') {
-    // Require both existing segments AND a selected segment for add/subtract operations
-    return !props.dentalModel || 
-           props.dentalModel.segments.length === 0 || 
-           props.selectedSegments.length === 0
-  }
-  return !props.dentalModel
-}
-
-function getModeIcon(mode: InteractionMode['mode']): string {
-  const icons = {
-    lasso: '✏️',
-    pan: '🤚'
-  }
-  return icons[mode] || '◈'
-}
-
-function isInteractionModeDisabled(_mode: InteractionMode['mode']): boolean {
-  return !props.dentalModel
-}
-
-function getInteractionModeTitle(mode: InteractionMode['mode']): string {
-  const titles = {
-    lasso: getLassoModeDescription(),
-    pan: 'Pan view (drag to move camera position)'
-  }
-  return titles[mode] || mode.charAt(0).toUpperCase() + mode.slice(1)
-}
-
-function getLassoModeDescription(): string {
-  const hasSegments = props.dentalModel?.segments.length ?? 0 > 0
-  const hasSelected = props.selectedSegments.length > 0
-  
-  switch (currentLassoMode.value) {
-    case 'create':
-      return hasSegments 
-        ? 'Draw lasso to create new segment from original model'
-        : 'Draw lasso to create segments manually'
-    case 'select':
-      return hasSegments
-        ? 'Draw lasso to select multiple segments'
-        : 'No segments available to select'
-    case 'add':
-      return hasSelected
-        ? `Draw lasso to add vertices to "${props.selectedSegments[0]?.name}"`
-        : 'Select a segment first, then draw lasso to add vertices to it'
-    case 'subtract':
-      return hasSelected
-        ? `Draw lasso to remove vertices from "${props.selectedSegments[0]?.name}"`
-        : 'Select a segment first, then draw lasso to remove vertices from it'
-    default:
-      return 'Enhanced lasso tool'
-  }
-}
-</script>
 
 <style scoped>
 /* Toolbar Content */
@@ -201,13 +72,18 @@ function getLassoModeDescription(): string {
 }
 
 .toolbar-btn::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.1), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(148, 163, 184, 0.1),
+    transparent
+  );
   transition: left 0.6s ease;
 }
 
@@ -223,7 +99,7 @@ function getLassoModeDescription(): string {
 }
 
 .toolbar-btn.primary {
-  background: linear-gradient(135deg, #51CACD, #51CACD);
+  background: linear-gradient(135deg, #51cacd, #51cacd);
   border-color: rgba(6, 182, 212, 0.5);
   color: #ffffff;
 }
@@ -245,7 +121,7 @@ function getLassoModeDescription(): string {
 }
 
 .toolbar-btn.active {
-  background: linear-gradient(135deg, #51CACD, #4AB8BB);
+  background: linear-gradient(135deg, #51cacd, #4ab8bb);
   border-color: rgba(81, 202, 205, 0.8);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(81, 202, 205, 0.3);
@@ -287,7 +163,8 @@ function getLassoModeDescription(): string {
   font-weight: 600;
 }
 
-.segment-count, .selected-count {
+.segment-count,
+.selected-count {
   background: rgba(148, 163, 184, 0.1);
   padding: 4px 8px;
   border-radius: 6px;
@@ -296,23 +173,30 @@ function getLassoModeDescription(): string {
 }
 
 .selected-count {
-  color: #51CACD;
+  color: #51cacd;
   background: rgba(6, 182, 212, 0.2);
   border: 1px solid rgba(6, 182, 212, 0.3);
 }
 
 /* Enhanced Lasso Controls */
 .lasso-controls {
-   align-items: center; 
-  background: 
-    radial-gradient(circle at 30% 20%, rgba(81, 202, 205, 0.08) 0%, transparent 50%),
-    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
+  align-items: center;
+  background: radial-gradient(
+      circle at 30% 20%,
+      rgba(81, 202, 205, 0.08) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(65, 67, 67, 0.95) 0%,
+      rgba(55, 57, 57, 0.92) 30%,
+      rgba(45, 47, 47, 0.9) 70%,
+      rgba(35, 37, 37, 0.88) 100%
+    );
   border-radius: 12px;
   border: 1px solid rgba(81, 202, 205, 0.2);
   backdrop-filter: blur(8px);
-  box-shadow: 
-    0 4px 20px rgba(0, 0, 0, 0.3),
-    0 2px 8px rgba(81, 202, 205, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(81, 202, 205, 0.1);
 }
 
 .lasso-mode-selector {
@@ -344,7 +228,7 @@ function getLassoModeDescription(): string {
 }
 
 .lasso-mode-btn.active {
-  background: linear-gradient(135deg, #51CACD, #51CACD);
+  background: linear-gradient(135deg, #51cacd, #51cacd);
   color: white;
 }
 
