@@ -345,7 +345,7 @@ const uploadForm = reactive({
 const user = ref<any>(null);
 
 // API base URL
-const API_BASE = "http://localhost:3001/api";
+const API_BASE = "http://mvp.mylinealigners.com/api";
 
 // Computed
 const filteredCases = computed(() => {
