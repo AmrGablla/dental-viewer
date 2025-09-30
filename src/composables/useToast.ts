@@ -90,10 +90,13 @@ class ToastService {
   }
 }
 
-// Create a singleton instance
-const toastService = new ToastService()
+// Lazy singleton pattern to avoid initialization order issues
+let toastService: ToastService | null = null
 
 export function useToast() {
+  if (!toastService) {
+    toastService = new ToastService()
+  }
   return toastService
 }
 

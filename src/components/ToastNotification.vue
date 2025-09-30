@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import Icon from './Icon.vue'
-import type { Toast, ToastAction } from '../types/toast'
+import type { Toast } from '../types/toast'
 
 const toasts = ref<Toast[]>([])
 

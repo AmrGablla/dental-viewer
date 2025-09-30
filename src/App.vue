@@ -52,7 +52,7 @@ const handleClose = () => {
 onMounted(() => {
   // Set refs for global services
   toastService.setToastRef(toastRef.value)
-  confirmDialogService.setDialogRef(toastRef.value)
+  // Note: confirmDialogService doesn't need a ref as it manages its own state
 })
 </script>
 
