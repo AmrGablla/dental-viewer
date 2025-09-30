@@ -140,7 +140,7 @@ const registerError = ref('')
 const showRegister = ref(false)
 
 // API base URL
-const API_BASE = 'http://mvp.mylinealigners.com/api'
+const API_BASE = 'https://mvp.mylinealigners.com/api'
 
 // Login function
 const handleLogin = async () => {

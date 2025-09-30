@@ -2,7 +2,7 @@
 export const API_CONFIG = {
   // In production, this will be the deployed server
   // In development, this will be localhost
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://mvp.mylinealigners.com/api',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'https://mvp.mylinealigners.com/api',
   
   // API endpoints
   ENDPOINTS: {

@@ -6,7 +6,7 @@ export class BackendService {
   private THREE: any;
   private stlLoader: STLLoaderService;
 
-  constructor(baseUrl: string = 'http://mvp.mylinealigners.com/api', THREE?: any) {
+  constructor(baseUrl: string = 'https://mvp.mylinealigners.com/api', THREE?: any) {
     this.baseUrl = baseUrl;
     this.THREE = THREE || (window as any).THREE;
     this.stlLoader = new STLLoaderService();

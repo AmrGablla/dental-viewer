@@ -321,7 +321,7 @@ async function loadCaseData() {
     }
 
     // Fetch case data from backend
-    const response = await fetch(`http://mvp.mylinealigners.com/api/cases/${caseId}`, {
+    const response = await fetch(`https://mvp.mylinealigners.com/api/cases/${caseId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -342,7 +342,7 @@ async function loadCaseData() {
     // Load the STL file from id/raw endpoint
     threeJSManager.loadingMessage.value = "Loading STL file...";
 
-    const fileUrl = `http://mvp.mylinealigners.com/api/cases/${caseId}/raw`;
+    const fileUrl = `https://mvp.mylinealigners.com/api/cases/${caseId}/raw`;
     console.log("Loading STL file from:", fileUrl);
 
     // Get auth token
@@ -957,7 +957,7 @@ async function migrateExistingSegments() {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
     const response = await fetch(
-      `http://mvp.mylinealigners.com/api/cases/${caseId}/segments/migrate`,
+      `https://mvp.mylinealigners.com/api/cases/${caseId}/segments/migrate`,
       {
         method: "POST",
         headers: {
@@ -1035,7 +1035,7 @@ async function loadExistingSegments() {
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for segment loading
 
     const response = await fetch(
-      `http://mvp.mylinealigners.com/api/cases/${caseId}/segments`,
+      `https://mvp.mylinealigners.com/api/cases/${caseId}/segments`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1112,7 +1112,7 @@ async function loadExistingSegments() {
       for (const segmentInfo of segmentsData.segments) {
         try {
           // Load segment mesh from backend - don't center geometry to preserve original positions
-          const segmentUrl = `http://mvp.mylinealigners.com/api/cases/${caseId}/segments/${segmentInfo.id}`;
+          const segmentUrl = `https://mvp.mylinealigners.com/api/cases/${caseId}/segments/${segmentInfo.id}`;
           const segmentMesh = await fileHandlerService?.loadSTLFile(
             segmentUrl,
             token,
