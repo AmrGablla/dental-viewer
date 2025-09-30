@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { Toast, ToastAction } from '@/components/ToastNotification.vue'
+import type { Toast, ToastAction } from '../types/toast'
 
 interface ToastOptions {
   duration?: number
