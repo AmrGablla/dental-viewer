@@ -1,13 +1,14 @@
 import { STLLoaderService } from './STLLoader';
 import { errorHandlingService } from './ErrorHandlingService';
+import { apiBaseUrl } from '@/config/api';
 
 export class BackendService {
   private baseUrl: string;
   private THREE: any;
   private stlLoader: STLLoaderService;
 
-  constructor(baseUrl: string = 'https://mvp.mylinealigners.com/api', THREE?: any) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string, THREE?: any) {
+    this.baseUrl = baseUrl || apiBaseUrl;
     this.THREE = THREE || (window as any).THREE;
     this.stlLoader = new STLLoaderService();
   }

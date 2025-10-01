@@ -111,9 +111,13 @@
                   >
                     <Icon name="eye" :size="14" color="currentColor" />
                   </button>
-                  <!-- <button @click="uploadSegments(caseItem)" class="action-btn segment-btn" title="Upload Segments">
+                  <button
+                    @click="uploadSegments(caseItem)"
+                    class="action-btn segment-btn"
+                    title="Upload Segments"
+                  >
                     <Icon name="layers" :size="14" color="currentColor" />
-                  </button> -->
+                  </button>
                   <button
                     @click="deleteCase(caseItem.id)"
                     class="action-btn delete-btn"
@@ -344,8 +348,8 @@ const uploadForm = reactive({
 // User data
 const user = ref<any>(null);
 
-// API base URL
-const API_BASE = "https://mvp.mylinealigners.com/api";
+// Import environment configuration
+import { buildApiUrl } from '@/config/api';
 
 // Computed
 const filteredCases = computed(() => {
@@ -369,7 +373,7 @@ const loadCases = async () => {
   error.value = "";
 
   try {
-    const response = await fetch(`${API_BASE}/cases`, {
+    const response = await fetch(buildApiUrl('/cases'), {
       headers: getAuthHeaders(),
     });
 
@@ -387,6 +391,11 @@ const loadCases = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const uploadSegments = (caseItem: any) => {
+  selectedCaseForSegments.value = caseItem;
+  showSegmentUploadModal.value = true;
 };
 
 const handleLogout = () => {
@@ -419,7 +428,7 @@ const handleUpload = async () => {
 
   try {
     // First, create the case
-    const createCaseResponse = await fetch(`${API_BASE}/cases`, {
+    const createCaseResponse = await fetch(buildApiUrl('/cases'), {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -441,7 +450,7 @@ const handleUpload = async () => {
     const formData = new FormData();
     formData.append("file", selectedFile.value);
 
-    const uploadResponse = await fetch(`${API_BASE}/cases/${caseId}/raw`, {
+    const uploadResponse = await fetch(buildApiUrl(`/cases/${caseId}/raw`), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("authToken")}`,
@@ -520,7 +529,7 @@ const handleSegmentUpload = async () => {
 
     const token = localStorage.getItem("authToken");
     const response = await fetch(
-      `${API_BASE}/cases/${selectedCaseForSegments.value.id}/segments`,
+      buildApiUrl(`/cases/${selectedCaseForSegments.value.id}/segments`),
       {
         method: "POST",
         headers: {
@@ -564,7 +573,7 @@ const deleteCase = async (caseId: any) => {
   if (!confirmed) return;
 
   try {
-    const response = await fetch(`${API_BASE}/cases/${caseId}`, {
+    const response = await fetch(buildApiUrl(`/cases/${caseId}`), {
       method: "DELETE",
       headers: getAuthHeaders(),
     });

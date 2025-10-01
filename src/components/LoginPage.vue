@@ -139,8 +139,8 @@ const error = ref('')
 const registerError = ref('')
 const showRegister = ref(false)
 
-// API base URL
-const API_BASE = 'https://mvp.mylinealigners.com/api'
+// Import environment configuration
+import { buildApiUrl } from '@/config/api'
 
 // Login function
 const handleLogin = async () => {
@@ -148,7 +148,7 @@ const handleLogin = async () => {
   error.value = ''
 
   try {
-    const response = await fetch(`${API_BASE}/auth/login`, {
+    const response = await fetch(buildApiUrl('/auth/login'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -181,7 +181,7 @@ const handleRegister = async () => {
   registerError.value = ''
 
   try {
-    const response = await fetch(`${API_BASE}/auth/register`, {
+    const response = await fetch(buildApiUrl('/auth/register'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
