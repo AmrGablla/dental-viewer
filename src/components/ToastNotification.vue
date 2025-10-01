@@ -57,22 +57,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import Icon from './Icon.vue'
-
-export interface ToastAction {
-  text: string
-  type: 'primary' | 'secondary' | 'danger' | 'success'
-  handler: () => void
-}
-
-export interface Toast {
-  id: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  title: string
-  message?: string
-  duration?: number
-  autoClose?: boolean
-  action?: ToastAction
-}
+import type { Toast } from '../types/toast'
 
 const toasts = ref<Toast[]>([])
 

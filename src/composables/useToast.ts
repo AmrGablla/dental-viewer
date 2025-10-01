@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { Toast, ToastAction } from '@/components/ToastNotification.vue'
+import type { Toast, ToastAction } from '../types/toast'
 
 interface ToastOptions {
   duration?: number
@@ -90,10 +90,13 @@ class ToastService {
   }
 }
 
-// Create a singleton instance
-const toastService = new ToastService()
+// Lazy singleton pattern to avoid initialization order issues
+let toastService: ToastService | null = null
 
 export function useToast() {
+  if (!toastService) {
+    toastService = new ToastService()
+  }
   return toastService
 }
 

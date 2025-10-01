@@ -100,7 +100,7 @@ class CaseController {
         return res.status(404).json({ error: 'File not found' });
       }
 
-      res.sendFile(path.resolve(filePath));
+      res.sendFile(path.resolve(__dirname, '..', filePath));
     } catch (error) {
       const status = error.status || 500;
       res.status(status).json({ error: error.error || 'Server error' });

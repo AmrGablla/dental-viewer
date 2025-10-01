@@ -5,9 +5,9 @@
       :isLoading="threeJSManager.isLoading.value"
       :loadingMessage="threeJSManager.loadingMessage.value"
     />
-    
-    <AppHeader 
-      title="My Line" 
+
+    <AppHeader
+      title="My Line"
       description="3D dental model viewer"
       :clickable="true"
       @logoClick="handleLogoClick"
@@ -137,6 +137,7 @@ import { useDirectionalMovement } from "../composables/useDirectionalMovement";
 import { useGeometryManipulation } from "../composables/useGeometryManipulation";
 import { FileHandlerService } from "../services/FileHandlerService";
 import { errorHandlingService } from "../services/ErrorHandlingService";
+import { buildApiUrl } from "@/config/api";
 import { useToast } from "../composables/useToast";
 
 import type {
@@ -294,12 +295,11 @@ async function initializeApp() {
     await loadCaseData();
 
     threeJSManager.isLoading.value = false;
-    
+
     // Load segments after initial render is complete (non-blocking)
     setTimeout(async () => {
       await loadSegmentsInBackground();
     }, 100);
-    
   } catch (error) {
     console.error("Failed to initialize app:", error);
     threeJSManager.loadingMessage.value = "Failed to load 3D engine";
@@ -323,7 +323,7 @@ async function loadCaseData() {
     }
 
     // Fetch case data from backend
-    const response = await fetch(`http://localhost:3001/api/cases/${caseId}`, {
+    const response = await fetch(buildApiUrl(`/cases/${caseId}`), {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -331,7 +331,10 @@ async function loadCaseData() {
     });
 
     if (!response.ok) {
-      await errorHandlingService.handleApiError(response, `Failed to fetch case: ${response.statusText}`);
+      await errorHandlingService.handleApiError(
+        response,
+        `Failed to fetch case: ${response.statusText}`
+      );
     }
 
     const responseData = await response.json();
@@ -341,7 +344,7 @@ async function loadCaseData() {
     // Load the STL file from id/raw endpoint
     threeJSManager.loadingMessage.value = "Loading STL file...";
 
-    const fileUrl = `http://localhost:3001/api/cases/${caseId}/raw`;
+    const fileUrl = buildApiUrl(`/cases/${caseId}/raw`);
     console.log("Loading STL file from:", fileUrl);
 
     // Get auth token
@@ -552,7 +555,10 @@ function handleLassoOperationResult(result: LassoOperationResult) {
 
 async function handleLassoCreateSegment(selectedVertices: number[]) {
   if (!dentalModel.value?.originalMesh || selectedVertices.length === 0) {
-    toastService.error("No Vertices Found", "No vertices found inside lasso area.");
+    toastService.error(
+      "No Vertices Found",
+      "No vertices found inside lasso area."
+    );
     return;
   }
 
@@ -594,7 +600,10 @@ async function handleLassoCreateSegment(selectedVertices: number[]) {
     }
   } catch (error) {
     console.error("Error creating segment:", error);
-    toastService.error("Segment Creation Failed", "Error creating segment. Try selecting a smaller area.");
+    toastService.error(
+      "Segment Creation Failed",
+      "Error creating segment. Try selecting a smaller area."
+    );
   } finally {
     threeJSManager.isLoading.value = false;
     threeJSManager.loadingMessage.value = "";
@@ -623,7 +632,10 @@ function handleLassoAddToSegment(
   targetSegmentId?: string
 ) {
   if (!targetSegmentId || selectedVertices.length === 0) {
-    toastService.warning("No Segment Selected", "Please select a segment first to add vertices to it.");
+    toastService.warning(
+      "No Segment Selected",
+      "Please select a segment first to add vertices to it."
+    );
     return;
   }
 
@@ -648,7 +660,10 @@ function handleLassoSubtractFromSegment(
   targetSegmentId?: string
 ) {
   if (!targetSegmentId || selectedVertices.length === 0) {
-    toastService.warning("No Segment Selected", "Please select a segment first to remove vertices from it.");
+    toastService.warning(
+      "No Segment Selected",
+      "Please select a segment first to remove vertices from it."
+    );
     return;
   }
 
@@ -746,134 +761,166 @@ function deleteSegment(segment: any) {
 
 async function renameSegment(segment: any, newName: string) {
   if (!dentalModel.value) return;
-  
+
   try {
     // Update the segment name locally
     segment.name = newName;
-    
+
     // Update the mesh name as well
     if (segment.mesh) {
       segment.mesh.name = newName;
     }
-    
+
     // Save to database if we have a case ID
     const caseId = route.params.caseId as string;
     if (caseId && segment.id) {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       if (token) {
-        const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/${segment.id}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ name: newName })
-        });
-        
-            if (!response.ok) {
-      await errorHandlingService.handleApiError(response, 'Failed to save segment name to database');
-    }
-        
-        console.log(`✅ Segment "${segment.name}" renamed to "${newName}" and saved to database`);
+        const response = await fetch(
+          buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: newName }),
+          }
+        );
+
+        if (!response.ok) {
+          await errorHandlingService.handleApiError(
+            response,
+            "Failed to save segment name to database"
+          );
+        }
+
+        console.log(
+          `✅ Segment "${segment.name}" renamed to "${newName}" and saved to database`
+        );
       }
     }
-    
+
     // Trigger Vue reactivity
     dentalModel.value = { ...dentalModel.value };
-    
   } catch (error) {
-    console.error('Error renaming segment:', error);
+    console.error("Error renaming segment:", error);
     // Revert the name change on error
     segment.name = segment.name;
-    toastService.error('Save Failed', 'Failed to save segment name. Please try again.');
+    toastService.error(
+      "Save Failed",
+      "Failed to save segment name. Please try again."
+    );
   }
 }
 
 async function handleChangeSegmentColor(segment: any, event: Event) {
   if (!dentalModel.value) return;
-  
+
   try {
     // Update the segment color locally
     segmentManager.changeSegmentColor(segment, event);
-    
+
     // Save to database if we have a case ID
     const caseId = route.params.caseId as string;
     if (caseId && segment.id) {
       const input = event.target as HTMLInputElement;
       const colorHex = input.value;
-      
-      const token = localStorage.getItem('authToken');
+
+      const token = localStorage.getItem("authToken");
       if (token) {
-        const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/${segment.id}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ color: colorHex })
-        });
-        
-            if (!response.ok) {
-      await errorHandlingService.handleApiError(response, 'Failed to save segment color to database');
-    }
-        
-        console.log(`✅ Segment "${segment.name}" color updated to "${colorHex}" and saved to database`);
+        const response = await fetch(
+          buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ color: colorHex }),
+          }
+        );
+
+        if (!response.ok) {
+          await errorHandlingService.handleApiError(
+            response,
+            "Failed to save segment color to database"
+          );
+        }
+
+        console.log(
+          `✅ Segment "${segment.name}" color updated to "${colorHex}" and saved to database`
+        );
       }
     }
-    
+
     // Trigger Vue reactivity
     dentalModel.value = { ...dentalModel.value };
-    
   } catch (error) {
-    console.error('Error updating segment color:', error);
+    console.error("Error updating segment color:", error);
     errorHandlingService.handleFetchError(error);
-    toastService.error('Save Failed', 'Failed to save segment color. Please try again.');
+    toastService.error(
+      "Save Failed",
+      "Failed to save segment color. Please try again."
+    );
   }
 }
 
 async function handleGenerateRandomColor(segment: any) {
   if (!dentalModel.value) return;
-  
+
   try {
     // Generate a random color
     const randomColor = generateRandomHexColor();
-    
+
     // Update the segment color locally
     segment.color.setHex(randomColor);
     const material = segment.mesh.material as any;
     if (material && material.color) {
       material.color.setHex(randomColor);
     }
-    
+
     // Save to database if we have a case ID
     const caseId = route.params.caseId as string;
     if (caseId && segment.id) {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       if (token) {
-        const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/${segment.id}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ color: `#${randomColor.toString(16).padStart(6, '0')}` })
-        });
-        
-            if (!response.ok) {
-      await errorHandlingService.handleApiError(response, 'Failed to save random color to database');
-    }
-        
-        console.log(`✅ Segment "${segment.name}" assigned random color and saved to database`);
+        const response = await fetch(
+          buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              color: `#${randomColor.toString(16).padStart(6, "0")}`,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          await errorHandlingService.handleApiError(
+            response,
+            "Failed to save random color to database"
+          );
+        }
+
+        console.log(
+          `✅ Segment "${segment.name}" assigned random color and saved to database`
+        );
       }
     }
-    
+
     // Trigger Vue reactivity
     dentalModel.value = { ...dentalModel.value };
-    
   } catch (error) {
-    console.error('Error generating random color:', error);
+    console.error("Error generating random color:", error);
     errorHandlingService.handleFetchError(error);
-    toastService.error('Save Failed', 'Failed to save random color. Please try again.');
+    toastService.error(
+      "Save Failed",
+      "Failed to save random color. Please try again."
+    );
   }
 }
 
@@ -882,36 +929,48 @@ function generateRandomHexColor(): number {
   const hue = Math.random() * 360;
   const saturation = 0.6 + Math.random() * 0.4; // 60-100% saturation
   const lightness = 0.4 + Math.random() * 0.3; // 40-70% lightness for good visibility
-  
+
   // Convert HSL to RGB
   const h = hue / 360;
   const s = saturation;
   const l = lightness;
-  
+
   const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+  const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
   const m = l - c / 2;
-  
+
   let r, g, b;
-  if (h < 1/6) {
-    r = c; g = x; b = 0;
-  } else if (h < 2/6) {
-    r = x; g = c; b = 0;
-  } else if (h < 3/6) {
-    r = 0; g = c; b = x;
-  } else if (h < 4/6) {
-    r = 0; g = x; b = c;
-  } else if (h < 5/6) {
-    r = x; g = 0; b = c;
+  if (h < 1 / 6) {
+    r = c;
+    g = x;
+    b = 0;
+  } else if (h < 2 / 6) {
+    r = x;
+    g = c;
+    b = 0;
+  } else if (h < 3 / 6) {
+    r = 0;
+    g = c;
+    b = x;
+  } else if (h < 4 / 6) {
+    r = 0;
+    g = x;
+    b = c;
+  } else if (h < 5 / 6) {
+    r = x;
+    g = 0;
+    b = c;
   } else {
-    r = c; g = 0; b = x;
+    r = c;
+    g = 0;
+    b = x;
   }
-  
+
   // Convert to hex
   const red = Math.round((r + m) * 255);
   const green = Math.round((g + m) * 255);
   const blue = Math.round((b + m) * 255);
-  
+
   return (red << 16) | (green << 8) | blue;
 }
 
@@ -1098,30 +1157,30 @@ function handleLogout() {
 async function loadSegmentsInBackground() {
   try {
     console.log("🔄 Starting background segment loading...");
-    
+
     // Show a subtle loading indicator for segments
     threeJSManager.loadingMessage.value = "Loading segments...";
-    
+
     // Run migration and segment loading in parallel
     const [migrationResult, segmentsResult] = await Promise.allSettled([
       migrateExistingSegments(),
-      loadExistingSegments()
+      loadExistingSegments(),
     ]);
-    
+
     // Handle migration results
-    if (migrationResult.status === 'fulfilled') {
+    if (migrationResult.status === "fulfilled") {
       console.log("✅ Segment migration completed");
     } else {
       console.warn("⚠️ Segment migration failed:", migrationResult.reason);
     }
-    
+
     // Handle segment loading results
-    if (segmentsResult.status === 'fulfilled') {
+    if (segmentsResult.status === "fulfilled") {
       console.log("✅ Segment loading completed");
     } else {
       console.warn("⚠️ Segment loading failed:", segmentsResult.reason);
     }
-    
+
     // Clear loading message
     threeJSManager.loadingMessage.value = "";
     console.log("🎉 Background segment loading completed");
@@ -1137,25 +1196,31 @@ async function migrateExistingSegments() {
     const caseId = route.params.caseId as string;
     if (!caseId) return;
 
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     if (!token) return;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
-    const response = await fetch(`http://localhost:3001/api/cases/${caseId}/segments/migrate`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      signal: controller.signal
-    });
-    
+
+    const response = await fetch(
+      buildApiUrl(`/cases/${caseId}/segments/migrate`),
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      }
+    );
+
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      await errorHandlingService.handleApiError(response, 'Failed to migrate segments');
+      await errorHandlingService.handleApiError(
+        response,
+        "Failed to migrate segments"
+      );
     }
 
     const result = await response.json();
@@ -1164,7 +1229,7 @@ async function migrateExistingSegments() {
       // Note: Segment loading is handled separately in parallel
     }
   } catch (error) {
-    console.error('Error migrating segments:', error);
+    console.error("Error migrating segments:", error);
     errorHandlingService.handleFetchError(error);
   }
 }
@@ -1188,7 +1253,7 @@ function generateSegmentColor(index: number): number {
     0x0abde3, // Sky Blue
     0x48dbfb, // Light Cyan
   ];
-  
+
   return colors[index % colors.length];
 }
 
@@ -1214,18 +1279,18 @@ async function loadExistingSegments() {
     // Fetch segments from backend with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for segment loading
-    
+
     const response = await fetch(
-      `http://localhost:3001/api/cases/${caseId}/segments`,
+      buildApiUrl(`/cases/${caseId}/segments`),
       {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        signal: controller.signal
+        signal: controller.signal,
       }
     );
-    
+
     clearTimeout(timeoutId);
 
     if (!response.ok) {
@@ -1233,7 +1298,10 @@ async function loadExistingSegments() {
         console.log("No segments found for this case");
         return;
       }
-      await errorHandlingService.handleApiError(response, `Failed to fetch segments: ${response.statusText}`);
+      await errorHandlingService.handleApiError(
+        response,
+        `Failed to fetch segments: ${response.statusText}`
+      );
     }
 
     const segmentsData = await response.json();
@@ -1290,7 +1358,7 @@ async function loadExistingSegments() {
       for (const segmentInfo of segmentsData.segments) {
         try {
           // Load segment mesh from backend - don't center geometry to preserve original positions
-          const segmentUrl = `http://localhost:3001/api/cases/${caseId}/segments/${segmentInfo.id}`;
+          const segmentUrl = buildApiUrl(`/cases/${caseId}/segments/${segmentInfo.id}`);
           const segmentMesh = await fileHandlerService?.loadSTLFile(
             segmentUrl,
             token,
@@ -1316,8 +1384,10 @@ async function loadExistingSegments() {
             segmentMesh.updateMatrixWorld();
 
             // Create segment color - use database color if available, otherwise generate one
-            const segmentColor = segmentInfo.color || generateSegmentColor(segmentsData.segments.indexOf(segmentInfo));
-            
+            const segmentColor =
+              segmentInfo.color ||
+              generateSegmentColor(segmentsData.segments.indexOf(segmentInfo));
+
             // Update the mesh material to use the segment color
             if (segmentMesh.material) {
               segmentMesh.material.color.setHex(segmentColor);
@@ -1472,34 +1542,70 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
 }
 
 .dental-viewer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 80px; /* Only cover the header area */
-  background: 
-    radial-gradient(circle at 15% 85%, rgba(81, 202, 205, 0.2) 0%, transparent 60%),
-    radial-gradient(circle at 85% 15%, rgba(81, 202, 205, 0.15) 0%, transparent 55%),
-    radial-gradient(circle at 50% 50%, rgba(81, 202, 205, 0.08) 0%, transparent 70%),
-    radial-gradient(circle at 25% 25%, rgba(65, 67, 67, 0.9) 0%, transparent 45%),
-    radial-gradient(circle at 75% 75%, rgba(45, 47, 47, 0.8) 0%, transparent 50%),
-    linear-gradient(135deg, #2a2c2c 0%, #1a1c1c 20%, #252727 40%, #1e2020 60%, #2a2c2c 80%, #1a1c1c 100%);
+  background: radial-gradient(
+      circle at 15% 85%,
+      rgba(81, 202, 205, 0.2) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(81, 202, 205, 0.15) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      rgba(81, 202, 205, 0.08) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      circle at 25% 25%,
+      rgba(65, 67, 67, 0.9) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 75% 75%,
+      rgba(45, 47, 47, 0.8) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      135deg,
+      #2a2c2c 0%,
+      #1a1c1c 20%,
+      #252727 40%,
+      #1e2020 60%,
+      #2a2c2c 80%,
+      #1a1c1c 100%
+    );
   animation: backgroundShift 25s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
 }
 
 .dental-viewer::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 80px; /* Only cover the header area */
-  background-image: 
-    linear-gradient(45deg, transparent 40%, rgba(81, 202, 205, 0.03) 50%, transparent 60%),
-    linear-gradient(-45deg, transparent 40%, rgba(81, 202, 205, 0.02) 50%, transparent 60%);
+  background-image: linear-gradient(
+      45deg,
+      transparent 40%,
+      rgba(81, 202, 205, 0.03) 50%,
+      transparent 60%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 40%,
+      rgba(81, 202, 205, 0.02) 50%,
+      transparent 60%
+    );
   background-size: 80px 80px;
   animation: patternMove 35s linear infinite;
   pointer-events: none;
@@ -1507,29 +1613,30 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
 }
 
 @keyframes backgroundShift {
-  0%, 100% { 
+  0%,
+  100% {
     transform: translateX(0) translateY(0) scale(1);
     opacity: 1;
   }
-  25% { 
+  25% {
     transform: translateX(-15px) translateY(-8px) scale(1.02);
     opacity: 0.8;
   }
-  50% { 
+  50% {
     transform: translateX(8px) translateY(-15px) scale(0.98);
     opacity: 0.9;
   }
-  75% { 
+  75% {
     transform: translateX(-8px) translateY(12px) scale(1.01);
     opacity: 0.85;
   }
 }
 
 @keyframes patternMove {
-  0% { 
+  0% {
     background-position: 0 0, 0 0;
   }
-  100% { 
+  100% {
     background-position: 80px 80px, -80px -80px;
   }
 }
@@ -1638,12 +1745,18 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 1001;
-  background: linear-gradient(135deg, rgba(65, 67, 67, 0.98) 0%, rgba(55, 57, 57, 0.95) 50%, rgba(45, 47, 47, 0.92) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(65, 67, 67, 0.98) 0%,
+    rgba(55, 57, 57, 0.95) 50%,
+    rgba(45, 47, 47, 0.92) 100%
+  );
   backdrop-filter: blur(16px);
   border: 1px solid rgba(81, 202, 205, 0.4);
   border-radius: 20px;
   padding: 32px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(81, 202, 205, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(81, 202, 205, 0.2);
   min-width: 350px;
 }
 
@@ -1657,7 +1770,11 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
 .progress-bar {
   width: 100%;
   height: 12px;
-  background: linear-gradient(135deg, rgba(45, 47, 47, 0.8) 0%, rgba(35, 37, 37, 0.6) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(45, 47, 47, 0.8) 0%,
+    rgba(35, 37, 37, 0.6) 100%
+  );
   border-radius: 8px;
   overflow: hidden;
   position: relative;
@@ -1667,7 +1784,7 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #51CACD 0%, #4AB8BB 50%, #3FA4A7 100%);
+  background: linear-gradient(90deg, #51cacd 0%, #4ab8bb 50%, #3fa4a7 100%);
   border-radius: 8px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;

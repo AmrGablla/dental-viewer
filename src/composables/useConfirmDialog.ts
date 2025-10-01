@@ -91,10 +91,13 @@ class ConfirmDialogService {
   }
 }
 
-// Create a singleton instance
-const confirmDialogService = new ConfirmDialogService()
+// Lazy singleton pattern to avoid initialization order issues
+let confirmDialogService: ConfirmDialogService | null = null
 
 export function useConfirmDialog() {
+  if (!confirmDialogService) {
+    confirmDialogService = new ConfirmDialogService()
+  }
   return confirmDialogService
 }
 
