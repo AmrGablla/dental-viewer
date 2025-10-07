@@ -49,7 +49,7 @@ export function useCameraControls() {
     // Store initial mouse position for rotation and movement
     lastMousePosition.set(event.clientX, event.clientY);
     
-    if (isRotationRequested) {
+    if (isRotationRequested || currentMode.value === "rotate") {
       isPanning = true; // Keep variable name for compatibility but use for rotation
       // Change cursor to indicate rotation mode
       if (renderer?.domElement) {
@@ -76,8 +76,8 @@ export function useCameraControls() {
     updateMousePosition(event, renderer);
 
     if (isDragging) {
-      if (isRotationRequested || isPanning) {
-        // Rotate the camera/model with modifier key
+      if (isRotationRequested || isPanning || currentMode.value === "rotate") {
+        // Rotate the camera/model with modifier key or in rotate mode
         rotateWithModifier(event, camera);
       } else if (currentMode.value === "pan") {
         // Implement pan logic for camera movement
@@ -94,6 +94,7 @@ export function useCameraControls() {
         const cursorMap: Record<string, string> = {
           lasso: "crosshair",
           pan: "grab",
+          rotate: "grab",
         };
         renderer.domElement.style.cursor =
           cursorMap[currentMode.value] || "default";
@@ -242,6 +243,7 @@ export function useCameraControls() {
         const cursorMap: Record<string, string> = {
           lasso: "crosshair",
           pan: "grab",
+          rotate: "grab",
         };
         renderer.domElement.style.cursor =
           cursorMap[currentMode.value] || "default";

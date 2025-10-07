@@ -200,6 +200,14 @@
             {{ uploadError }}
           </div>
 
+          <!-- Upload Progress Bar -->
+          <div v-if="uploading && uploadProgress > 0" class="upload-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: `${uploadProgress}%` }"></div>
+            </div>
+            <span class="progress-text">{{ uploadProgress }}%</span>
+          </div>
+
           <div class="modal-actions">
             <button
               type="button"
@@ -214,7 +222,7 @@
               class="upload-submit-btn"
               :disabled="uploading || !selectedFile"
             >
-              <span v-if="uploading">Uploading...</span>
+              <span v-if="uploading">Uploading... {{ uploadProgress }}%</span>
               <span v-else>Upload Case</span>
             </button>
           </div>
@@ -331,6 +339,7 @@ const searchQuery = ref("");
 const showUploadModal = ref(false);
 const showSegmentUploadModal = ref(false);
 const uploading = ref(false);
+const uploadProgress = ref(0);
 const uploadError = ref("");
 const selectedFile = ref<File | null>(null);
 const selectedSegmentFile = ref<File | null>(null);
@@ -424,6 +433,7 @@ const handleUpload = async () => {
   if (!selectedFile.value || !uploadForm.case_name) return;
 
   uploading.value = true;
+  uploadProgress.value = 0;
   uploadError.value = "";
 
   try {
@@ -446,24 +456,14 @@ const handleUpload = async () => {
     const caseData = await createCaseResponse.json();
     const caseId = caseData.case.id;
 
-    // Then upload the file to id/raw
+    // Then upload the file to id/raw with progress tracking
     const formData = new FormData();
     formData.append("file", selectedFile.value);
 
-    const uploadResponse = await fetch(buildApiUrl(`/cases/${caseId}/raw`), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-      body: formData,
-    });
+    await uploadWithProgress(buildApiUrl(`/cases/${caseId}/raw`), formData);
 
-    if (!uploadResponse.ok) {
-      await errorHandlingService.handleApiError(
-        uploadResponse,
-        "Failed to upload file"
-      );
-    }
+    // Show success message
+    toastService.success("Upload Complete", `Case "${uploadForm.case_name}" uploaded successfully!`);
 
     // Reset form and close modal
     uploadForm.case_name = "";
@@ -474,9 +474,53 @@ const handleUpload = async () => {
     await loadCases();
   } catch (err: any) {
     uploadError.value = err.message || "Upload failed";
+    toastService.error("Upload Failed", err.message || "Upload failed");
   } finally {
     uploading.value = false;
+    uploadProgress.value = 0;
   }
+};
+
+// Helper function to upload with progress tracking
+const uploadWithProgress = (url: string, formData: FormData): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    // Track upload progress
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        uploadProgress.value = Math.round((e.loaded / e.total) * 100);
+      }
+    });
+
+    // Handle completion
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response);
+        } catch (e) {
+          resolve(xhr.responseText);
+        }
+      } else {
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    });
+
+    // Handle errors
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during upload'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload cancelled'));
+    });
+
+    // Configure and send request
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem("authToken")}`);
+    xhr.send(formData);
+  });
 };
 
 const openCase = (caseItem: any) => {
@@ -1260,6 +1304,36 @@ onMounted(() => {
   margin-bottom: 16px;
   font-size: 14px;
   border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.upload-progress {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(81, 202, 205, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #51CACD, #4EB9BC);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  color: #51CACD;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 45px;
+  text-align: right;
 }
 
 .modal-actions {

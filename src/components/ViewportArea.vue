@@ -5,12 +5,15 @@
       
       <!-- Movement Controls -->
       <MovementControls
-        v-if="dentalModel && selectedSegments.length > 0"
+        v-if="dentalModel && selectedSegments.length > 0 && currentMode !== 'rotate'"
         :selectedSegments="selectedSegments"
         :totalMovementDistance="totalMovementDistance"
         @startDirectionalMove="handleStartDirectionalMove"
         @stopDirectionalMove="handleStopDirectionalMove"
       />
+      
+      <!-- Rotation Controls - Hidden because rotate mode now works like pan mode -->
+      <!-- Rotate mode: Just drag to rotate the camera view -->
       
       <ViewPresets v-if="dentalModel" @setViewPreset="handleSetViewPreset" />
     </div>

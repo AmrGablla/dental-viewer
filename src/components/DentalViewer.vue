@@ -196,7 +196,7 @@ const currentLassoMode = ref<LassoMode>("create");
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
-const currentMode = ref<InteractionMode["mode"]>("lasso");
+const currentMode = ref<InteractionMode["mode"]>("rotate");
 const backgroundSegmentationStatus = ref<{
   isRunning: boolean;
   message: string;
@@ -212,7 +212,7 @@ const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 // User data
 const user = ref(null);
 
-const interactionModes: InteractionMode["mode"][] = ["lasso", "pan"];
+const interactionModes: InteractionMode["mode"][] = ["lasso", "pan", "rotate"];
 
 onMounted(async () => {
   // Load user data
@@ -442,6 +442,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
     const cursorMap = {
       lasso: "crosshair",
       pan: "grab",
+      rotate: "grab",
     };
     renderer.domElement.style.cursor = cursorMap[mode] || "default";
   }
@@ -729,6 +730,7 @@ function stopDirectionalMove() {
     dentalModel.value = { ...dentalModel.value };
   }
 }
+
 
 // Segment Management Functions
 function toggleOriginalMesh() {

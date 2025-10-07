@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const compression = require('compression');
 
 // Import configuration
 const { PORT } = require('./config/constants');
@@ -16,13 +17,44 @@ const debugRoutes = require('./routes/debug');
 
 const app = express();
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Enable compression for all responses (gzip/deflate)
+app.use(compression({
+  filter: (req, res) => {
+    // Compress all responses except for multipart uploads
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6, // Compression level (0-9, 6 is default and good balance)
+  threshold: 1024 // Only compress responses larger than 1KB
+}));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static('uploads'));
+// CORS configuration with optimizations
+app.use(cors({
+  credentials: true,
+  maxAge: 86400 // Cache preflight requests for 24 hours
+}));
+
+// Increase payload size limits for large file uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Serve static files from uploads directory with caching
+app.use('/uploads', express.static('uploads', {
+  maxAge: '1d', // Cache static files for 1 day
+  etag: true, // Enable ETags for cache validation
+  lastModified: true, // Enable Last-Modified headers
+  immutable: false, // Don't mark as immutable since files can change
+  setHeaders: (res, path) => {
+    // Set custom headers for STL files
+    if (path.endsWith('.stl')) {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      // Enable range requests for large files
+      res.setHeader('Accept-Ranges', 'bytes');
+    }
+  }
+}));
 
 // Health check
 app.get('/api/health', (req, res) => {
