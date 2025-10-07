@@ -14,7 +14,7 @@
       </button>
       
       <!-- Enhanced Lasso Controls -->
-      <div v-if="currentMode === 'lasso'" class="lasso-controls">
+      <!-- <div v-if="currentMode === 'lasso'" class="lasso-controls">
         <div class="lasso-mode-selector">
           <button 
             v-for="lassoMode in lassoModes" 
@@ -32,13 +32,13 @@
             <span class="lasso-label">{{ lassoMode.label }}</span>
           </button>
         </div>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+// import { ref } from 'vue'
 import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
 import type { LassoMode } from '../services/EnhancedLassoService'
 
@@ -60,68 +60,68 @@ const emit = defineEmits<{
 }>()
 
 // Refs
-const currentLassoMode = ref<LassoMode>('create')
+// const currentLassoMode = ref<LassoMode>('create')
 
 // Lasso modes configuration
-const lassoModes = [
-  {
-    id: 'create' as LassoMode,
-    label: 'Create',
-    icon: '✨',
-    title: 'Create new segment from selection'
-  },
-  {
-    id: 'select' as LassoMode,
-    label: 'Select',
-    icon: '◯',
-    title: 'Select multiple segments'
-  },
-  {
-    id: 'add' as LassoMode,
-    label: 'Add',
-    icon: '➕',
-    title: props.selectedSegments.length === 0 
-      ? 'Select a segment first, then use lasso to add vertices to it'
-      : `Add vertices to selected segment: ${props.selectedSegments[0]?.name}`
-  },
-  {
-    id: 'subtract' as LassoMode,
-    label: 'Remove',
-    icon: '➖',
-    title: props.selectedSegments.length === 0
-      ? 'Select a segment first, then use lasso to remove vertices from it'
-      : `Remove vertices from selected segment: ${props.selectedSegments[0]?.name}`
-  }
-]
+// const lassoModes = [
+//   {
+//     id: 'create' as LassoMode,
+//     label: 'Create',
+//     icon: '✨',
+//     title: 'Create new segment from selection'
+//   },
+//   {
+//     id: 'select' as LassoMode,
+//     label: 'Select',
+//     icon: '◯',
+//     title: 'Select multiple segments'
+//   },
+//   {
+//     id: 'add' as LassoMode,
+//     label: 'Add',
+//     icon: '➕',
+//     title: props.selectedSegments.length === 0 
+//       ? 'Select a segment first, then use lasso to add vertices to it'
+//       : `Add vertices to selected segment: ${props.selectedSegments[0]?.name}`
+//   },
+//   {
+//     id: 'subtract' as LassoMode,
+//     label: 'Remove',
+//     icon: '➖',
+//     title: props.selectedSegments.length === 0
+//       ? 'Select a segment first, then use lasso to remove vertices from it'
+//       : `Remove vertices from selected segment: ${props.selectedSegments[0]?.name}`
+//   }
+// ]
 
 // Methods
 function setInteractionMode(mode: InteractionMode['mode']) {
   // Prevent activating lasso mode if no model is loaded
-  if (mode === 'lasso' && !props.dentalModel) {
-    return
-  }
+  // if (mode === 'lasso' && !props.dentalModel) {
+  //   return
+  // }
   console.log('Setting interaction mode:', mode)
   emit('setInteractionMode', mode)
 }
 
-function setLassoMode(mode: LassoMode) {
-  currentLassoMode.value = mode
-  emit('setLassoMode', mode)
-}
+// function setLassoMode(mode: LassoMode) {
+//   currentLassoMode.value = mode
+//   emit('setLassoMode', mode)
+// }
 
-function isLassoModeDisabled(mode: LassoMode): boolean {
-  if (mode === 'add' || mode === 'subtract') {
-    // Require both existing segments AND a selected segment for add/subtract operations
-    return !props.dentalModel || 
-           props.dentalModel.segments.length === 0 || 
-           props.selectedSegments.length === 0
-  }
-  return !props.dentalModel
-}
+// function isLassoModeDisabled(mode: LassoMode): boolean {
+//   if (mode === 'add' || mode === 'subtract') {
+//     // Require both existing segments AND a selected segment for add/subtract operations
+//     return !props.dentalModel || 
+//            props.dentalModel.segments.length === 0 || 
+//            props.selectedSegments.length === 0
+//   }
+//   return !props.dentalModel
+// }
 
 function getModeIcon(mode: InteractionMode['mode']): string {
   const icons = {
-    lasso: '✏️',
+    // lasso: '✏️',
     pan: '🤚',
     rotate: '🔄'
   }
@@ -134,38 +134,38 @@ function isInteractionModeDisabled(_mode: InteractionMode['mode']): boolean {
 
 function getInteractionModeTitle(mode: InteractionMode['mode']): string {
   const titles = {
-    lasso: getLassoModeDescription(),
+    // lasso: getLassoModeDescription(),
     pan: 'Pan view (drag to move camera position)',
     rotate: 'Rotate view (drag to orbit camera around model)'
   }
   return titles[mode] || mode.charAt(0).toUpperCase() + mode.slice(1)
 }
 
-function getLassoModeDescription(): string {
-  const hasSegments = props.dentalModel?.segments.length ?? 0 > 0
-  const hasSelected = props.selectedSegments.length > 0
+// function getLassoModeDescription(): string {
+//   const hasSegments = props.dentalModel?.segments.length ?? 0 > 0
+//   const hasSelected = props.selectedSegments.length > 0
   
-  switch (currentLassoMode.value) {
-    case 'create':
-      return hasSegments 
-        ? 'Draw lasso to create new segment from original model'
-        : 'Draw lasso to create segments manually'
-    case 'select':
-      return hasSegments
-        ? 'Draw lasso to select multiple segments'
-        : 'No segments available to select'
-    case 'add':
-      return hasSelected
-        ? `Draw lasso to add vertices to "${props.selectedSegments[0]?.name}"`
-        : 'Select a segment first, then draw lasso to add vertices to it'
-    case 'subtract':
-      return hasSelected
-        ? `Draw lasso to remove vertices from "${props.selectedSegments[0]?.name}"`
-        : 'Select a segment first, then draw lasso to remove vertices from it'
-    default:
-      return 'Enhanced lasso tool'
-  }
-}
+//   switch (currentLassoMode.value) {
+//     case 'create':
+//       return hasSegments 
+//         ? 'Draw lasso to create new segment from original model'
+//         : 'Draw lasso to create segments manually'
+//     case 'select':
+//       return hasSegments
+//         ? 'Draw lasso to select multiple segments'
+//         : 'No segments available to select'
+//     case 'add':
+//       return hasSelected
+//         ? `Draw lasso to add vertices to "${props.selectedSegments[0]?.name}"`
+//         : 'Select a segment first, then draw lasso to add vertices to it'
+//     case 'subtract':
+//       return hasSelected
+//         ? `Draw lasso to remove vertices from "${props.selectedSegments[0]?.name}"`
+//         : 'Select a segment first, then draw lasso to remove vertices from it'
+//     default:
+//       return 'Enhanced lasso tool'
+//   }
+// }
 </script>
 
 <style scoped>

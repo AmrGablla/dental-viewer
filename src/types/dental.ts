@@ -43,7 +43,8 @@ export interface DentalModel {
 }
 
 export interface InteractionMode {
-  mode: 'lasso' | 'pan' | 'rotate'
+  // mode: 'lasso' | 'pan' | 'rotate'
+  mode: 'pan' | 'rotate'
 }
 
 export interface MovementAxis {

@@ -111,13 +111,13 @@
                   >
                     <Icon name="eye" :size="14" color="currentColor" />
                   </button>
-                  <button
+                  <!-- <button
                     @click="uploadSegments(caseItem)"
                     class="action-btn segment-btn"
                     title="Upload Segments"
                   >
                     <Icon name="layers" :size="14" color="currentColor" />
-                  </button>
+                  </button> -->
                   <button
                     @click="deleteCase(caseItem.id)"
                     class="action-btn delete-btn"
@@ -402,10 +402,10 @@ const loadCases = async () => {
   }
 };
 
-const uploadSegments = (caseItem: any) => {
-  selectedCaseForSegments.value = caseItem;
-  showSegmentUploadModal.value = true;
-};
+// const uploadSegments = (caseItem: any) => {
+//   selectedCaseForSegments.value = caseItem;
+//   showSegmentUploadModal.value = true;
+// };
 
 const handleLogout = () => {
   localStorage.removeItem("authToken");

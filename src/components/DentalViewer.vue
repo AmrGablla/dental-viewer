@@ -63,7 +63,7 @@
       class="main-content"
       :class="{ 'treatment-fullscreen': isTreatmentPlanFullScreen }"
     >
-      <LeftSidebar
+      <!-- <LeftSidebar
         v-show="!isTreatmentPlanFullScreen"
         :dentalModel="dentalModel"
         :selectedSegments="segmentManager.selectedSegments.value"
@@ -82,7 +82,7 @@
         @planUpdated="handlePlanUpdated"
         @stepChanged="handleStepChanged"
         @treatmentPlanFullScreen="handleTreatmentPlanFullScreen"
-      />
+      /> -->
 
       <ViewportArea
         v-show="!isTreatmentPlanFullScreen"
@@ -153,7 +153,7 @@ import type {
 } from "../services/EnhancedLassoService";
 import AppHeader from "./AppHeader.vue";
 import TopToolbar from "./TopToolbar.vue";
-import LeftSidebar from "./LeftSidebar.vue";
+// import LeftSidebar from "./LeftSidebar.vue";
 import ViewportArea from "./ViewportArea.vue";
 import BackgroundStatusIndicator from "./BackgroundStatusIndicator.vue";
 import TreatmentPlanPanel from "./TreatmentPlanPanel.vue";
@@ -212,7 +212,8 @@ const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 // User data
 const user = ref(null);
 
-const interactionModes: InteractionMode["mode"][] = ["lasso", "pan", "rotate"];
+// const interactionModes: InteractionMode["mode"][] = ["lasso", "pan", "rotate"];
+const interactionModes: InteractionMode["mode"][] = ["pan", "rotate"];
 
 onMounted(async () => {
   // Load user data
@@ -429,9 +430,9 @@ async function loadCaseData() {
 // Event handlers and functions
 function setInteractionMode(mode: InteractionMode["mode"]) {
   // Clean up any active enhanced lasso selection when changing modes
-  if (currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
-    enhancedLassoService.cancelLasso();
-  }
+  // if (currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
+  //   enhancedLassoService.cancelLasso();
+  // }
 
   currentMode.value = mode;
   console.log(`Interaction mode changed to: ${mode}`);
@@ -464,7 +465,7 @@ function setLassoMode(mode: LassoMode) {
 // Lasso Mouse Event Handlers
 function handleLassoMouseDown(event: MouseEvent) {
   if (
-    currentMode.value !== "lasso" ||
+    // currentMode.value !== "lasso" ||
     !enhancedLassoService ||
     !dentalModel.value
   )
@@ -498,7 +499,7 @@ function handleLassoMouseDown(event: MouseEvent) {
 
 async function handleLassoMouseMove(event: MouseEvent) {
   if (
-    currentMode.value !== "lasso" ||
+    // currentMode.value !== "lasso" ||
     !enhancedLassoService ||
     !enhancedLassoService.isLassoActive()
   )
@@ -519,7 +520,7 @@ async function handleLassoMouseMove(event: MouseEvent) {
 
 async function handleLassoMouseUp(_event: MouseEvent) {
   if (
-    currentMode.value !== "lasso" ||
+    // currentMode.value !== "lasso" ||
     !enhancedLassoService ||
     !enhancedLassoService.isLassoActive()
   )
@@ -733,248 +734,248 @@ function stopDirectionalMove() {
 
 
 // Segment Management Functions
-function toggleOriginalMesh() {
-  if (!dentalModel.value) return;
-  segmentManager.toggleOriginalMesh(dentalModel.value);
+// function toggleOriginalMesh() {
+//   if (!dentalModel.value) return;
+//   segmentManager.toggleOriginalMesh(dentalModel.value);
 
-  // Trigger Vue reactivity by reassigning the dentalModel ref
-  dentalModel.value = { ...dentalModel.value };
-}
+//   // Trigger Vue reactivity by reassigning the dentalModel ref
+//   dentalModel.value = { ...dentalModel.value };
+// }
 
-function toggleAllSegments() {
-  if (!dentalModel.value) return;
-  segmentManager.toggleAllSegments(dentalModel.value);
+// function toggleAllSegments() {
+//   if (!dentalModel.value) return;
+//   segmentManager.toggleAllSegments(dentalModel.value);
 
-  // Trigger Vue reactivity by reassigning the dentalModel ref
-  dentalModel.value = { ...dentalModel.value };
-}
+//   // Trigger Vue reactivity by reassigning the dentalModel ref
+//   dentalModel.value = { ...dentalModel.value };
+// }
 
-function deleteSegment(segment: any) {
-  if (!dentalModel.value) return;
-  const scene = threeJSManager.getScene();
-  if (!scene) return;
+// function deleteSegment(segment: any) {
+//   if (!dentalModel.value) return;
+//   const scene = threeJSManager.getScene();
+//   if (!scene) return;
 
-  segmentManager.deleteSegment(segment, scene, dentalModel.value);
+//   segmentManager.deleteSegment(segment, scene, dentalModel.value);
 
-  // Trigger Vue reactivity by reassigning the dentalModel ref
-  dentalModel.value = { ...dentalModel.value };
-  console.log("🔄 Triggered Vue reactivity after deleting segment");
-}
+//   // Trigger Vue reactivity by reassigning the dentalModel ref
+//   dentalModel.value = { ...dentalModel.value };
+//   console.log("🔄 Triggered Vue reactivity after deleting segment");
+// }
 
-async function renameSegment(segment: any, newName: string) {
-  if (!dentalModel.value) return;
+// async function renameSegment(segment: any, newName: string) {
+//   if (!dentalModel.value) return;
 
-  try {
-    // Update the segment name locally
-    segment.name = newName;
+//   try {
+//     // Update the segment name locally
+//     segment.name = newName;
 
-    // Update the mesh name as well
-    if (segment.mesh) {
-      segment.mesh.name = newName;
-    }
+//     // Update the mesh name as well
+//     if (segment.mesh) {
+//       segment.mesh.name = newName;
+//     }
 
-    // Save to database if we have a case ID
-    const caseId = route.params.caseId as string;
-    if (caseId && segment.id) {
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        const response = await fetch(
-          buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ name: newName }),
-          }
-        );
+//     // Save to database if we have a case ID
+//     const caseId = route.params.caseId as string;
+//     if (caseId && segment.id) {
+//       const token = localStorage.getItem("authToken");
+//       if (token) {
+//         const response = await fetch(
+//           buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
+//           {
+//             method: "PUT",
+//             headers: {
+//               Authorization: `Bearer ${token}`,
+//               "Content-Type": "application/json",
+//             },
+//             body: JSON.stringify({ name: newName }),
+//           }
+//         );
 
-        if (!response.ok) {
-          await errorHandlingService.handleApiError(
-            response,
-            "Failed to save segment name to database"
-          );
-        }
+//         if (!response.ok) {
+//           await errorHandlingService.handleApiError(
+//             response,
+//             "Failed to save segment name to database"
+//           );
+//         }
 
-        console.log(
-          `✅ Segment "${segment.name}" renamed to "${newName}" and saved to database`
-        );
-      }
-    }
+//         console.log(
+//           `✅ Segment "${segment.name}" renamed to "${newName}" and saved to database`
+//         );
+//       }
+//     }
 
-    // Trigger Vue reactivity
-    dentalModel.value = { ...dentalModel.value };
-  } catch (error) {
-    console.error("Error renaming segment:", error);
-    // Revert the name change on error
-    segment.name = segment.name;
-    toastService.error(
-      "Save Failed",
-      "Failed to save segment name. Please try again."
-    );
-  }
-}
+//     // Trigger Vue reactivity
+//     dentalModel.value = { ...dentalModel.value };
+//   } catch (error) {
+//     console.error("Error renaming segment:", error);
+//     // Revert the name change on error
+//     segment.name = segment.name;
+//     toastService.error(
+//       "Save Failed",
+//       "Failed to save segment name. Please try again."
+//     );
+//   }
+// }
 
-async function handleChangeSegmentColor(segment: any, event: Event) {
-  if (!dentalModel.value) return;
+// async function handleChangeSegmentColor(segment: any, event: Event) {
+//   if (!dentalModel.value) return;
 
-  try {
-    // Update the segment color locally
-    segmentManager.changeSegmentColor(segment, event);
+//   try {
+//     // Update the segment color locally
+//     segmentManager.changeSegmentColor(segment, event);
 
-    // Save to database if we have a case ID
-    const caseId = route.params.caseId as string;
-    if (caseId && segment.id) {
-      const input = event.target as HTMLInputElement;
-      const colorHex = input.value;
+//     // Save to database if we have a case ID
+//     const caseId = route.params.caseId as string;
+//     if (caseId && segment.id) {
+//       const input = event.target as HTMLInputElement;
+//       const colorHex = input.value;
 
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        const response = await fetch(
-          buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ color: colorHex }),
-          }
-        );
+//       const token = localStorage.getItem("authToken");
+//       if (token) {
+//         const response = await fetch(
+//           buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
+//           {
+//             method: "PUT",
+//             headers: {
+//               Authorization: `Bearer ${token}`,
+//               "Content-Type": "application/json",
+//             },
+//             body: JSON.stringify({ color: colorHex }),
+//           }
+//         );
 
-        if (!response.ok) {
-          await errorHandlingService.handleApiError(
-            response,
-            "Failed to save segment color to database"
-          );
-        }
+//         if (!response.ok) {
+//           await errorHandlingService.handleApiError(
+//             response,
+//             "Failed to save segment color to database"
+//           );
+//         }
 
-        console.log(
-          `✅ Segment "${segment.name}" color updated to "${colorHex}" and saved to database`
-        );
-      }
-    }
+//         console.log(
+//           `✅ Segment "${segment.name}" color updated to "${colorHex}" and saved to database`
+//         );
+//       }
+//     }
 
-    // Trigger Vue reactivity
-    dentalModel.value = { ...dentalModel.value };
-  } catch (error) {
-    console.error("Error updating segment color:", error);
-    errorHandlingService.handleFetchError(error);
-    toastService.error(
-      "Save Failed",
-      "Failed to save segment color. Please try again."
-    );
-  }
-}
+//     // Trigger Vue reactivity
+//     dentalModel.value = { ...dentalModel.value };
+//   } catch (error) {
+//     console.error("Error updating segment color:", error);
+//     errorHandlingService.handleFetchError(error);
+//     toastService.error(
+//       "Save Failed",
+//       "Failed to save segment color. Please try again."
+//     );
+//   }
+// }
 
-async function handleGenerateRandomColor(segment: any) {
-  if (!dentalModel.value) return;
+// async function handleGenerateRandomColor(segment: any) {
+//   if (!dentalModel.value) return;
 
-  try {
-    // Generate a random color
-    const randomColor = generateRandomHexColor();
+//   try {
+//     // Generate a random color
+//     const randomColor = generateRandomHexColor();
 
-    // Update the segment color locally
-    segment.color.setHex(randomColor);
-    const material = segment.mesh.material as any;
-    if (material && material.color) {
-      material.color.setHex(randomColor);
-    }
+//     // Update the segment color locally
+//     segment.color.setHex(randomColor);
+//     const material = segment.mesh.material as any;
+//     if (material && material.color) {
+//       material.color.setHex(randomColor);
+//     }
 
-    // Save to database if we have a case ID
-    const caseId = route.params.caseId as string;
-    if (caseId && segment.id) {
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        const response = await fetch(
-          buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              color: `#${randomColor.toString(16).padStart(6, "0")}`,
-            }),
-          }
-        );
+//     // Save to database if we have a case ID
+//     const caseId = route.params.caseId as string;
+//     if (caseId && segment.id) {
+//       const token = localStorage.getItem("authToken");
+//       if (token) {
+//         const response = await fetch(
+//           buildApiUrl(`/cases/${caseId}/segments/${segment.id}`),
+//           {
+//             method: "PUT",
+//             headers: {
+//               Authorization: `Bearer ${token}`,
+//               "Content-Type": "application/json",
+//             },
+//             body: JSON.stringify({
+//               color: `#${randomColor.toString(16).padStart(6, "0")}`,
+//             }),
+//           }
+//         );
 
-        if (!response.ok) {
-          await errorHandlingService.handleApiError(
-            response,
-            "Failed to save random color to database"
-          );
-        }
+//         if (!response.ok) {
+//           await errorHandlingService.handleApiError(
+//             response,
+//             "Failed to save random color to database"
+//           );
+//         }
 
-        console.log(
-          `✅ Segment "${segment.name}" assigned random color and saved to database`
-        );
-      }
-    }
+//         console.log(
+//           `✅ Segment "${segment.name}" assigned random color and saved to database`
+//         );
+//       }
+//     }
 
-    // Trigger Vue reactivity
-    dentalModel.value = { ...dentalModel.value };
-  } catch (error) {
-    console.error("Error generating random color:", error);
-    errorHandlingService.handleFetchError(error);
-    toastService.error(
-      "Save Failed",
-      "Failed to save random color. Please try again."
-    );
-  }
-}
+//     // Trigger Vue reactivity
+//     dentalModel.value = { ...dentalModel.value };
+//   } catch (error) {
+//     console.error("Error generating random color:", error);
+//     errorHandlingService.handleFetchError(error);
+//     toastService.error(
+//       "Save Failed",
+//       "Failed to save random color. Please try again."
+//     );
+//   }
+// }
 
-function generateRandomHexColor(): number {
-  // Generate a random color with good contrast and visibility
-  const hue = Math.random() * 360;
-  const saturation = 0.6 + Math.random() * 0.4; // 60-100% saturation
-  const lightness = 0.4 + Math.random() * 0.3; // 40-70% lightness for good visibility
+// function generateRandomHexColor(): number {
+//   // Generate a random color with good contrast and visibility
+//   const hue = Math.random() * 360;
+//   const saturation = 0.6 + Math.random() * 0.4; // 60-100% saturation
+//   const lightness = 0.4 + Math.random() * 0.3; // 40-70% lightness for good visibility
 
-  // Convert HSL to RGB
-  const h = hue / 360;
-  const s = saturation;
-  const l = lightness;
+//   // Convert HSL to RGB
+//   const h = hue / 360;
+//   const s = saturation;
+//   const l = lightness;
 
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
-  const m = l - c / 2;
+//   const c = (1 - Math.abs(2 * l - 1)) * s;
+//   const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
+//   const m = l - c / 2;
 
-  let r, g, b;
-  if (h < 1 / 6) {
-    r = c;
-    g = x;
-    b = 0;
-  } else if (h < 2 / 6) {
-    r = x;
-    g = c;
-    b = 0;
-  } else if (h < 3 / 6) {
-    r = 0;
-    g = c;
-    b = x;
-  } else if (h < 4 / 6) {
-    r = 0;
-    g = x;
-    b = c;
-  } else if (h < 5 / 6) {
-    r = x;
-    g = 0;
-    b = c;
-  } else {
-    r = c;
-    g = 0;
-    b = x;
-  }
+//   let r, g, b;
+//   if (h < 1 / 6) {
+//     r = c;
+//     g = x;
+//     b = 0;
+//   } else if (h < 2 / 6) {
+//     r = x;
+//     g = c;
+//     b = 0;
+//   } else if (h < 3 / 6) {
+//     r = 0;
+//     g = c;
+//     b = x;
+//   } else if (h < 4 / 6) {
+//     r = 0;
+//     g = x;
+//     b = c;
+//   } else if (h < 5 / 6) {
+//     r = x;
+//     g = 0;
+//     b = c;
+//   } else {
+//     r = c;
+//     g = 0;
+//     b = x;
+//   }
 
-  // Convert to hex
-  const red = Math.round((r + m) * 255);
-  const green = Math.round((g + m) * 255);
-  const blue = Math.round((b + m) * 255);
+//   // Convert to hex
+//   const red = Math.round((r + m) * 255);
+//   const green = Math.round((g + m) * 255);
+//   const blue = Math.round((b + m) * 255);
 
-  return (red << 16) | (green << 8) | blue;
-}
+//   return (red << 16) | (green << 8) | blue;
+// }
 
 // Treatment Plan Handlers
 function handlePlanCreated(plan: OrthodonticTreatmentPlan) {
