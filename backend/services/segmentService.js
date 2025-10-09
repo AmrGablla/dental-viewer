@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 
 class SegmentService {
-  // Upload segment file
-  async uploadSegment(caseId, userId, file, metadata) {
+  // Upload multiple segment files
+  async uploadSegments(caseId, userId, files, metadataArray = []) {
     return new Promise((resolve, reject) => {
       // Verify case exists and belongs to user
       db.get("SELECT * FROM cases WHERE id = ? AND user_id = ?", [parseInt(caseId), userId], (err, caseData) => {
@@ -15,30 +15,62 @@ class SegmentService {
           return reject({ error: 'Case not found', status: 404 });
         }
 
-        // Extract segment name from filename or use default
-        const segmentName = metadata.name || file.filename.replace(/^segment-/, '').replace(/\.[^/.]+$/, '');
-        
-        // Save segment metadata to database
-        db.run(
-          "INSERT INTO segments (case_id, filename, name, color, tooth_type) VALUES (?, ?, ?, ?, ?)",
-          [parseInt(caseId), file.filename, segmentName, metadata.color || '#00ff00', metadata.tooth_type || 'incisor'],
-          function(err) {
-            if (err) {
-              console.error('Error saving segment metadata:', err);
-              return reject({ error: 'Failed to save segment metadata', status: 500 });
-            }
+        const uploadedSegments = [];
+        let completed = 0;
+        let hasError = false;
 
-            resolve({ 
-              message: 'Segment file uploaded successfully',
-              file_path: file.path,
-              filename: file.filename,
-              segment_id: this.lastID,
-              name: segmentName
-            });
-          }
-        );
+        // Process each file
+        files.forEach((file, index) => {
+          if (hasError) return;
+
+          // Get metadata for this file if provided
+          const metadata = metadataArray[index] || {};
+          
+          // Extract segment name from filename or metadata
+          const segmentName = metadata.name || file.filename.replace(/^segment-/, '').replace(/\.[^/.]+$/, '');
+          const color = metadata.color || '#00ff00';
+          const toothType = metadata.tooth_type || 'incisor';
+          
+          // Save segment metadata to database
+          db.run(
+            "INSERT INTO segments (case_id, filename, name, color, tooth_type) VALUES (?, ?, ?, ?, ?)",
+            [parseInt(caseId), file.filename, segmentName, color, toothType],
+            function(err) {
+              if (err && !hasError) {
+                hasError = true;
+                console.error('Error saving segment metadata:', err);
+                return reject({ error: 'Failed to save segment metadata', status: 500 });
+              }
+
+              if (!hasError) {
+                uploadedSegments.push({
+                  segment_id: this.lastID,
+                  filename: file.filename,
+                  name: segmentName,
+                  file_path: file.path
+                });
+
+                completed++;
+                
+                // When all files are processed, resolve
+                if (completed === files.length) {
+                  resolve({ 
+                    message: `${files.length} segment file(s) uploaded successfully`,
+                    segments: uploadedSegments,
+                    count: files.length
+                  });
+                }
+              }
+            }
+          );
+        });
       });
     });
+  }
+
+  // Upload single segment file (kept for backward compatibility)
+  async uploadSegment(caseId, userId, file, metadata) {
+    return this.uploadSegments(caseId, userId, [file], [metadata]);
   }
 
   // Get segments list for case

@@ -3,21 +3,27 @@ const path = require('path');
 const fs = require('fs');
 
 class SegmentController {
-  // Upload segment file for case
+  // Upload segment file(s) for case
   async uploadSegment(req, res) {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
       }
 
       const caseId = req.params.id;
-      const metadata = {
-        name: req.body.name,
-        color: req.body.color,
-        tooth_type: req.body.tooth_type
-      };
+      
+      // Parse metadata if provided (for single or multiple files)
+      let metadataArray = [];
+      if (req.body.metadata) {
+        try {
+          metadataArray = JSON.parse(req.body.metadata);
+        } catch (e) {
+          // If parsing fails, use empty metadata
+          metadataArray = [];
+        }
+      }
 
-      const result = await segmentService.uploadSegment(caseId, req.user.id, req.file, metadata);
+      const result = await segmentService.uploadSegments(caseId, req.user.id, req.files, metadataArray);
       res.json(result);
     } catch (error) {
       const status = error.status || 500;

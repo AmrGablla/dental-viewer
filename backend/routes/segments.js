@@ -8,7 +8,7 @@ const { segmentUpload } = require('../config/upload');
 router.use(authenticateToken);
 
 // Segment management
-router.post('/:id/segments', segmentUpload.single('file'), segmentController.uploadSegment);
+router.post('/:id/segments', segmentUpload.array('files', 50), segmentController.uploadSegment);
 router.get('/:id/segments', segmentController.getSegments);
 router.get('/:id/segments/:segmentId', segmentController.getSegment);
 router.put('/:id/segments/:segmentId', segmentController.updateSegment);

@@ -172,6 +172,12 @@
       <line x1="6" y1="6" x2="18" y2="18"></line>
     </g>
     
+    <!-- Plus -->
+    <g v-if="name === 'plus'">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </g>
+    
     <!-- Tooth -->
     <g v-if="name === 'tooth'">
       <path d="M9 12c0 1.5-1.5 3-3 3s-3-1.5-3-3 1.5-3 3-3 3 1.5 3 3z"></path>

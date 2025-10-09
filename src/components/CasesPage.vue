@@ -248,43 +248,55 @@
 
         <form @submit.prevent="handleSegmentUpload" class="upload-form">
           <div class="form-group">
-            <label for="segment-file-upload">Segment File (STL or JSON)</label>
+            <label for="segment-file-upload">Segment Files (STL or JSON)</label>
             <div
               class="file-upload-area"
-              :class="{ 'has-file': selectedSegmentFile }"
+              :class="{ 'has-file': selectedSegmentFiles.length > 0 }"
             >
               <input
                 id="segment-file-upload"
                 ref="segmentFileInput"
                 type="file"
                 accept=".stl,.json"
+                multiple
                 @change="handleSegmentFileSelect"
                 :disabled="uploading"
                 style="display: none"
               />
               <div
-                v-if="!selectedSegmentFile"
+                v-if="selectedSegmentFiles.length === 0"
                 class="upload-placeholder"
                 @click="segmentFileInput?.click()"
               >
                 <Icon name="upload" :size="32" color="#6b7280" />
-                <p>Click to select segment file</p>
-                <span>STL or JSON format</span>
+                <p>Click to select segment files</p>
+                <span>STL or JSON format - Multiple files supported</span>
               </div>
-              <div v-else class="file-info">
-                <Icon name="file" :size="24" color="#51CACD" />
-                <div class="file-details">
-                  <span class="file-name">{{ selectedSegmentFile.name }}</span>
-                  <span class="file-size">{{
-                    formatFileSize(selectedSegmentFile.size)
-                  }}</span>
+              <div v-else class="file-list">
+                <div v-for="(file, index) in selectedSegmentFiles" :key="index" class="file-info">
+                  <Icon name="file" :size="24" color="#51CACD" />
+                  <div class="file-details">
+                    <span class="file-name">{{ file.name }}</span>
+                    <span class="file-size">{{
+                      formatFileSize(file.size)
+                    }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    @click="removeSegmentFile(index)"
+                    class="clear-file-btn"
+                  >
+                    <Icon name="x" :size="16" color="currentColor" />
+                  </button>
                 </div>
                 <button
                   type="button"
-                  @click="clearSegmentFile"
-                  class="clear-file-btn"
+                  @click="segmentFileInput?.click()"
+                  class="add-more-btn"
+                  :disabled="uploading"
                 >
-                  <Icon name="x" :size="16" color="currentColor" />
+                  <Icon name="plus" :size="16" color="currentColor" />
+                  <span>Add more files</span>
                 </button>
               </div>
             </div>
@@ -306,10 +318,10 @@
             <button
               type="submit"
               class="upload-submit-btn"
-              :disabled="uploading || !selectedSegmentFile"
+              :disabled="uploading || selectedSegmentFiles.length === 0"
             >
               <span v-if="uploading">Uploading...</span>
-              <span v-else>Upload Segment</span>
+              <span v-else>Upload {{ selectedSegmentFiles.length }} Segment{{ selectedSegmentFiles.length !== 1 ? 's' : '' }}</span>
             </button>
           </div>
         </form>
@@ -342,7 +354,7 @@ const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadError = ref("");
 const selectedFile = ref<File | null>(null);
-const selectedSegmentFile = ref<File | null>(null);
+const selectedSegmentFiles = ref<File[]>([]);
 const selectedCaseForSegments = ref<any>(null);
 
 // Template refs
@@ -532,44 +544,74 @@ const openCase = (caseItem: any) => {
 };
 
 const handleSegmentFileSelect = (event: any) => {
-  const file = event.target.files[0];
-  if (
-    file &&
-    (file.name.toLowerCase().endsWith(".stl") ||
-      file.name.toLowerCase().endsWith(".json"))
-  ) {
-    selectedSegmentFile.value = file;
-  } else {
+  const files = Array.from(event.target.files) as File[];
+  const validFiles = files.filter((file) =>
+    file.name.toLowerCase().endsWith(".stl") ||
+    file.name.toLowerCase().endsWith(".json")
+  );
+
+  if (validFiles.length === 0) {
     toastService.error(
       "Invalid File Type",
-      "Please select a valid STL or JSON file"
+      "Please select valid STL or JSON files"
     );
+    return;
+  }
+
+  if (validFiles.length !== files.length) {
+    toastService.warning(
+      "Some Files Skipped",
+      `${files.length - validFiles.length} file(s) were skipped (invalid format)`
+    );
+  }
+
+  // Add new files to the existing selection
+  selectedSegmentFiles.value = [...selectedSegmentFiles.value, ...validFiles];
+  
+  // Reset the input value to allow selecting the same file again
+  if (segmentFileInput.value) {
+    segmentFileInput.value.value = "";
   }
 };
 
-const clearSegmentFile = () => {
-  selectedSegmentFile.value = null;
+const removeSegmentFile = (index: number) => {
+  selectedSegmentFiles.value.splice(index, 1);
+};
+
+const clearSegmentFiles = () => {
+  selectedSegmentFiles.value = [];
   if (segmentFileInput.value) {
     segmentFileInput.value.value = "";
   }
 };
 
 const handleSegmentUpload = async () => {
-  if (!selectedSegmentFile.value || !selectedCaseForSegments.value) return;
+  if (selectedSegmentFiles.value.length === 0 || !selectedCaseForSegments.value) return;
 
   uploading.value = true;
   uploadError.value = "";
 
   try {
     const formData = new FormData();
-    formData.append("file", selectedSegmentFile.value);
+    
+    // Append all files
+    selectedSegmentFiles.value.forEach((file) => {
+      formData.append("files", file);
+    });
 
-    // Extract segment name from filename
-    const fileName = selectedSegmentFile.value.name;
-    const segmentName = fileName
-      .replace(/^segment-/, "")
-      .replace(/\.[^/.]+$/, "");
-    formData.append("name", segmentName);
+    // Create metadata array for all files
+    const metadataArray = selectedSegmentFiles.value.map((file) => {
+      const segmentName = file.name
+        .replace(/^segment-/, "")
+        .replace(/\.[^/.]+$/, "");
+      return {
+        name: segmentName,
+        color: '#00ff00',
+        tooth_type: 'incisor'
+      };
+    });
+    
+    formData.append("metadata", JSON.stringify(metadataArray));
 
     const token = localStorage.getItem("authToken");
     const response = await fetch(
@@ -590,13 +632,14 @@ const handleSegmentUpload = async () => {
     }
 
     // Show success message
+    const fileCount = selectedSegmentFiles.value.length;
     toastService.success(
       "Upload Successful",
-      `Segment "${segmentName}" uploaded successfully!`
+      `${fileCount} segment${fileCount !== 1 ? 's' : ''} uploaded successfully!`
     );
 
     // Reset form but keep modal open for more uploads
-    selectedSegmentFile.value = null;
+    selectedSegmentFiles.value = [];
     if (segmentFileInput.value) {
       segmentFileInput.value.value = "";
     }
@@ -1262,6 +1305,57 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.file-list .file-info {
+  background: rgba(65, 67, 67, 0.5);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(81, 202, 205, 0.2);
+  transition: all 0.2s ease;
+}
+
+.file-list .file-info:hover {
+  background: rgba(81, 202, 205, 0.05);
+  border-color: rgba(81, 202, 205, 0.4);
+}
+
+.add-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: rgba(81, 202, 205, 0.1);
+  border: 2px dashed rgba(81, 202, 205, 0.4);
+  border-radius: 8px;
+  color: #51cacd;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.add-more-btn:hover:not(:disabled) {
+  background: rgba(81, 202, 205, 0.15);
+  border-color: #51cacd;
+  transform: translateY(-1px);
+}
+
+.add-more-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .file-details {
