@@ -21,6 +21,7 @@
           :interactionModes="interactionModes"
           @setInteractionMode="setInteractionMode"
           @setLassoMode="setLassoMode"
+          @setSelectionMode="setSelectionMode"
         />
       </template>
       <template #actions>
@@ -147,10 +148,11 @@ import type {
   ToothSegment,
 } from "../types/dental";
 import type {
-  EnhancedLassoService,
+  ImprovedLassoService,
   LassoMode,
   LassoOperationResult,
-} from "../services/EnhancedLassoService";
+  SelectionMode,
+} from "../services/ImprovedLassoService";
 import AppHeader from "./AppHeader.vue";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
@@ -188,11 +190,12 @@ const canvasContainer = computed(
 // Services - will be initialized after lazy loading
 let fileHandlerService: FileHandlerService | null = null;
 // let segmentationService: SegmentationService | null = null;
-let enhancedLassoService: EnhancedLassoService | null = null;
+let improvedLassoService: ImprovedLassoService | null = null;
 let THREE: any = null;
 
-// Enhanced Lasso state
+// Improved Lasso state
 const currentLassoMode = ref<LassoMode>("create");
+const currentSelectionMode = ref<SelectionMode>("surface");
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
@@ -288,8 +291,8 @@ async function initializeApp() {
       threeJSManager.setupResizeObserver(canvasContainer.value!);
     }
 
-    // Initialize Enhanced Lasso Service
-    await initializeEnhancedLasso(renderer, camera, scene);
+    // Initialize Improved Lasso Service
+    await initializeImprovedLasso(renderer, camera, scene);
 
     // Load case data and STL file
     await loadCaseData();
@@ -429,8 +432,8 @@ async function loadCaseData() {
 // Event handlers and functions
 function setInteractionMode(mode: InteractionMode["mode"]) {
   // Clean up any active enhanced lasso selection when changing modes
-  if (currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
-    enhancedLassoService.cancelLasso();
+  if (currentMode.value === "lasso" && improvedLassoService?.isLassoActive()) {
+    improvedLassoService.cancelLasso();
   }
 
   currentMode.value = mode;
@@ -455,17 +458,22 @@ function setViewPreset(
   threeJSManager.setViewPreset(view, dentalModel.value);
 }
 
-// Enhanced Lasso Handlers
+// Improved Lasso Handlers
 function setLassoMode(mode: LassoMode) {
   currentLassoMode.value = mode;
   console.log(`Lasso mode set to: ${mode}`);
+}
+
+function setSelectionMode(mode: SelectionMode) {
+  currentSelectionMode.value = mode;
+  console.log(`Selection mode set to: ${mode}`);
 }
 
 // Lasso Mouse Event Handlers
 function handleLassoMouseDown(event: MouseEvent) {
   if (
     currentMode.value !== "lasso" ||
-    !enhancedLassoService ||
+    !improvedLassoService ||
     !dentalModel.value
   )
     return;
@@ -485,8 +493,9 @@ function handleLassoMouseDown(event: MouseEvent) {
       ? segmentManager.selectedSegments.value[0].id
       : undefined;
 
-  enhancedLassoService.startLasso(
+  await improvedLassoService.startLasso(
     currentLassoMode.value,
+    currentSelectionMode.value,
     { x, y },
     targetSegmentId
   );
@@ -499,8 +508,8 @@ function handleLassoMouseDown(event: MouseEvent) {
 async function handleLassoMouseMove(event: MouseEvent) {
   if (
     currentMode.value !== "lasso" ||
-    !enhancedLassoService ||
-    !enhancedLassoService.isLassoActive()
+    !improvedLassoService ||
+    !improvedLassoService.isLassoActive()
   )
     return;
 
@@ -514,18 +523,18 @@ async function handleLassoMouseMove(event: MouseEvent) {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
 
-  await enhancedLassoService.updateLasso({ x, y });
+  await improvedLassoService.updateLasso({ x, y });
 }
 
 async function handleLassoMouseUp(_event: MouseEvent) {
   if (
     currentMode.value !== "lasso" ||
-    !enhancedLassoService ||
-    !enhancedLassoService.isLassoActive()
+    !improvedLassoService ||
+    !improvedLassoService.isLassoActive()
   )
     return;
 
-  const result = await enhancedLassoService.finishLasso(dentalModel.value!);
+  const result = await improvedLassoService.finishLasso(dentalModel.value!);
 
   if (result) {
     handleLassoOperationResult(result);
@@ -1512,19 +1521,19 @@ function handleExportIntersectionData() {
   console.log("Exported intersection data");
 }
 
-async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
+async function initializeImprovedLasso(renderer: any, camera: any, scene: any) {
   try {
-    const { EnhancedLassoService } = await import(
-      "../services/EnhancedLassoService"
+    const { ImprovedLassoService } = await import(
+      "../services/ImprovedLassoService"
     );
-    enhancedLassoService = new EnhancedLassoService(
+    improvedLassoService = new ImprovedLassoService(
       renderer.domElement,
       camera,
       renderer,
       scene
     );
   } catch (error) {
-    console.error("Failed to initialize Enhanced Lasso Service:", error);
+    console.error("Failed to initialize Improved Lasso Service:", error);
   }
 }
 </script>
