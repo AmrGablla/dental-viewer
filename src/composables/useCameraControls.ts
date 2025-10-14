@@ -43,6 +43,12 @@ export function useCameraControls() {
       return;
     }
 
+    // Handle brush mode first, but only if not rotating
+    if (currentMode.value === "brush" && lassoHandlers?.handleBrushMouseDown && !isRotationRequested) {
+      lassoHandlers.handleBrushMouseDown(event);
+      return;
+    }
+
     isDragging = true;
     updateMousePosition(event, renderer);
 
@@ -70,6 +76,12 @@ export function useCameraControls() {
     // Handle lasso mode first, but only if not rotating and not dragging with rotation
     if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseMove && !isRotationRequested && !isPanning) {
       lassoHandlers.handleLassoMouseMove(event);
+      return;
+    }
+
+    // Handle brush mode first, but only if not rotating and not dragging with rotation
+    if (currentMode.value === "brush" && lassoHandlers?.handleBrushMouseMove && !isRotationRequested && !isPanning) {
+      lassoHandlers.handleBrushMouseMove(event);
       return;
     }
 

@@ -13,14 +13,18 @@
       @logoClick="handleLogoClick"
     >
       <template #center>
-        <TopToolbar
+        <TopToolbar 
           :dentalModel="dentalModel"
           :selectedSegments="segmentManager.selectedSegments.value"
           :currentMode="currentMode"
           :isLoading="threeJSManager.isLoading.value"
           :interactionModes="interactionModes"
+          :toolSettings="toolSettings"
+          :selectionInfo="selectionInfo"
           @setInteractionMode="setInteractionMode"
           @setLassoMode="setLassoMode"
+          @updateToolSettings="updateToolSettings"
+          @clearBrushSelection="clearBrushSelection"
         />
       </template>
       <template #actions>
@@ -145,12 +149,20 @@ import type {
   InteractionMode,
   OrthodonticTreatmentPlan,
   ToothSegment,
+  SelectionToolSettings,
+  CaseDataResponse,
+  MovementHistory,
+  ToothIntersection,
 } from "../types/dental";
 import type {
   EnhancedLassoService,
   LassoMode,
   LassoOperationResult,
 } from "../services/EnhancedLassoService";
+
+// New depth-aware selection services
+import { DepthAwareLassoService } from "../services/DepthAwareLassoService";
+import { SurfaceAwareBrushService, BrushSelection } from "../services/SurfaceAwareBrushService";
 import AppHeader from "./AppHeader.vue";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
@@ -189,10 +201,26 @@ const canvasContainer = computed(
 let fileHandlerService: FileHandlerService | null = null;
 // let segmentationService: SegmentationService | null = null;
 let enhancedLassoService: EnhancedLassoService | null = null;
+let depthAwareLassoService: DepthAwareLassoService | null = null;
+let surfaceAwareBrushService: SurfaceAwareBrushService | null = null;
 let THREE: any = null;
 
 // Enhanced Lasso state
 const currentLassoMode = ref<LassoMode>("create");
+
+// Selection tool settings
+const toolSettings = ref<SelectionToolSettings>({
+  tool: 'depth-aware-lasso',
+  depthAware: true,
+  brushRadius: 15,
+  surfaceOnly: true
+});
+
+// Selection info for UI feedback
+const selectionInfo = ref<{
+  vertexCount: number
+  toolUsed: string
+} | null>(null);
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
@@ -212,7 +240,7 @@ const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 // User data
 const user = ref(null);
 
-const interactionModes: InteractionMode["mode"][] = ["lasso", "pan", "rotate"];
+const interactionModes: InteractionMode["mode"][] = ["lasso", "brush", "pan", "rotate"];
 
 onMounted(async () => {
   // Load user data
@@ -270,11 +298,14 @@ async function initializeApp() {
 
     // Setup event listeners
     if (renderer?.domElement) {
-      // Create lasso handlers object
+      // Create lasso and brush handlers object
       const lassoHandlers = {
         handleLassoMouseDown,
         handleLassoMouseMove,
         handleLassoMouseUp,
+        handleBrushMouseDown,
+        handleBrushMouseMove,
+        handleBrushMouseUp,
       };
 
       cameraControls.setupEventListeners(
@@ -290,6 +321,8 @@ async function initializeApp() {
 
     // Initialize Enhanced Lasso Service
     await initializeEnhancedLasso(renderer, camera, scene);
+    await initializeDepthAwareLasso(renderer, camera, scene);
+    await initializeSurfaceAwareBrush(renderer, camera, scene);
 
     // Load case data and STL file
     await loadCaseData();
@@ -428,9 +461,16 @@ async function loadCaseData() {
 
 // Event handlers and functions
 function setInteractionMode(mode: InteractionMode["mode"]) {
-  // Clean up any active enhanced lasso selection when changing modes
-  if (currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
-    enhancedLassoService.cancelLasso();
+  // Clean up any active selection when changing modes
+  if (currentMode.value === "lasso") {
+    const activeService = getActiveLassoService();
+    if (activeService?.isLassoActive()) {
+      activeService.cancelLasso();
+    }
+  }
+  
+  if (currentMode.value === "brush" && surfaceAwareBrushService?.isBrushActive()) {
+    surfaceAwareBrushService.cancelBrush();
   }
 
   currentMode.value = mode;
@@ -441,6 +481,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
   if (renderer?.domElement) {
     const cursorMap = {
       lasso: "crosshair",
+      brush: "crosshair",
       pan: "grab",
       rotate: "grab",
     };
@@ -461,14 +502,26 @@ function setLassoMode(mode: LassoMode) {
   console.log(`Lasso mode set to: ${mode}`);
 }
 
+// Get the active lasso service based on tool settings
+function getActiveLassoService() {
+  switch (toolSettings.value.tool) {
+    case 'enhanced-lasso':
+      return enhancedLassoService;
+    case 'depth-aware-lasso':
+      return depthAwareLassoService;
+    case 'surface-brush':
+      return null; // Brush service is handled separately
+    default:
+      return depthAwareLassoService; // Default to depth-aware
+  }
+}
+
 // Lasso Mouse Event Handlers
 function handleLassoMouseDown(event: MouseEvent) {
-  if (
-    currentMode.value !== "lasso" ||
-    !enhancedLassoService ||
-    !dentalModel.value
-  )
-    return;
+  if (currentMode.value !== "lasso" || !dentalModel.value) return;
+
+  const activeService = getActiveLassoService();
+  if (!activeService) return;
 
   // Don't start lasso if modifier keys are held (for rotation/pan)
   if (event.metaKey || event.ctrlKey) return;
@@ -485,24 +538,22 @@ function handleLassoMouseDown(event: MouseEvent) {
       ? segmentManager.selectedSegments.value[0].id
       : undefined;
 
-  enhancedLassoService.startLasso(
+  activeService.startLasso(
     currentLassoMode.value,
     { x, y },
     targetSegmentId
   );
 
   console.log(
-    `Started enhanced lasso selection in ${currentLassoMode.value} mode`
+    `Started ${toolSettings.value.tool} selection in ${currentLassoMode.value} mode`
   );
 }
 
 async function handleLassoMouseMove(event: MouseEvent) {
-  if (
-    currentMode.value !== "lasso" ||
-    !enhancedLassoService ||
-    !enhancedLassoService.isLassoActive()
-  )
-    return;
+  if (currentMode.value !== "lasso") return;
+
+  const activeService = getActiveLassoService();
+  if (!activeService || !activeService.isLassoActive()) return;
 
   // Don't update lasso if modifier keys are held (for rotation/pan)
   if (event.metaKey || event.ctrlKey) return;
@@ -514,24 +565,242 @@ async function handleLassoMouseMove(event: MouseEvent) {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
 
-  await enhancedLassoService.updateLasso({ x, y });
+  await activeService.updateLasso({ x, y });
 }
 
 async function handleLassoMouseUp(_event: MouseEvent) {
-  if (
-    currentMode.value !== "lasso" ||
-    !enhancedLassoService ||
-    !enhancedLassoService.isLassoActive()
-  )
-    return;
+  if (currentMode.value !== "lasso") return;
 
-  const result = await enhancedLassoService.finishLasso(dentalModel.value!);
+  const activeService = getActiveLassoService();
+  if (!activeService || !activeService.isLassoActive()) return;
+
+  const result = await activeService.finishLasso(dentalModel.value!);
 
   if (result) {
     handleLassoOperationResult(result);
+    
+    // Update selection info
+    selectionInfo.value = {
+      vertexCount: result.selectedVertices?.length || 0,
+      toolUsed: toolSettings.value.tool
+    };
   }
 
-  console.log("Finalized enhanced lasso selection");
+  console.log(`Finalized ${toolSettings.value.tool} selection`);
+}
+
+// Brush Mouse Event Handlers
+function handleBrushMouseDown(event: MouseEvent) {
+  if (currentMode.value !== "brush" || !surfaceAwareBrushService || !dentalModel.value) return;
+
+  // Don't start brush if modifier keys are held (for rotation/pan)
+  if (event.metaKey || event.ctrlKey) return;
+
+  const renderer = threeJSManager.getRenderer();
+  if (!renderer) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  surfaceAwareBrushService.startBrush(x, y, toolSettings.value.brushRadius);
+  console.log(`Started surface-aware brush selection with radius ${toolSettings.value.brushRadius}px`);
+}
+
+async function handleBrushMouseMove(event: MouseEvent) {
+  if (
+    currentMode.value !== "brush" ||
+    !surfaceAwareBrushService ||
+    !surfaceAwareBrushService.isBrushActive() ||
+    !dentalModel.value
+  ) return;
+
+  // Don't update brush if modifier keys are held (for rotation/pan)
+  if (event.metaKey || event.ctrlKey) return;
+
+  const renderer = threeJSManager.getRenderer();
+  if (!renderer) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  const brushSelection = await surfaceAwareBrushService.updateBrush(x, y, dentalModel.value);
+  
+  if (brushSelection) {
+    // Update selection info in real-time
+    selectionInfo.value = {
+      vertexCount: brushSelection.vertices.length,
+      toolUsed: 'surface-brush'
+    };
+  }
+}
+
+async function handleBrushMouseUp(_event: MouseEvent) {
+  if (
+    currentMode.value !== "brush" ||
+    !surfaceAwareBrushService ||
+    !surfaceAwareBrushService.isBrushActive()
+  ) return;
+
+  const brushSelection = surfaceAwareBrushService.finishBrush();
+
+  if (brushSelection && brushSelection.vertices.length > 0) {
+    await handleBrushSelectionComplete(brushSelection);
+    console.log(`Completed brush selection with ${brushSelection.vertices.length} vertices`);
+  } else {
+    console.log("Brush selection cancelled or no vertices selected");
+  }
+}
+
+async function handleBrushSelectionComplete(brushSelection: BrushSelection) {
+  if (!dentalModel.value) return;
+
+  try {
+    console.log(`Creating segment from brush selection: ${brushSelection.vertices.length} vertices`);
+
+    // Create new segment from brush selection
+    const segmentName = `Brush Segment ${Date.now()}`;
+    const newSegment = await createSegmentFromVertices(
+      brushSelection.vertices,
+      dentalModel.value.originalMesh,
+      segmentName
+    );
+
+    if (newSegment) {
+      dentalModel.value.segments.push(newSegment);
+      threeJSManager.getScene()?.add(newSegment.mesh);
+      
+      // Force reactivity update
+      dentalModel.value = { ...dentalModel.value };
+      
+      // Update selection info
+      selectionInfo.value = {
+        vertexCount: brushSelection.vertices.length,
+        toolUsed: 'surface-brush'
+      };
+
+      console.log(`✅ Created brush segment: ${newSegment.name} with ${brushSelection.vertices.length} vertices`);
+    }
+  } catch (error) {
+    console.error("Failed to create segment from brush selection:", error);
+    toastService.error("Segmentation Error", "Failed to create segment from brush selection");
+  }
+}
+
+// Tool Settings Handlers
+function updateToolSettings(settings: Partial<SelectionToolSettings>) {
+  toolSettings.value = { ...toolSettings.value, ...settings };
+  
+  // Update brush service if brush radius changed
+  if (settings.brushRadius && surfaceAwareBrushService) {
+    surfaceAwareBrushService.setBrushRadius(settings.brushRadius);
+  }
+  
+  console.log('Updated tool settings:', toolSettings.value);
+}
+
+function clearBrushSelection() {
+  if (surfaceAwareBrushService?.isBrushActive()) {
+    surfaceAwareBrushService.cancelBrush();
+  }
+  
+  selectionInfo.value = null;
+  console.log('Cleared brush selection');
+}
+
+// Helper function to create segment from vertices
+async function createSegmentFromVertices(
+  selectedVertices: number[],
+  originalMesh: any,
+  segmentName: string
+): Promise<ToothSegment | null> {
+  if (!THREE || selectedVertices.length === 0) return null;
+
+  try {
+    const geometry = originalMesh.geometry;
+    const positions = geometry.attributes.position;
+    const normals = geometry.attributes.normal;
+    
+    // Create new geometry for the segment
+    const segmentGeometry = new THREE.BufferGeometry();
+    
+    // Extract vertex data
+    const segmentPositions = new Float32Array(selectedVertices.length * 3);
+    const segmentNormals = normals ? new Float32Array(selectedVertices.length * 3) : null;
+    
+    selectedVertices.forEach((vertexIndex, i) => {
+      // Position
+      segmentPositions[i * 3] = positions.getX(vertexIndex);
+      segmentPositions[i * 3 + 1] = positions.getY(vertexIndex);
+      segmentPositions[i * 3 + 2] = positions.getZ(vertexIndex);
+      
+      // Normal
+      if (normals && segmentNormals) {
+        segmentNormals[i * 3] = normals.getX(vertexIndex);
+        segmentNormals[i * 3 + 1] = normals.getY(vertexIndex);
+        segmentNormals[i * 3 + 2] = normals.getZ(vertexIndex);
+      }
+    });
+    
+    // Set attributes
+    segmentGeometry.setAttribute('position', new THREE.BufferAttribute(segmentPositions, 3));
+    if (segmentNormals) {
+      segmentGeometry.setAttribute('normal', new THREE.BufferAttribute(segmentNormals, 3));
+    }
+    
+    // Generate color
+    const color = new THREE.Color().setHSL(Math.random(), 0.7, 0.6);
+    
+    // Create material
+    const material = new THREE.MeshLambertMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.8,
+      side: THREE.DoubleSide
+    });
+    
+    // Create mesh
+    const mesh = new THREE.Mesh(segmentGeometry, material);
+    mesh.matrixWorld.copy(originalMesh.matrixWorld);
+    
+    // Calculate centroid
+    const centroid = new THREE.Vector3();
+    for (let i = 0; i < selectedVertices.length; i++) {
+      const vertexIndex = selectedVertices[i];
+      const x = positions.getX(vertexIndex);
+      const y = positions.getY(vertexIndex);
+      const z = positions.getZ(vertexIndex);
+      centroid.add(new THREE.Vector3(x, y, z));
+    }
+    centroid.divideScalar(selectedVertices.length);
+    
+    // Create segment object
+    const segment: ToothSegment = {
+      id: `brush_segment_${Date.now()}`,
+      name: segmentName,
+      mesh: mesh,
+      color: color,
+      centroid: centroid,
+      filename: `${segmentName.toLowerCase().replace(/\s+/g, '_')}.stl`,
+      toothType: 'molar', // Default type
+      pointCount: selectedVertices.length,
+      isVisible: true,
+      movementHistory: {
+        totalDistance: 0,
+        axisMovements: {
+          anteroposterior: 0,
+          vertical: 0,
+          transverse: 0
+        }
+      }
+    };
+    
+    return segment;
+  } catch (error) {
+    console.error('Error creating segment from vertices:', error);
+    return null;
+  }
 }
 
 function handleLassoOperationResult(result: LassoOperationResult) {
@@ -1525,6 +1794,38 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
     );
   } catch (error) {
     console.error("Failed to initialize Enhanced Lasso Service:", error);
+  }
+}
+
+async function initializeDepthAwareLasso(renderer: any, camera: any, scene: any) {
+  try {
+    const { DepthAwareLassoService } = await import(
+      "../services/DepthAwareLassoService"
+    );
+    depthAwareLassoService = new DepthAwareLassoService(
+      renderer.domElement,
+      camera,
+      renderer,
+      scene
+    );
+  } catch (error) {
+    console.error("Failed to initialize Depth Aware Lasso Service:", error);
+  }
+}
+
+async function initializeSurfaceAwareBrush(renderer: any, camera: any, scene: any) {
+  try {
+    const { SurfaceAwareBrushService } = await import(
+      "../services/SurfaceAwareBrushService"
+    );
+    surfaceAwareBrushService = new SurfaceAwareBrushService(
+      renderer.domElement,
+      camera,
+      renderer,
+      scene
+    );
+  } catch (error) {
+    console.error("Failed to initialize Surface Aware Brush Service:", error);
   }
 }
 </script>
