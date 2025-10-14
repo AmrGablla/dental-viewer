@@ -13,7 +13,7 @@
         <span class="btn-icon">{{ getModeIcon(mode) }}</span>
       </button>
       
-      <!-- Improved Lasso Controls -->
+      <!-- Fast Lasso Controls -->
       <div v-if="currentMode === 'lasso'" class="lasso-controls">
         <div class="lasso-mode-selector">
           <button 
@@ -58,7 +58,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
-import type { LassoMode, SelectionMode } from '../services/ImprovedLassoService'
+import type { LassoMode, SelectionMode } from '../services/FastLassoService'
 
 // Props
 interface Props {
@@ -210,7 +210,7 @@ function getLassoModeDescription(): string {
         ? `Draw lasso to remove vertices from "${props.selectedSegments[0]?.name}"`
         : 'Select a segment first, then draw lasso to remove vertices from it'
     default:
-      return 'Enhanced lasso tool'
+      return 'Fast lasso tool'
   }
 }
 </script>
@@ -350,7 +350,7 @@ function getLassoModeDescription(): string {
   border: 1px solid rgba(6, 182, 212, 0.3);
 }
 
-/* Enhanced Lasso Controls */
+/* Fast Lasso Controls */
 .lasso-controls {
    align-items: center; 
   background: 
