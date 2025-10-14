@@ -43,7 +43,14 @@ export interface DentalModel {
 }
 
 export interface InteractionMode {
-  mode: 'lasso' | 'pan' | 'rotate'
+  mode: 'lasso' | 'brush' | 'pan' | 'rotate'
+}
+
+export interface SelectionToolSettings {
+  tool: 'enhanced-lasso' | 'depth-aware-lasso' | 'surface-brush'
+  depthAware: boolean
+  brushRadius: number
+  surfaceOnly: boolean
 }
 
 export interface MovementAxis {

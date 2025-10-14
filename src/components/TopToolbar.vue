@@ -13,34 +13,27 @@
         <span class="btn-icon">{{ getModeIcon(mode) }}</span>
       </button>
       
-      <!-- Enhanced Lasso Controls -->
-      <div v-if="currentMode === 'lasso'" class="lasso-controls">
-        <div class="lasso-mode-selector">
-          <button 
-            v-for="lassoMode in lassoModes" 
-            :key="lassoMode.id"
-            @click="setLassoMode(lassoMode.id)"
-            :class="{ 
-              active: currentLassoMode === lassoMode.id,
-              disabled: isLassoModeDisabled(lassoMode.id)
-            }"
-            class="lasso-mode-btn"
-            :title="lassoMode.title"
-            :disabled="isLassoModeDisabled(lassoMode.id)"
-          >
-            <span class="lasso-icon">{{ lassoMode.icon }}</span>
-            <span class="lasso-label">{{ lassoMode.label }}</span>
-          </button>
-        </div>
-      </div>
+      <!-- Selection Toolbar -->
+      <SelectionToolbar 
+        v-if="currentMode === 'lasso' || currentMode === 'brush'"
+        :dentalModel="dentalModel"
+        :selectedSegments="selectedSegments"
+        :currentMode="currentMode"
+        :toolSettings="toolSettings"
+        :selectionInfo="selectionInfo"
+        @setLassoMode="setLassoMode"
+        @updateToolSettings="updateToolSettings"
+        @clearBrushSelection="clearBrushSelection"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
+import type { DentalModel, ToothSegment, InteractionMode, SelectionToolSettings } from '../types/dental'
 import type { LassoMode } from '../services/EnhancedLassoService'
+import SelectionToolbar from './SelectionToolbar.vue'
 
 // Props
 interface Props {
@@ -49,6 +42,11 @@ interface Props {
   currentMode: InteractionMode['mode']
   isLoading: boolean
   interactionModes: InteractionMode['mode'][]
+  toolSettings: SelectionToolSettings
+  selectionInfo?: {
+    vertexCount: number
+    toolUsed: string
+  } | null
 }
 
 const props = defineProps<Props>()
@@ -57,6 +55,8 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   setInteractionMode: [mode: InteractionMode['mode']]
   setLassoMode: [mode: LassoMode]
+  updateToolSettings: [settings: Partial<SelectionToolSettings>]
+  clearBrushSelection: []
 }>()
 
 // Refs
@@ -107,6 +107,14 @@ function setInteractionMode(mode: InteractionMode['mode']) {
 function setLassoMode(mode: LassoMode) {
   currentLassoMode.value = mode
   emit('setLassoMode', mode)
+}
+
+function updateToolSettings(settings: Partial<SelectionToolSettings>) {
+  emit('updateToolSettings', settings)
+}
+
+function clearBrushSelection() {
+  emit('clearBrushSelection')
 }
 
 function isLassoModeDisabled(mode: LassoMode): boolean {
