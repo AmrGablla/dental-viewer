@@ -13,7 +13,7 @@
         <span class="btn-icon">{{ getModeIcon(mode) }}</span>
       </button>
       
-      <!-- Enhanced Lasso Controls -->
+      <!-- Fast Lasso Controls -->
       <div v-if="currentMode === 'lasso'" class="lasso-controls">
         <div class="lasso-mode-selector">
           <button 
@@ -32,6 +32,24 @@
             <span class="lasso-label">{{ lassoMode.label }}</span>
           </button>
         </div>
+        
+        <!-- Selection Mode Controls -->
+        <div class="selection-mode-selector">
+          <div class="selector-label">Selection:</div>
+          <button 
+            v-for="selectionMode in selectionModes" 
+            :key="selectionMode.id"
+            @click="setSelectionMode(selectionMode.id)"
+            :class="{ 
+              active: currentSelectionMode === selectionMode.id
+            }"
+            class="selection-mode-btn"
+            :title="selectionMode.title"
+          >
+            <span class="selection-icon">{{ selectionMode.icon }}</span>
+            <span class="selection-label">{{ selectionMode.label }}</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -40,7 +58,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
-import type { LassoMode } from '../services/EnhancedLassoService'
+import type { LassoMode, SelectionMode } from '../services/FastLassoService'
 
 // Props
 interface Props {
@@ -57,10 +75,12 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   setInteractionMode: [mode: InteractionMode['mode']]
   setLassoMode: [mode: LassoMode]
+  setSelectionMode: [mode: SelectionMode]
 }>()
 
 // Refs
 const currentLassoMode = ref<LassoMode>('create')
+const currentSelectionMode = ref<SelectionMode>('surface')
 
 // Lasso modes configuration
 const lassoModes = [
@@ -94,6 +114,28 @@ const lassoModes = [
   }
 ]
 
+// Selection modes configuration
+const selectionModes = [
+  {
+    id: 'surface' as SelectionMode,
+    label: 'Surface',
+    icon: '🎯',
+    title: 'Select only visible surface vertices (recommended for teeth)'
+  },
+  {
+    id: 'volume' as SelectionMode,
+    label: 'Volume',
+    icon: '📦',
+    title: 'Select all vertices within lasso (includes hidden vertices)'
+  },
+  {
+    id: 'connected' as SelectionMode,
+    label: 'Connected',
+    icon: '🔗',
+    title: 'Select connected surface regions (best for tooth segmentation)'
+  }
+]
+
 // Methods
 function setInteractionMode(mode: InteractionMode['mode']) {
   // Prevent activating lasso mode if no model is loaded
@@ -107,6 +149,11 @@ function setInteractionMode(mode: InteractionMode['mode']) {
 function setLassoMode(mode: LassoMode) {
   currentLassoMode.value = mode
   emit('setLassoMode', mode)
+}
+
+function setSelectionMode(mode: SelectionMode) {
+  currentSelectionMode.value = mode
+  emit('setSelectionMode', mode)
 }
 
 function isLassoModeDisabled(mode: LassoMode): boolean {
@@ -163,7 +210,7 @@ function getLassoModeDescription(): string {
         ? `Draw lasso to remove vertices from "${props.selectedSegments[0]?.name}"`
         : 'Select a segment first, then draw lasso to remove vertices from it'
     default:
-      return 'Enhanced lasso tool'
+      return 'Fast lasso tool'
   }
 }
 </script>
@@ -303,7 +350,7 @@ function getLassoModeDescription(): string {
   border: 1px solid rgba(6, 182, 212, 0.3);
 }
 
-/* Enhanced Lasso Controls */
+/* Fast Lasso Controls */
 .lasso-controls {
    align-items: center; 
   background: 
@@ -361,5 +408,58 @@ function getLassoModeDescription(): string {
 
 .lasso-label {
   font-size: 11px;
+}
+
+/* Selection Mode Controls */
+.selection-mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  padding: 4px 8px;
+  background: rgba(55, 65, 81, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(75, 85, 99, 0.4);
+}
+
+.selector-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  margin-right: 4px;
+}
+
+.selection-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.selection-mode-btn:hover {
+  background: rgba(107, 114, 128, 0.2);
+  color: #d1d5db;
+}
+
+.selection-mode-btn.active {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.selection-icon {
+  font-size: 12px;
+}
+
+.selection-label {
+  font-size: 10px;
 }
 </style>
