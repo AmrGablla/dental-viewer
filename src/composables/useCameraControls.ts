@@ -9,11 +9,13 @@ export function useCameraControls() {
   let isDirectionalMoving = false;
   let THREE: any = null;
   let lassoHandlers: any = null;
+  let brushHandlers: any = null;
 
-  function setupEventListeners(canvas: HTMLCanvasElement, camera: any, renderer: any, currentMode: any, threeJS: any, handlers?: any) {
+  function setupEventListeners(canvas: HTMLCanvasElement, camera: any, renderer: any, currentMode: any, threeJS: any, lHandlers?: any, bHandlers?: any) {
     THREE = threeJS; // Store THREE instance
     lastMousePosition = new THREE.Vector2(); // Initialize lastMousePosition
-    lassoHandlers = handlers; // Store lasso handlers
+    lassoHandlers = lHandlers; // Store lasso handlers
+    brushHandlers = bHandlers; // Store brush handlers
     
     canvas.addEventListener("mousedown", (event) => onMouseDown(event, camera, renderer, currentMode));
     canvas.addEventListener("mousemove", (event) => onMouseMove(event, camera, renderer, currentMode));
@@ -34,12 +36,18 @@ export function useCameraControls() {
 
   function onMouseDown(event: MouseEvent, _camera: any, renderer: any, currentMode: any) {
     
-    // Check if modifier keys are pressed for rotation (should override lasso mode)
+    // Check if modifier keys are pressed for rotation (should override lasso/brush mode)
     const isRotationRequested = event.metaKey || event.ctrlKey;
     
     // Handle lasso mode first, but only if not rotating
     if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseDown && !isRotationRequested) {
       lassoHandlers.handleLassoMouseDown(event);
+      return;
+    }
+    
+    // Handle brush mode first, but only if not rotating
+    if (currentMode.value === "brush" && brushHandlers?.handleBrushMouseDown && !isRotationRequested) {
+      brushHandlers.handleBrushMouseDown(event);
       return;
     }
 
@@ -64,12 +72,18 @@ export function useCameraControls() {
   }
 
   function onMouseMove(event: MouseEvent, camera: any, renderer: any, currentMode: any) {
-    // Check if modifier keys are pressed for rotation (should override lasso mode)
+    // Check if modifier keys are pressed for rotation (should override lasso/brush mode)
     const isRotationRequested = event.metaKey || event.ctrlKey;
     
     // Handle lasso mode first, but only if not rotating and not dragging with rotation
     if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseMove && !isRotationRequested && !isPanning) {
       lassoHandlers.handleLassoMouseMove(event);
+      return;
+    }
+    
+    // Handle brush mode first, but only if not rotating and not dragging with rotation
+    if (currentMode.value === "brush" && brushHandlers?.handleBrushMouseMove && !isRotationRequested && !isPanning) {
+      brushHandlers.handleBrushMouseMove(event);
       return;
     }
 
@@ -93,6 +107,7 @@ export function useCameraControls() {
         // Reset cursor based on current mode
         const cursorMap: Record<string, string> = {
           lasso: "crosshair",
+          brush: "crosshair",
           pan: "grab",
           rotate: "grab",
         };
@@ -103,12 +118,17 @@ export function useCameraControls() {
   }
 
   function onMouseUp(event: MouseEvent, _camera: any, renderer: any, currentMode: any) {
-    // Check if modifier keys are pressed for rotation (should override lasso mode)
+    // Check if modifier keys are pressed for rotation (should override lasso/brush mode)
     const isRotationRequested = event.metaKey || event.ctrlKey;
     
     // Handle lasso mode first, but only if not rotating
     if (currentMode.value === "lasso" && lassoHandlers?.handleLassoMouseUp && !isRotationRequested) {
       lassoHandlers.handleLassoMouseUp(event);
+    }
+    
+    // Handle brush mode first, but only if not rotating
+    if (currentMode.value === "brush" && brushHandlers?.handleBrushMouseUp && !isRotationRequested) {
+      brushHandlers.handleBrushMouseUp(event);
     }
 
     // Reset rotation state and cursor

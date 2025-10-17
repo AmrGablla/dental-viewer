@@ -33,6 +33,34 @@
           </button>
         </div>
       </div>
+      
+      <!-- Enhanced Brush Controls -->
+      <div v-if="currentMode === 'brush'" class="brush-controls">
+        <button 
+          v-for="brushMode in brushModes" 
+          :key="brushMode.id"
+          @click="setBrushMode(brushMode.id)"
+          :class="{ 
+            active: currentBrushMode === brushMode.id,
+            disabled: isBrushModeDisabled(brushMode.id)
+          }"
+          class="brush-mode-btn"
+          :title="brushMode.title"
+          :disabled="isBrushModeDisabled(brushMode.id)"
+        >
+          <span class="brush-icon">{{ brushMode.icon }}</span>
+          <span class="brush-label">{{ brushMode.label }}</span>
+        </button>
+        
+        <!-- Brush Settings Toggle -->
+        <button 
+          @click="$emit('toggleBrushSettings')"
+          class="brush-settings-toggle"
+          title="Brush Settings"
+        >
+          <span class="settings-icon">⚙️</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -41,6 +69,7 @@
 import { ref } from 'vue'
 import type { DentalModel, ToothSegment, InteractionMode } from '../types/dental'
 import type { LassoMode } from '../services/EnhancedLassoService'
+import type { BrushMode } from '../services/EnhancedBrushService'
 
 // Props
 interface Props {
@@ -57,10 +86,13 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   setInteractionMode: [mode: InteractionMode['mode']]
   setLassoMode: [mode: LassoMode]
+  setBrushMode: [mode: BrushMode]
+  toggleBrushSettings: []
 }>()
 
 // Refs
 const currentLassoMode = ref<LassoMode>('create')
+const currentBrushMode = ref<BrushMode>('create')
 
 // Lasso modes configuration
 const lassoModes = [
@@ -94,6 +126,38 @@ const lassoModes = [
   }
 ]
 
+// Brush modes configuration
+const brushModes = [
+  {
+    id: 'create' as BrushMode,
+    label: 'Create',
+    icon: '🖌️',
+    title: 'Paint to create new segment from selection'
+  },
+  {
+    id: 'select' as BrushMode,
+    label: 'Select',
+    icon: '👆',
+    title: 'Paint to select segments'
+  },
+  {
+    id: 'add' as BrushMode,
+    label: 'Add',
+    icon: '➕',
+    title: props.selectedSegments.length === 0 
+      ? 'Select a segment first, then paint to add vertices to it'
+      : `Paint to add vertices to: ${props.selectedSegments[0]?.name}`
+  },
+  {
+    id: 'subtract' as BrushMode,
+    label: 'Remove',
+    icon: '🧹',
+    title: props.selectedSegments.length === 0
+      ? 'Select a segment first, then paint to remove vertices from it'
+      : `Paint to remove vertices from: ${props.selectedSegments[0]?.name}`
+  }
+]
+
 // Methods
 function setInteractionMode(mode: InteractionMode['mode']) {
   // Prevent activating lasso mode if no model is loaded
@@ -109,7 +173,22 @@ function setLassoMode(mode: LassoMode) {
   emit('setLassoMode', mode)
 }
 
+function setBrushMode(mode: BrushMode) {
+  currentBrushMode.value = mode
+  emit('setBrushMode', mode)
+}
+
 function isLassoModeDisabled(mode: LassoMode): boolean {
+  if (mode === 'add' || mode === 'subtract') {
+    // Require both existing segments AND a selected segment for add/subtract operations
+    return !props.dentalModel || 
+           props.dentalModel.segments.length === 0 || 
+           props.selectedSegments.length === 0
+  }
+  return !props.dentalModel
+}
+
+function isBrushModeDisabled(mode: BrushMode): boolean {
   if (mode === 'add' || mode === 'subtract') {
     // Require both existing segments AND a selected segment for add/subtract operations
     return !props.dentalModel || 
@@ -122,6 +201,7 @@ function isLassoModeDisabled(mode: LassoMode): boolean {
 function getModeIcon(mode: InteractionMode['mode']): string {
   const icons = {
     lasso: '✏️',
+    brush: '🖌️',
     pan: '🤚',
     rotate: '🔄'
   }
@@ -135,6 +215,7 @@ function isInteractionModeDisabled(_mode: InteractionMode['mode']): boolean {
 function getInteractionModeTitle(mode: InteractionMode['mode']): string {
   const titles = {
     lasso: getLassoModeDescription(),
+    brush: getBrushModeDescription(),
     pan: 'Pan view (drag to move camera position)',
     rotate: 'Rotate view (drag to orbit camera around model)'
   }
@@ -164,6 +245,32 @@ function getLassoModeDescription(): string {
         : 'Select a segment first, then draw lasso to remove vertices from it'
     default:
       return 'Enhanced lasso tool'
+  }
+}
+
+function getBrushModeDescription(): string {
+  const hasSegments = props.dentalModel?.segments.length ?? 0 > 0
+  const hasSelected = props.selectedSegments.length > 0
+  
+  switch (currentBrushMode.value) {
+    case 'create':
+      return hasSegments 
+        ? 'Paint to create new segment with dental-aware boundaries'
+        : 'Paint to create segments manually with smart tooth detection'
+    case 'select':
+      return hasSegments
+        ? 'Paint to select segments'
+        : 'No segments available to select'
+    case 'add':
+      return hasSelected
+        ? `Paint to add vertices to "${props.selectedSegments[0]?.name}"`
+        : 'Select a segment first, then paint to add vertices to it'
+    case 'subtract':
+      return hasSelected
+        ? `Paint to remove vertices from "${props.selectedSegments[0]?.name}"`
+        : 'Select a segment first, then paint to remove vertices from it'
+    default:
+      return 'Enhanced brush tool with dental intelligence'
   }
 }
 </script>
@@ -361,5 +468,84 @@ function getLassoModeDescription(): string {
 
 .lasso-label {
   font-size: 11px;
+}
+
+/* Enhanced Brush Controls */
+.brush-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: 
+    radial-gradient(circle at 30% 20%, rgba(147, 51, 234, 0.08) 0%, transparent 50%),
+    linear-gradient(135deg, rgba(65, 67, 67, 0.95) 0%, rgba(55, 57, 57, 0.92) 30%, rgba(45, 47, 47, 0.9) 70%, rgba(35, 37, 37, 0.88) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  backdrop-filter: blur(8px);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(147, 51, 234, 0.1);
+  padding: 4px;
+}
+
+.brush-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.brush-mode-btn:hover {
+  background: rgba(147, 51, 234, 0.1);
+  color: #f1f5f9;
+}
+
+.brush-mode-btn.active {
+  background: linear-gradient(135deg, #9333ea, #7e22ce);
+  color: white;
+}
+
+.brush-mode-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.brush-icon {
+  font-size: 14px;
+}
+
+.brush-label {
+  font-size: 11px;
+}
+
+.brush-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.brush-settings-toggle:hover {
+  background: rgba(147, 51, 234, 0.1);
+  color: #f1f5f9;
+}
+
+.settings-icon {
+  font-size: 14px;
 }
 </style>

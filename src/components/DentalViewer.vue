@@ -21,6 +21,8 @@
           :interactionModes="interactionModes"
           @setInteractionMode="setInteractionMode"
           @setLassoMode="setLassoMode"
+          @setBrushMode="setBrushMode"
+          @toggleBrushSettings="toggleBrushSettings"
         />
       </template>
       <template #actions>
@@ -97,6 +99,15 @@
         @startDirectionalMove="startDirectionalMove"
         @stopDirectionalMove="stopDirectionalMove"
       />
+      
+      <!-- Brush Settings Panel -->
+      <div v-if="currentMode === 'brush' && showBrushSettings && enhancedBrushService" class="brush-settings-panel">
+        <BrushSettings
+          :initialSettings="brushSettings"
+          @update="handleBrushSettingsUpdate"
+          @close="showBrushSettings = false"
+        />
+      </div>
     </div>
 
     <!-- Full-screen Treatment Plan -->
@@ -151,6 +162,11 @@ import type {
   LassoMode,
   LassoOperationResult,
 } from "../services/EnhancedLassoService";
+import type {
+  EnhancedBrushService,
+  BrushMode,
+  BrushOperationResult,
+} from "../services/EnhancedBrushService";
 import AppHeader from "./AppHeader.vue";
 import TopToolbar from "./TopToolbar.vue";
 import LeftSidebar from "./LeftSidebar.vue";
@@ -160,6 +176,7 @@ import TreatmentPlanPanel from "./TreatmentPlanPanel.vue";
 import IntersectionPanel from "./IntersectionPanel.vue";
 import LoadingOverlay from "./LoadingOverlay.vue";
 import Icon from "./Icon.vue";
+import BrushSettings from "./BrushSettings.vue";
 
 // Use the lazy loading composable
 const { loadThreeJS, loadServices } = useThreeJS();
@@ -189,10 +206,24 @@ const canvasContainer = computed(
 let fileHandlerService: FileHandlerService | null = null;
 // let segmentationService: SegmentationService | null = null;
 let enhancedLassoService: EnhancedLassoService | null = null;
+let enhancedBrushService: EnhancedBrushService | null = null;
 let THREE: any = null;
 
 // Enhanced Lasso state
 const currentLassoMode = ref<LassoMode>("create");
+
+// Enhanced Brush state
+const currentBrushMode = ref<BrushMode>("create");
+const showBrushSettings = ref(false);
+const brushSettings = ref({
+  radius: 1.5,
+  strength: 1.0,
+  hardness: 0.9,
+  mode: 'create' as BrushMode,
+  dentalAwareMode: false,
+  respectBoundaries: false,
+  adaptiveSampling: true
+});
 
 // Reactive state
 const dentalModel = shallowRef<DentalModel | null>(null);
@@ -212,7 +243,7 @@ const currentTreatmentPlan = ref<OrthodonticTreatmentPlan | null>(null);
 // User data
 const user = ref(null);
 
-const interactionModes: InteractionMode["mode"][] = ["lasso", "pan", "rotate"];
+const interactionModes: InteractionMode["mode"][] = ["lasso", "brush", "pan", "rotate"];
 
 onMounted(async () => {
   // Load user data
@@ -276,6 +307,13 @@ async function initializeApp() {
         handleLassoMouseMove,
         handleLassoMouseUp,
       };
+      
+      // Create brush handlers object
+      const brushHandlers = {
+        handleBrushMouseDown,
+        handleBrushMouseMove,
+        handleBrushMouseUp,
+      };
 
       cameraControls.setupEventListeners(
         renderer.domElement,
@@ -283,13 +321,17 @@ async function initializeApp() {
         renderer,
         currentMode,
         THREE,
-        lassoHandlers
+        lassoHandlers,
+        brushHandlers
       );
       threeJSManager.setupResizeObserver(canvasContainer.value!);
     }
 
     // Initialize Enhanced Lasso Service
     await initializeEnhancedLasso(renderer, camera, scene);
+    
+    // Initialize Enhanced Brush Service
+    await initializeEnhancedBrush(renderer, camera, scene);
 
     // Load case data and STL file
     await loadCaseData();
@@ -432,6 +474,14 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
   if (currentMode.value === "lasso" && enhancedLassoService?.isLassoActive()) {
     enhancedLassoService.cancelLasso();
   }
+  
+  // Clean up any active brush operation when changing modes
+  if (currentMode.value === "brush" && enhancedBrushService) {
+    if (enhancedBrushService.isBrushActive()) {
+      enhancedBrushService.cancelBrush();
+    }
+    enhancedBrushService.hideCursor();
+  }
 
   currentMode.value = mode;
   console.log(`Interaction mode changed to: ${mode}`);
@@ -441,6 +491,7 @@ function setInteractionMode(mode: InteractionMode["mode"]) {
   if (renderer?.domElement) {
     const cursorMap = {
       lasso: "crosshair",
+      brush: "none", // Hide default cursor, we'll show custom brush cursor
       pan: "grab",
       rotate: "grab",
     };
@@ -459,6 +510,29 @@ function setViewPreset(
 function setLassoMode(mode: LassoMode) {
   currentLassoMode.value = mode;
   console.log(`Lasso mode set to: ${mode}`);
+}
+
+// Enhanced Brush Handlers
+function setBrushMode(mode: BrushMode) {
+  currentBrushMode.value = mode;
+  brushSettings.value.mode = mode;
+  
+  // Update brush settings when mode changes
+  if (enhancedBrushService) {
+    enhancedBrushService.updateSettings({ mode });
+  }
+}
+
+function handleBrushSettingsUpdate(settings: any) {
+  brushSettings.value = { ...settings };
+  
+  if (enhancedBrushService) {
+    enhancedBrushService.updateSettings(settings);
+  }
+}
+
+function toggleBrushSettings() {
+  showBrushSettings.value = !showBrushSettings.value;
 }
 
 // Lasso Mouse Event Handlers
@@ -1527,6 +1601,256 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
     console.error("Failed to initialize Enhanced Lasso Service:", error);
   }
 }
+
+async function initializeEnhancedBrush(renderer: any, camera: any, scene: any) {
+  try {
+    const { EnhancedBrushService } = await import(
+      "../services/EnhancedBrushService"
+    );
+    enhancedBrushService = new EnhancedBrushService(
+      renderer.domElement,
+      camera,
+      renderer,
+      scene
+    );
+  } catch (error) {
+    console.error("Failed to initialize Enhanced Brush Service:", error);
+  }
+}
+
+// Brush Mouse Event Handlers
+async function handleBrushMouseDown(event: MouseEvent) {
+  if (
+    currentMode.value !== "brush" ||
+    !enhancedBrushService ||
+    !dentalModel.value
+  )
+    return;
+
+  // Don't start brush if modifier keys are held (for rotation/pan)
+  if (event.metaKey || event.ctrlKey) return;
+
+  const renderer = threeJSManager.getRenderer();
+  if (!renderer) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  const targetSegmentId =
+    segmentManager.selectedSegments.value.length > 0
+      ? segmentManager.selectedSegments.value[0].id
+      : undefined;
+
+  // Temporarily make original mesh visible if it's hidden (for raycasting)
+  const wasOriginalHidden = !dentalModel.value.originalMesh.visible;
+  if (wasOriginalHidden && currentBrushMode.value === 'create') {
+    dentalModel.value.originalMesh.visible = true;
+  }
+
+  await enhancedBrushService.startBrush(
+    currentBrushMode.value,
+    { x, y },
+    dentalModel.value,
+    targetSegmentId
+  );
+}
+
+async function handleBrushMouseMove(event: MouseEvent) {
+  if (
+    currentMode.value !== "brush" ||
+    !enhancedBrushService ||
+    !dentalModel.value
+  )
+    return;
+
+  // Don't update brush if modifier keys are held (for rotation/pan)
+  if (event.metaKey || event.ctrlKey) {
+    enhancedBrushService.hideCursor();
+    return;
+  }
+
+  const renderer = threeJSManager.getRenderer();
+  if (!renderer) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  // Always show/update cursor in brush mode
+  enhancedBrushService.showCursor({ x, y });
+
+  // If actively brushing, update the selection
+  if (enhancedBrushService.isBrushActive()) {
+    await enhancedBrushService.updateBrush({ x, y }, dentalModel.value);
+  }
+}
+
+async function handleBrushMouseUp(_event: MouseEvent) {
+  if (
+    currentMode.value !== "brush" ||
+    !enhancedBrushService ||
+    !enhancedBrushService.isBrushActive()
+  )
+    return;
+
+  const result = await enhancedBrushService.finishBrush(dentalModel.value!);
+
+  if (result) {
+    handleBrushOperationResult(result);
+  }
+}
+
+function handleBrushOperationResult(result: BrushOperationResult) {
+  switch (result.mode) {
+    case "create":
+      handleBrushCreateSegment(result.selectedVertices);
+      break;
+    case "select":
+      handleBrushSelectSegments(result.affectedSegments);
+      break;
+    case "add":
+      handleBrushAddToSegment(result.selectedVertices, result.targetSegmentId);
+      break;
+    case "subtract":
+      handleBrushSubtractFromSegment(result.selectedVertices, result.targetSegmentId);
+      break;
+  }
+}
+
+async function handleBrushCreateSegment(selectedVertices: number[]) {
+  if (!dentalModel.value?.originalMesh || selectedVertices.length === 0) {
+    toastService.error(
+      "No Vertices Found",
+      "No vertices found in brush area."
+    );
+    return;
+  }
+
+  try {
+    threeJSManager.isLoading.value = true;
+    threeJSManager.loadingMessage.value = "Creating segment with brush...";
+
+    const newSegment = await geometryManipulation.createSegmentFromVertices(
+      selectedVertices,
+      dentalModel.value.originalMesh,
+      dentalModel.value,
+      THREE
+    );
+
+    if (newSegment) {
+      dentalModel.value.segments.push(newSegment);
+      const scene = threeJSManager.getScene();
+      if (scene) {
+        scene.add(newSegment.mesh);
+      }
+      dentalModel.value = { ...dentalModel.value };
+
+      // Keep original mesh visible for more segmentations
+      dentalModel.value.originalMesh.visible = true;
+      if (scene && !scene.children.includes(dentalModel.value.originalMesh)) {
+        scene.add(dentalModel.value.originalMesh);
+      }
+
+      // Select the new segment
+      segmentManager.selectedSegments.value.forEach((segment) => {
+        segment.isSelected = false;
+        segmentManager.updateSegmentAppearance(segment);
+      });
+      segmentManager.selectedSegments.value = [newSegment];
+      newSegment.isSelected = true;
+      segmentManager.updateSegmentAppearance(newSegment);
+
+      // Segment created successfully
+    }
+  } catch (error) {
+    console.error("Error creating segment with brush:", error);
+    toastService.error(
+      "Segment Creation Failed",
+      "Error creating segment. Try painting a smaller area."
+    );
+  } finally {
+    threeJSManager.isLoading.value = false;
+    threeJSManager.loadingMessage.value = "";
+  }
+}
+
+function handleBrushSelectSegments(segments: any[]) {
+  // Clear current selection
+  segmentManager.selectedSegments.value.forEach((segment) => {
+    segment.isSelected = false;
+    segmentManager.updateSegmentAppearance(segment);
+  });
+
+  // Select the brushed segments
+  segmentManager.selectedSegments.value = segments;
+  segments.forEach((segment) => {
+    segment.isSelected = true;
+    segmentManager.updateSegmentAppearance(segment);
+  });
+
+  // Segments selected via brush
+}
+
+function handleBrushAddToSegment(
+  selectedVertices: number[],
+  targetSegmentId?: string
+) {
+  if (!targetSegmentId || selectedVertices.length === 0) {
+    toastService.warning(
+      "No Segment Selected",
+      "Please select a segment first to add vertices to it."
+    );
+    return;
+  }
+
+  const targetSegment = dentalModel.value?.segments.find(
+    (s) => s.id === targetSegmentId
+  );
+  if (!targetSegment) {
+    toastService.error("Segment Not Found", "Target segment not found.");
+    return;
+  }
+
+  geometryManipulation.addVerticesToSegment(
+    targetSegment,
+    selectedVertices,
+    dentalModel.value?.originalMesh,
+    THREE
+  );
+  
+  // Vertices added to segment
+}
+
+function handleBrushSubtractFromSegment(
+  selectedVertices: number[],
+  targetSegmentId?: string
+) {
+  if (!targetSegmentId || selectedVertices.length === 0) {
+    toastService.warning(
+      "No Segment Selected",
+      "Please select a segment first to remove vertices from it."
+    );
+    return;
+  }
+
+  const targetSegment = dentalModel.value?.segments.find(
+    (s) => s.id === targetSegmentId
+  );
+  if (!targetSegment) {
+    toastService.error("Segment Not Found", "Target segment not found.");
+    return;
+  }
+
+  geometryManipulation.removeVerticesFromSegment(
+    targetSegment,
+    selectedVertices,
+    dentalModel.value?.originalMesh,
+    THREE
+  );
+  
+  // Vertices removed from segment
+}
 </script>
 
 <style scoped>
@@ -1823,5 +2147,25 @@ async function initializeEnhancedLasso(renderer: any, camera: any, scene: any) {
   font-size: 14px;
   font-weight: 500;
   text-align: center;
+}
+
+/* Brush Settings Panel */
+.brush-settings-panel {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 </style>
