@@ -203,7 +203,10 @@
           <!-- Upload Progress Bar -->
           <div v-if="uploading && uploadProgress > 0" class="upload-progress">
             <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${uploadProgress}%` }"></div>
+              <div
+                class="progress-fill"
+                :style="{ width: `${uploadProgress}%` }"
+              ></div>
             </div>
             <span class="progress-text">{{ uploadProgress }}%</span>
           </div>
@@ -273,7 +276,11 @@
                 <span>STL or JSON format - Multiple files supported</span>
               </div>
               <div v-else class="file-list">
-                <div v-for="(file, index) in selectedSegmentFiles" :key="index" class="file-info">
+                <div
+                  v-for="(file, index) in selectedSegmentFiles"
+                  :key="index"
+                  class="file-info"
+                >
                   <Icon name="file" :size="24" color="#51CACD" />
                   <div class="file-details">
                     <span class="file-name">{{ file.name }}</span>
@@ -321,7 +328,11 @@
               :disabled="uploading || selectedSegmentFiles.length === 0"
             >
               <span v-if="uploading">Uploading...</span>
-              <span v-else>Upload {{ selectedSegmentFiles.length }} Segment{{ selectedSegmentFiles.length !== 1 ? 's' : '' }}</span>
+              <span v-else
+                >Upload {{ selectedSegmentFiles.length }} Segment{{
+                  selectedSegmentFiles.length !== 1 ? "s" : ""
+                }}</span
+              >
             </button>
           </div>
         </form>
@@ -370,7 +381,7 @@ const uploadForm = reactive({
 const user = ref<any>(null);
 
 // Import environment configuration
-import { buildApiUrl } from '@/config/api';
+import { buildApiUrl } from "@/config/api";
 
 // Computed
 const filteredCases = computed(() => {
@@ -394,7 +405,7 @@ const loadCases = async () => {
   error.value = "";
 
   try {
-    const response = await fetch(buildApiUrl('/cases'), {
+    const response = await fetch(buildApiUrl("/cases"), {
       headers: getAuthHeaders(),
     });
 
@@ -450,7 +461,7 @@ const handleUpload = async () => {
 
   try {
     // First, create the case
-    const createCaseResponse = await fetch(buildApiUrl('/cases'), {
+    const createCaseResponse = await fetch(buildApiUrl("/cases"), {
       method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -475,7 +486,10 @@ const handleUpload = async () => {
     await uploadWithProgress(buildApiUrl(`/cases/${caseId}/raw`), formData);
 
     // Show success message
-    toastService.success("Upload Complete", `Case "${uploadForm.case_name}" uploaded successfully!`);
+    toastService.success(
+      "Upload Complete",
+      `Case "${uploadForm.case_name}" uploaded successfully!`
+    );
 
     // Reset form and close modal
     uploadForm.case_name = "";
@@ -499,14 +513,14 @@ const uploadWithProgress = (url: string, formData: FormData): Promise<any> => {
     const xhr = new XMLHttpRequest();
 
     // Track upload progress
-    xhr.upload.addEventListener('progress', (e) => {
+    xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
         uploadProgress.value = Math.round((e.loaded / e.total) * 100);
       }
     });
 
     // Handle completion
-    xhr.addEventListener('load', () => {
+    xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const response = JSON.parse(xhr.responseText);
@@ -520,17 +534,20 @@ const uploadWithProgress = (url: string, formData: FormData): Promise<any> => {
     });
 
     // Handle errors
-    xhr.addEventListener('error', () => {
-      reject(new Error('Network error during upload'));
+    xhr.addEventListener("error", () => {
+      reject(new Error("Network error during upload"));
     });
 
-    xhr.addEventListener('abort', () => {
-      reject(new Error('Upload cancelled'));
+    xhr.addEventListener("abort", () => {
+      reject(new Error("Upload cancelled"));
     });
 
     // Configure and send request
-    xhr.open('POST', url);
-    xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem("authToken")}`);
+    xhr.open("POST", url);
+    xhr.setRequestHeader(
+      "Authorization",
+      `Bearer ${localStorage.getItem("authToken")}`
+    );
     xhr.send(formData);
   });
 };
@@ -545,9 +562,10 @@ const openCase = (caseItem: any) => {
 
 const handleSegmentFileSelect = (event: any) => {
   const files = Array.from(event.target.files) as File[];
-  const validFiles = files.filter((file) =>
-    file.name.toLowerCase().endsWith(".stl") ||
-    file.name.toLowerCase().endsWith(".json")
+  const validFiles = files.filter(
+    (file) =>
+      file.name.toLowerCase().endsWith(".stl") ||
+      file.name.toLowerCase().endsWith(".json")
   );
 
   if (validFiles.length === 0) {
@@ -561,13 +579,15 @@ const handleSegmentFileSelect = (event: any) => {
   if (validFiles.length !== files.length) {
     toastService.warning(
       "Some Files Skipped",
-      `${files.length - validFiles.length} file(s) were skipped (invalid format)`
+      `${
+        files.length - validFiles.length
+      } file(s) were skipped (invalid format)`
     );
   }
 
   // Add new files to the existing selection
   selectedSegmentFiles.value = [...selectedSegmentFiles.value, ...validFiles];
-  
+
   // Reset the input value to allow selecting the same file again
   if (segmentFileInput.value) {
     segmentFileInput.value.value = "";
@@ -578,22 +598,23 @@ const removeSegmentFile = (index: number) => {
   selectedSegmentFiles.value.splice(index, 1);
 };
 
-const clearSegmentFiles = () => {
-  selectedSegmentFiles.value = [];
-  if (segmentFileInput.value) {
-    segmentFileInput.value.value = "";
-  }
-};
+// const clearSegmentFiles = () => {
+//   selectedSegmentFiles.value = [];
+//   if (segmentFileInput.value) {
+//     segmentFileInput.value.value = "";
+//   }
+// };
 
 const handleSegmentUpload = async () => {
-  if (selectedSegmentFiles.value.length === 0 || !selectedCaseForSegments.value) return;
+  if (selectedSegmentFiles.value.length === 0 || !selectedCaseForSegments.value)
+    return;
 
   uploading.value = true;
   uploadError.value = "";
 
   try {
     const formData = new FormData();
-    
+
     // Append all files
     selectedSegmentFiles.value.forEach((file) => {
       formData.append("files", file);
@@ -606,11 +627,11 @@ const handleSegmentUpload = async () => {
         .replace(/\.[^/.]+$/, "");
       return {
         name: segmentName,
-        color: '#00ff00',
-        tooth_type: 'incisor'
+        color: "#00ff00",
+        tooth_type: "incisor",
       };
     });
-    
+
     formData.append("metadata", JSON.stringify(metadataArray));
 
     const token = localStorage.getItem("authToken");
@@ -635,7 +656,7 @@ const handleSegmentUpload = async () => {
     const fileCount = selectedSegmentFiles.value.length;
     toastService.success(
       "Upload Successful",
-      `${fileCount} segment${fileCount !== 1 ? 's' : ''} uploaded successfully!`
+      `${fileCount} segment${fileCount !== 1 ? "s" : ""} uploaded successfully!`
     );
 
     // Reset form but keep modal open for more uploads
@@ -1417,13 +1438,13 @@ onMounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #51CACD, #4EB9BC);
+  background: linear-gradient(90deg, #51cacd, #4eb9bc);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
 
 .progress-text {
-  color: #51CACD;
+  color: #51cacd;
   font-size: 14px;
   font-weight: 600;
   min-width: 45px;

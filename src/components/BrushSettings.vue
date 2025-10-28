@@ -9,13 +9,15 @@
         <Icon name="x" :size="16" color="currentColor" />
       </button>
     </div>
-    
+
     <div class="brush-body">
       <!-- Brush Size -->
       <div class="setting-group compact">
         <label class="setting-label">
           <Icon name="circle" :size="12" color="currentColor" />
-          <span>Size: <strong>{{ settings.radius.toFixed(1) }}mm</strong></span>
+          <span
+            >Size: <strong>{{ settings.radius.toFixed(1) }}mm</strong></span
+          >
         </label>
         <input
           type="range"
@@ -27,12 +29,15 @@
           class="slider"
         />
       </div>
-      
+
       <!-- Brush Strength -->
       <div class="setting-group compact">
         <label class="setting-label">
           <Icon name="zap" :size="12" color="currentColor" />
-          <span>Strength: <strong>{{ Math.round(settings.strength * 100) }}%</strong></span>
+          <span
+            >Strength:
+            <strong>{{ Math.round(settings.strength * 100) }}%</strong></span
+          >
         </label>
         <input
           type="range"
@@ -44,12 +49,15 @@
           class="slider"
         />
       </div>
-      
+
       <!-- Brush Hardness -->
       <div class="setting-group compact">
         <label class="setting-label">
           <Icon name="target" :size="12" color="currentColor" />
-          <span>Hardness: <strong>{{ Math.round(settings.hardness * 100) }}%</strong></span>
+          <span
+            >Hardness:
+            <strong>{{ Math.round(settings.hardness * 100) }}%</strong></span
+          >
         </label>
         <input
           type="range"
@@ -61,7 +69,7 @@
           class="slider"
         />
       </div>
-      
+
       <!-- Dental-Aware Mode -->
       <div class="setting-group compact">
         <label class="checkbox-label">
@@ -72,11 +80,11 @@
             class="checkbox-input"
           />
           <div class="checkbox-custom">
-            <Icon 
-              v-if="settings.dentalAwareMode" 
-              name="check" 
-              :size="10" 
-              color="white" 
+            <Icon
+              v-if="settings.dentalAwareMode"
+              name="check"
+              :size="10"
+              color="white"
             />
           </div>
           <span class="checkbox-text">
@@ -85,7 +93,7 @@
           </span>
         </label>
       </div>
-      
+
       <!-- Respect Boundaries -->
       <div class="setting-group compact">
         <label class="checkbox-label">
@@ -96,11 +104,11 @@
             class="checkbox-input"
           />
           <div class="checkbox-custom">
-            <Icon 
-              v-if="settings.respectBoundaries" 
-              name="check" 
-              :size="10" 
-              color="white" 
+            <Icon
+              v-if="settings.respectBoundaries"
+              name="check"
+              :size="10"
+              color="white"
             />
           </div>
           <span class="checkbox-text">
@@ -109,27 +117,27 @@
           </span>
         </label>
       </div>
-      
+
       <!-- Presets -->
       <div class="setting-group presets-group">
         <label class="setting-label">Presets</label>
         <div class="preset-buttons">
-          <button 
-            @click="applyPreset('fine')" 
+          <button
+            @click="applyPreset('fine')"
             class="preset-btn"
             title="Fine: 1.0mm"
           >
             Fine
           </button>
-          <button 
-            @click="applyPreset('normal')" 
+          <button
+            @click="applyPreset('normal')"
             class="preset-btn"
             title="Normal: 2.5mm"
           >
             Normal
           </button>
-          <button 
-            @click="applyPreset('large')" 
+          <button
+            @click="applyPreset('large')"
             class="preset-btn"
             title="Large: 5.0mm"
           >
@@ -142,74 +150,82 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
-import Icon from './Icon.vue'
-import type { BrushSettings } from '../services/EnhancedBrushService'
+import { reactive, watch } from "vue";
+import Icon from "./Icon.vue";
+import type { BrushSettings } from "../services/EnhancedBrushService";
 
 const props = defineProps<{
-  initialSettings?: Partial<BrushSettings>
-}>()
+  initialSettings?: Partial<BrushSettings>;
+}>();
 
 const emit = defineEmits<{
-  (e: 'update', settings: BrushSettings): void
-  (e: 'close'): void
-}>()
+  (e: "update", settings: BrushSettings): void;
+  (e: "close"): void;
+}>();
 
 const settings = reactive<BrushSettings>({
   radius: 1.5,
   strength: 1.0,
   hardness: 0.9,
-  mode: 'create',
+  mode: "create",
   dentalAwareMode: false,
   respectBoundaries: false,
   adaptiveSampling: true,
-  ...props.initialSettings
-})
+  ...props.initialSettings,
+});
 
 // Watch for external changes
-watch(() => props.initialSettings, (newSettings) => {
-  if (newSettings) {
-    Object.assign(settings, newSettings)
-  }
-}, { deep: true })
+watch(
+  () => props.initialSettings,
+  (newSettings) => {
+    if (newSettings) {
+      Object.assign(settings, newSettings);
+    }
+  },
+  { deep: true }
+);
 
 function emitUpdate() {
-  emit('update', { ...settings })
+  emit("update", { ...settings });
 }
 
-function applyPreset(preset: 'fine' | 'normal' | 'large') {
+function applyPreset(preset: "fine" | "normal" | "large") {
   const presets = {
     fine: {
       radius: 1.0,
       strength: 0.8,
       hardness: 0.95,
       dentalAwareMode: false,
-      respectBoundaries: false
+      respectBoundaries: false,
     },
     normal: {
       radius: 2.5,
       strength: 1.0,
       hardness: 0.8,
       dentalAwareMode: false,
-      respectBoundaries: false
+      respectBoundaries: false,
     },
     large: {
       radius: 5.0,
       strength: 1.0,
       hardness: 0.6,
       dentalAwareMode: false,
-      respectBoundaries: false
-    }
-  }
-  
-  Object.assign(settings, presets[preset])
-  emitUpdate()
+      respectBoundaries: false,
+    },
+  };
+
+  Object.assign(settings, presets[preset]);
+  emitUpdate();
 }
 </script>
 
 <style scoped>
 .brush-settings {
-  background: linear-gradient(135deg, rgba(65, 67, 67, 0.98) 0%, rgba(55, 57, 57, 0.95) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(65, 67, 67, 0.98) 0%,
+    rgba(55, 57, 57, 0.95) 100%
+  );
   border: 1px solid rgba(81, 202, 205, 0.3);
   border-radius: 8px;
   overflow: hidden;
@@ -222,7 +238,11 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: linear-gradient(135deg, rgba(81, 202, 205, 0.15) 0%, rgba(81, 202, 205, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(81, 202, 205, 0.15) 0%,
+    rgba(81, 202, 205, 0.05) 100%
+  );
   border-bottom: 1px solid rgba(81, 202, 205, 0.2);
   user-select: none;
 }
@@ -249,7 +269,7 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #51CACD;
+  color: #51cacd;
 }
 
 .header-title {
@@ -281,7 +301,7 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
 }
 
 .setting-label strong {
-  color: #51CACD;
+  color: #51cacd;
   font-weight: 600;
 }
 
@@ -293,7 +313,11 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
   width: 100%;
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(135deg, rgba(45, 47, 47, 0.8) 0%, rgba(35, 37, 37, 0.6) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(45, 47, 47, 0.8) 0%,
+    rgba(35, 37, 37, 0.6) 100%
+  );
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -306,7 +330,7 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 100%);
+  background: linear-gradient(135deg, #51cacd 0%, #4ab8bb 100%);
   cursor: pointer;
   transition: all 0.2s;
   box-shadow: 0 2px 4px rgba(81, 202, 205, 0.4);
@@ -321,7 +345,7 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 100%);
+  background: linear-gradient(135deg, #51cacd 0%, #4ab8bb 100%);
   cursor: pointer;
   border: none;
   transition: all 0.2s;
@@ -362,8 +386,8 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
 }
 
 .checkbox-input:checked + .checkbox-custom {
-  background: linear-gradient(135deg, #51CACD 0%, #4AB8BB 100%);
-  border-color: #51CACD;
+  background: linear-gradient(135deg, #51cacd 0%, #4ab8bb 100%);
+  border-color: #51cacd;
 }
 
 .checkbox-label:hover .checkbox-custom {
@@ -407,7 +431,11 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
   justify-content: center;
   gap: 4px;
   padding: 6px 8px;
-  background: linear-gradient(135deg, rgba(81, 202, 205, 0.1) 0%, rgba(81, 202, 205, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(81, 202, 205, 0.1) 0%,
+    rgba(81, 202, 205, 0.05) 100%
+  );
   border: 1px solid rgba(81, 202, 205, 0.3);
   border-radius: 6px;
   color: #e2e8f0;
@@ -418,7 +446,11 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
 }
 
 .preset-btn:hover {
-  background: linear-gradient(135deg, rgba(81, 202, 205, 0.2) 0%, rgba(81, 202, 205, 0.1) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(81, 202, 205, 0.2) 0%,
+    rgba(81, 202, 205, 0.1) 100%
+  );
   border-color: rgba(81, 202, 205, 0.5);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(81, 202, 205, 0.2);
@@ -428,5 +460,3 @@ function applyPreset(preset: 'fine' | 'normal' | 'large') {
   transform: translateY(0);
 }
 </style>
-
-

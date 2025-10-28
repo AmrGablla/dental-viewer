@@ -14,14 +14,14 @@
         <span>Segments</span>
         <span v-if="dentalModel && dentalModel.segments.length > 0" class="tab-badge">{{ dentalModel.segments.length }}</span>
       </button>
-      <button 
+      <!-- <button 
         class="tab-button"
         :class="{ active: activeTab === 'treatment' }"
         @click="activeTab = 'treatment'"
       >
         <Icon name="file-text" :size="16" color="currentColor" class="tab-icon" />
         <span>Treatment Plan</span>
-      </button>
+      </button> -->
     </div>
 
     <!-- Segments Tab -->
