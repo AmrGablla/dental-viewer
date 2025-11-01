@@ -148,7 +148,7 @@ import { useDirectionalMovement } from "../composables/useDirectionalMovement";
 import { useGeometryManipulation } from "../composables/useGeometryManipulation";
 import { FileHandlerService } from "../services/FileHandlerService";
 import { errorHandlingService } from "../services/ErrorHandlingService";
-import { buildApiUrl } from "@/config/api";
+import { buildApiUrl, buildUploadUrl } from "@/config/api";
 import { useToast } from "../composables/useToast";
 
 import type {
@@ -383,10 +383,11 @@ async function loadCaseData() {
     const caseData = responseData.case; // Extract case data from response
     console.log("Case data loaded:", caseData);
 
-    // Load the STL file from id/raw endpoint
+    // Load the STL file - use direct upload URL (served by nginx, much faster!)
     threeJSManager.loadingMessage.value = "Loading STL file...";
 
-    const fileUrl = buildApiUrl(`/cases/${caseId}/raw`);
+    // Use direct nginx path instead of API endpoint for better performance
+    const fileUrl = buildUploadUrl(`/${caseId}/raw/model.stl`);
     console.log("Loading STL file from:", fileUrl);
 
     // Get auth token
@@ -1433,8 +1434,13 @@ async function loadExistingSegments() {
       // Load each segment
       for (const segmentInfo of segmentsData.segments) {
         try {
-          // Load segment mesh from backend - don't center geometry to preserve original positions
-          const segmentUrl = buildApiUrl(`/cases/${caseId}/segments/${segmentInfo.id}`);
+          // Use direct nginx URL if filename is available (much faster!)
+          // Otherwise fallback to API endpoint
+          const segmentUrl = segmentInfo.filename 
+            ? buildUploadUrl(`/${caseId}/segments/${segmentInfo.filename}`)
+            : buildApiUrl(`/cases/${caseId}/segments/${segmentInfo.id}`);
+          
+          // Load segment mesh - don't center geometry to preserve original positions
           const segmentMesh = await fileHandlerService?.loadSTLFile(
             segmentUrl,
             token,

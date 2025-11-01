@@ -18,9 +18,14 @@ const debugRoutes = require('./routes/debug');
 const app = express();
 
 // Enable compression for all responses (gzip/deflate)
+// BUT skip compression for file downloads (they're binary and already compressed)
 app.use(compression({
   filter: (req, res) => {
-    // Compress all responses except for multipart uploads
+    // Don't compress file downloads (binary files)
+    if (req.path.includes('/raw') || req.path.includes('/segments/') || req.path.endsWith('.stl')) {
+      return false;
+    }
+    // Don't compress multipart uploads
     if (req.headers['content-type']?.includes('multipart/form-data')) {
       return false;
     }

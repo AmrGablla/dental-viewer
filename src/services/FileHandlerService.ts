@@ -181,8 +181,9 @@ export class FileHandlerService {
       console.log("Loading STL file from URL:", url);
       
       // Prepare headers
+      // Only send auth token if using API endpoint (not direct upload URLs)
       const headers: HeadersInit = {};
-      if (authToken) {
+      if (authToken && url.includes('/api/')) {
         headers['Authorization'] = `Bearer ${authToken}`;
       }
       

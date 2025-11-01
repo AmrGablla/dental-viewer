@@ -48,5 +48,15 @@ export const buildApiUrl = (endpoint: string): string => {
   return `${API_CONFIG.BASE_URL}${endpoint}`
 }
 
+// Helper function to build direct upload URLs (bypasses API, served directly by nginx)
+// This is MUCH faster than going through the API
+export const buildUploadUrl = (path: string): string => {
+  // Extract base URL from API_BASE_URL (remove /api)
+  const baseUrl = API_BASE_URL.replace('/api', '');
+  // Ensure path starts with /
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${baseUrl}/uploads${cleanPath}`;
+}
+
 // Export API base URL for services that need direct access
 export { API_BASE_URL as apiBaseUrl };

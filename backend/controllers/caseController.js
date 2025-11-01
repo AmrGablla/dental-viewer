@@ -118,6 +118,9 @@ class CaseController {
       res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
       res.setHeader('ETag', `"${stats.mtime.getTime()}-${stats.size}"`);
       
+      // Disable compression for this response (binary file)
+      res.removeHeader('Content-Encoding');
+      
       // Handle range requests for large files (enables resume/streaming)
       const range = req.headers.range;
       if (range) {
@@ -130,11 +133,18 @@ class CaseController {
         res.setHeader('Content-Range', `bytes ${start}-${end}/${stats.size}`);
         res.setHeader('Content-Length', chunksize);
         
-        const stream = fs.createReadStream(absolutePath, { start, end });
+        // Use highWaterMark for better streaming performance
+        const stream = fs.createReadStream(absolutePath, { 
+          start, 
+          end,
+          highWaterMark: 64 * 1024 // 64KB chunks for better throughput
+        });
         stream.pipe(res);
       } else {
-        // Send full file
-        const stream = fs.createReadStream(absolutePath);
+        // Send full file with optimized streaming
+        const stream = fs.createReadStream(absolutePath, {
+          highWaterMark: 64 * 1024 // 64KB chunks
+        });
         stream.pipe(res);
       }
     } catch (error) {
