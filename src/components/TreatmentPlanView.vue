@@ -1,7 +1,7 @@
 <template>
   <div class="treatment-plan-view">
     <!-- Plan Overview -->
-    <div class="plan-overview">
+    <div class="plan-overview" :class="{ 'not-fullscreen': !isFullScreen }">
       <div class="plan-info">
         <h4>{{ plan.name }}</h4>
         <div class="plan-stats">
@@ -55,7 +55,7 @@
     </div>
 
     <!-- Gantt Chart View -->
-    <div class="gantt-chart-section">
+    <div v-if="isFullScreen" class="gantt-chart-section">
       <h5>Treatment Timeline - Gantt Chart</h5>
       <div class="gantt-container">
         <!-- Timeline Header -->
@@ -160,6 +160,7 @@ import { STLExportService } from '../services/STLExportService'
 interface Props {
   plan: OrthodonticTreatmentPlan
   segments: ToothSegment[]
+  isFullScreen?: boolean
 }
 
 const props = defineProps<Props>()
@@ -723,6 +724,16 @@ onUnmounted(() => {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.plan-overview.not-fullscreen {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plan-overview.not-fullscreen .export-actions {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .plan-info h4 {

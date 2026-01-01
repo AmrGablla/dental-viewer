@@ -76,6 +76,7 @@
         v-if="currentPlan"
         :plan="currentPlan"
         :segments="segments"
+        :isFullScreen="isFullScreen"
         @planUpdated="handlePlanUpdate"
         @stepChanged="handleStepChange"
       />
