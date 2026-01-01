@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineExpose } from 'vue'
+import { ref } from 'vue'
 import type { DentalModel, InteractionMode, ToothSegment } from '../types/dental'
 import LoadingOverlay from './LoadingOverlay.vue'
 import ViewPresets from './ViewPresets.vue'

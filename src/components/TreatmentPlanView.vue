@@ -227,27 +227,177 @@ const selectStep = (stepNumber: number) => {
   emit('stepChanged', stepNumber)
 }
 
+/**
+ * Apply step transformations to segments for export
+ * This calculates the position of each segment at a given step
+ * Modifies segments in place
+ */
+const applyStepTransformations = (
+  segments: ToothSegment[], 
+  plan: OrthodonticTreatmentPlan, 
+  stepNumber: number
+): void => {
+  // Apply transformations to each segment
+  segments.forEach(segment => {
+    // Always start from original position first
+    if (!segment.originalPosition) {
+      console.warn(`Segment ${segment.id} missing originalPosition`)
+      return
+    }
+    
+    // Reset to original position first
+    segment.mesh.position.copy(segment.originalPosition)
+    
+    const toothMovement = plan.teethMovements.find(
+      (tooth) => tooth.toothId === segment.id
+    )
+    
+    if (!toothMovement) {
+      // If no movement data, keep segment in original position (already set above)
+      segment.mesh.updateMatrixWorld()
+      return
+    }
+    
+    // Calculate total movement for this step
+    let totalMovement = { x: 0, y: 0, z: 0 }
+    
+    toothMovement.movements.forEach((movement) => {
+      const movementStartStep = movement.startStep || toothMovement.startStep || 1
+      const movementDuration = movement.userSteps || movement.recommendedSteps || 1
+      const movementEndStep = movementStartStep + movementDuration - 1
+      
+      // Check if this movement is active in the current step
+      if (stepNumber >= movementStartStep && stepNumber <= movementEndStep) {
+        // Calculate how many steps into this movement we are
+        const stepsIntoMovement = stepNumber - movementStartStep + 1
+        const totalSteps = movementDuration
+        
+        // Calculate the proportion of movement completed
+        const movementProgress = Math.min(stepsIntoMovement / totalSteps, 1)
+        
+        // Apply movement based on direction
+        const movementDistance = movement.distance * movementProgress
+        
+        switch (movement.direction) {
+          case 'anteroposterior':
+            totalMovement.z += movementDistance
+            break
+          case 'vertical':
+            totalMovement.y += movementDistance
+            break
+          case 'transverse':
+            totalMovement.x += movementDistance
+            break
+        }
+      } else if (stepNumber > movementEndStep) {
+        // If we're past the end of this movement, apply the full movement
+        switch (movement.direction) {
+          case 'anteroposterior':
+            totalMovement.z += movement.distance
+            break
+          case 'vertical':
+            totalMovement.y += movement.distance
+            break
+          case 'transverse':
+            totalMovement.x += movement.distance
+            break
+        }
+      }
+    })
+    
+    // Apply the calculated movement to the segment
+    if (segment.originalPosition) {
+      segment.mesh.position.set(
+        segment.originalPosition.x + totalMovement.x,
+        segment.originalPosition.y + totalMovement.y,
+        segment.originalPosition.z + totalMovement.z
+      )
+      segment.mesh.updateMatrixWorld()
+    }
+  })
+}
 
+/**
+ * Restore original positions after export
+ */
+const restoreOriginalPositions = (segments: ToothSegment[], originalPositions: Map<string, { x: number, y: number, z: number }>) => {
+  segments.forEach(segment => {
+    const original = originalPositions.get(segment.id)
+    if (original && segment.mesh.position) {
+      segment.mesh.position.set(original.x, original.y, original.z)
+      segment.mesh.updateMatrixWorld()
+    }
+  })
+}
 
 const exportCurrentStep = async () => {
+  // Store original positions before transformation
+  const originalPositions = new Map<string, { x: number, y: number, z: number }>()
+  props.segments.forEach(segment => {
+    if (segment.mesh.position) {
+      originalPositions.set(segment.id, {
+        x: segment.mesh.position.x,
+        y: segment.mesh.position.y,
+        z: segment.mesh.position.z
+      })
+    }
+  })
+  
   try {
-    const stepSegments = getActiveTeethInCurrentStep()
-      .map(tooth => props.segments.find(s => s.id === tooth.toothId))
-      .filter(s => s !== undefined) as ToothSegment[]
+    // Include ALL segments, not just moved ones
+    const allSegments = [...props.segments]
     
-    if (stepSegments.length > 0) {
-      await exportService.exportStepSTL(stepSegments, props.plan.currentStep)
+    // Apply step transformations to all segments
+    applyStepTransformations(allSegments, props.plan, props.plan.currentStep)
+    
+    if (allSegments.length > 0) {
+      await exportService.exportStepSTL(allSegments, props.plan.currentStep)
     }
   } catch (error) {
     console.error('Export failed:', error)
+  } finally {
+    // Restore original positions
+    restoreOriginalPositions(props.segments, originalPositions)
   }
 }
 
 const exportAllSteps = async () => {
+  // Store current positions before transformation (to restore after export)
+  const currentPositions = new Map<string, { x: number, y: number, z: number }>()
+  props.segments.forEach(segment => {
+    if (segment.mesh.position) {
+      currentPositions.set(segment.id, {
+        x: segment.mesh.position.x,
+        y: segment.mesh.position.y,
+        z: segment.mesh.position.z
+      })
+    }
+  })
+  
   try {
-    await exportService.exportTreatmentPlan(props.plan, props.segments)
+    const exports: { stepNumber: number; stlData: string }[] = []
+    
+    // Generate STL for each step with ALL segments
+    for (let step = 1; step <= props.plan.totalSteps; step++) {
+      // Include ALL segments and apply step transformations
+      // applyStepTransformations will reset each segment to originalPosition first
+      const allSegments = [...props.segments]
+      applyStepTransformations(allSegments, props.plan, step)
+      
+      if (allSegments.length > 0) {
+        const stlData = exportService.generateSTLFromSegments(allSegments, 'ascii')
+        exports.push({ stepNumber: step, stlData })
+      }
+    }
+    
+    // Download all steps
+    await exportService.downloadMultipleSTLs(exports, `${props.plan.name}_all_steps`)
+    
   } catch (error) {
     console.error('Export failed:', error)
+  } finally {
+    // Restore to current positions (positions before export started)
+    restoreOriginalPositions(props.segments, currentPositions)
   }
 }
 

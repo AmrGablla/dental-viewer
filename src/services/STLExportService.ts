@@ -1,4 +1,5 @@
 import type { ToothSegment, OrthodonticTreatmentPlan } from '../types/dental'
+import { Vector3 } from 'three'
 
 export class STLExportService {
   
@@ -13,23 +14,62 @@ export class STLExportService {
     }
   }
 
-  async exportTreatmentPlan(plan: OrthodonticTreatmentPlan, allSegments: ToothSegment[]): Promise<void> {
+  async exportTreatmentPlan(plan: OrthodonticTreatmentPlan, allSegments: ToothSegment[], includeAllSegments: boolean = false): Promise<void> {
     try {
       const exports: { stepNumber: number; stlData: string }[] = []
       
+      // Store original positions before transformation
+      const originalPositions = new Map<string, Map<number, { x: number, y: number, z: number }>>()
+      
       // Generate STL for each step
       for (let step = 1; step <= plan.totalSteps; step++) {
-        const stepTeeth = plan.teethMovements.filter(tooth => 
-          step >= tooth.startStep && step <= tooth.startStep + tooth.totalSteps - 1
-        )
+        // Store positions before this step's transformation
+        const stepOriginalPositions = new Map<string, { x: number, y: number, z: number }>()
+        allSegments.forEach(segment => {
+          if (segment.mesh.position) {
+            stepOriginalPositions.set(segment.id, {
+              x: segment.mesh.position.x,
+              y: segment.mesh.position.y,
+              z: segment.mesh.position.z
+            })
+          }
+        })
+        originalPositions.set(step, stepOriginalPositions)
         
-        const stepSegments = stepTeeth
-          .map(tooth => allSegments.find(s => s.id === tooth.toothId))
-          .filter(s => s !== undefined) as ToothSegment[]
+        let stepSegments: ToothSegment[]
+        
+        if (includeAllSegments) {
+          // Include ALL segments for this step
+          stepSegments = [...allSegments]
+          // Apply step transformations (this will be done by the caller)
+        } else {
+          // Only include segments that are moving in this step (original behavior)
+          const stepTeeth = plan.teethMovements.filter(tooth => 
+            step >= tooth.startStep && step <= tooth.startStep + tooth.totalSteps - 1
+          )
+          
+          stepSegments = stepTeeth
+            .map(tooth => allSegments.find(s => s.id === tooth.toothId))
+            .filter(s => s !== undefined) as ToothSegment[]
+        }
         
         if (stepSegments.length > 0) {
           const stlData = this.generateSTLFromSegments(stepSegments, 'ascii')
           exports.push({ stepNumber: step, stlData })
+        }
+        
+        // Restore positions after this step's export
+        if (includeAllSegments) {
+          const stepPositions = originalPositions.get(step)
+          if (stepPositions) {
+            allSegments.forEach(segment => {
+              const original = stepPositions.get(segment.id)
+              if (original && segment.mesh.position) {
+                segment.mesh.position.set(original.x, original.y, original.z)
+                segment.mesh.updateMatrixWorld()
+              }
+            })
+          }
         }
       }
       
@@ -42,7 +82,7 @@ export class STLExportService {
     }
   }
 
-  private generateSTLFromSegments(segments: ToothSegment[], format: 'ascii' | 'binary' = 'ascii'): string {
+  generateSTLFromSegments(segments: ToothSegment[], format: 'ascii' | 'binary' = 'ascii'): string {
     if (format === 'ascii') {
       return this.generateASCIISTL(segments)
     } else {
@@ -54,20 +94,34 @@ export class STLExportService {
     let stl = 'solid TreatmentStep\n'
     
     segments.forEach(segment => {
+      // Ensure mesh world matrix is up to date
+      segment.mesh.updateMatrixWorld(true)
+      
       const geometry = segment.mesh.geometry
       const position = geometry.attributes.position
       const index = geometry.index
       
+      // Helper to transform local vertex to world space
+      const getWorldVertex = (localIndex: number): [number, number, number] => {
+        const localVertex = new Vector3(
+          position.getX(localIndex),
+          position.getY(localIndex),
+          position.getZ(localIndex)
+        )
+        localVertex.applyMatrix4(segment.mesh.matrixWorld)
+        return [localVertex.x, localVertex.y, localVertex.z]
+      }
+      
       if (index) {
         // Indexed geometry
         for (let i = 0; i < index.count; i += 3) {
-          const a = index.getX(i) * 3
-          const b = index.getX(i + 1) * 3
-          const c = index.getX(i + 2) * 3
+          const a = index.getX(i)
+          const b = index.getX(i + 1)
+          const c = index.getX(i + 2)
           
-          const v1 = [position.getX(a), position.getY(a), position.getZ(a)]
-          const v2 = [position.getX(b), position.getY(b), position.getZ(b)]
-          const v3 = [position.getX(c), position.getY(c), position.getZ(c)]
+          const v1 = getWorldVertex(a)
+          const v2 = getWorldVertex(b)
+          const v3 = getWorldVertex(c)
           
           // Calculate normal
           const normal = this.calculateNormal(v1, v2, v3)
@@ -83,9 +137,9 @@ export class STLExportService {
       } else {
         // Non-indexed geometry
         for (let i = 0; i < position.count; i += 3) {
-          const v1 = [position.getX(i), position.getY(i), position.getZ(i)]
-          const v2 = [position.getX(i + 1), position.getY(i + 1), position.getZ(i + 1)]
-          const v3 = [position.getX(i + 2), position.getY(i + 2), position.getZ(i + 2)]
+          const v1 = getWorldVertex(i)
+          const v2 = getWorldVertex(i + 1)
+          const v3 = getWorldVertex(i + 2)
           
           const normal = this.calculateNormal(v1, v2, v3)
           
@@ -147,7 +201,7 @@ export class STLExportService {
     URL.revokeObjectURL(url)
   }
 
-  private async downloadMultipleSTLs(exports: { stepNumber: number; stlData: string }[], baseName: string): Promise<void> {
+  async downloadMultipleSTLs(exports: { stepNumber: number; stlData: string }[], baseName: string): Promise<void> {
     // For now, download each file separately
     // In a real implementation, you might want to create a ZIP file
     exports.forEach(({ stepNumber, stlData }) => {
