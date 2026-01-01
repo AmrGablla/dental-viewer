@@ -306,14 +306,13 @@ const applyStepTransformations = (
     })
     
     // Apply the calculated movement to the segment
-    if (segment.originalPosition) {
-      segment.mesh.position.set(
-        segment.originalPosition.x + totalMovement.x,
-        segment.originalPosition.y + totalMovement.y,
-        segment.originalPosition.z + totalMovement.z
-      )
-      segment.mesh.updateMatrixWorld()
-    }
+    // Position is already set to originalPosition above, so just add the movement
+    segment.mesh.position.set(
+      segment.originalPosition.x + totalMovement.x,
+      segment.originalPosition.y + totalMovement.y,
+      segment.originalPosition.z + totalMovement.z
+    )
+    segment.mesh.updateMatrixWorld()
   })
 }
 
@@ -362,11 +361,11 @@ const exportCurrentStep = async () => {
 }
 
 const exportAllSteps = async () => {
-  // Store current positions before transformation (to restore after export)
-  const currentPositions = new Map<string, { x: number, y: number, z: number }>()
+  // Store original positions before transformation
+  const originalPositions = new Map<string, { x: number, y: number, z: number }>()
   props.segments.forEach(segment => {
     if (segment.mesh.position) {
-      currentPositions.set(segment.id, {
+      originalPositions.set(segment.id, {
         x: segment.mesh.position.x,
         y: segment.mesh.position.y,
         z: segment.mesh.position.z
@@ -379,10 +378,29 @@ const exportAllSteps = async () => {
     
     // Generate STL for each step with ALL segments
     for (let step = 1; step <= props.plan.totalSteps; step++) {
+      // Restore to original positions before applying this step's transformation
+      // This ensures each step starts from the original state
+      restoreOriginalPositions(props.segments, originalPositions)
+      
       // Include ALL segments and apply step transformations
-      // applyStepTransformations will reset each segment to originalPosition first
       const allSegments = [...props.segments]
       applyStepTransformations(allSegments, props.plan, step)
+      
+      // Force update all mesh world matrices to ensure positions are current
+      allSegments.forEach(segment => {
+        segment.mesh.updateMatrixWorld(true)
+      })
+      
+      // Debug: Log positions for first segment in first few steps
+      if (step <= 3 && allSegments.length > 0) {
+        const firstSegment = allSegments[0]
+        const toothMovement = props.plan.teethMovements.find(t => t.toothId === firstSegment.id)
+        console.log(`Step ${step} - Segment ${firstSegment.id}:`, {
+          position: firstSegment.mesh.position.toArray(),
+          originalPosition: firstSegment.originalPosition?.toArray(),
+          hasMovement: !!toothMovement
+        })
+      }
       
       if (allSegments.length > 0) {
         const stlData = exportService.generateSTLFromSegments(allSegments, 'ascii')
@@ -390,14 +408,17 @@ const exportAllSteps = async () => {
       }
     }
     
+    // Restore to original positions after all exports
+    restoreOriginalPositions(props.segments, originalPositions)
+    
     // Download all steps
     await exportService.downloadMultipleSTLs(exports, `${props.plan.name}_all_steps`)
     
   } catch (error) {
     console.error('Export failed:', error)
   } finally {
-    // Restore to current positions (positions before export started)
-    restoreOriginalPositions(props.segments, currentPositions)
+    // Restore original positions
+    restoreOriginalPositions(props.segments, originalPositions)
   }
 }
 

@@ -19,7 +19,7 @@ export class STLExportService {
       const exports: { stepNumber: number; stlData: string }[] = []
       
       // Store original positions before transformation
-      const originalPositions = new Map<string, Map<number, { x: number, y: number, z: number }>>()
+      const originalPositions = new Map<number, Map<string, { x: number, y: number, z: number }>>()
       
       // Generate STL for each step
       for (let step = 1; step <= plan.totalSteps; step++) {
