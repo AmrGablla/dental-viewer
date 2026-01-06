@@ -578,12 +578,6 @@ const removeSegmentFile = (index: number) => {
   selectedSegmentFiles.value.splice(index, 1);
 };
 
-const clearSegmentFiles = () => {
-  selectedSegmentFiles.value = [];
-  if (segmentFileInput.value) {
-    segmentFileInput.value.value = "";
-  }
-};
 
 const handleSegmentUpload = async () => {
   if (selectedSegmentFiles.value.length === 0 || !selectedCaseForSegments.value) return;

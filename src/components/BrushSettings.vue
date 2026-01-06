@@ -142,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { reactive, watch } from 'vue'
 import Icon from './Icon.vue'
 import type { BrushSettings } from '../services/EnhancedBrushService'
 

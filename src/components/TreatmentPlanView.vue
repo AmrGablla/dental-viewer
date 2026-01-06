@@ -207,17 +207,6 @@ const formatDirection = (direction: string) => {
   }
 }
 
-const getTeethInStep = (stepNumber: number) => {
-  return props.plan.teethMovements.filter(tooth => 
-    stepNumber >= tooth.startStep && 
-    stepNumber <= tooth.startStep + tooth.totalSteps - 1
-  )
-}
-
-const getActiveTeethInCurrentStep = () => {
-  return getTeethInStep(props.plan.currentStep)
-}
-
 const selectStep = (stepNumber: number) => {
   // Update the current step in the plan
   const updatedPlan = { 

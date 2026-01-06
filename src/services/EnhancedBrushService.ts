@@ -57,14 +57,11 @@ export class EnhancedBrushService {
   // Performance optimization
   private spatialHash: Map<string, SpatialCell> = new Map()
   private vertexNormals: Map<number, any> = new Map()
-  private vertexCache: Map<number, any> = new Map()
   private lastUpdateTime = 0
-  private updateThrottle = 16 // ~60fps
   
   // Dental-aware features
   private curvatureMap: Map<number, number> = new Map()
   private boundaryEdges: Set<string> = new Set()
-  private connectedRegions: Map<number, Set<number>> = new Map()
   
   constructor(
     canvas: HTMLCanvasElement,
@@ -233,7 +230,7 @@ export class EnhancedBrushService {
     // If original mesh didn't work, try all objects in the scene
     if (intersects.length === 0) {
       const allIntersects = this.raycaster.intersectObjects(this.scene.children, true)
-      const meshIntersects = allIntersects.filter(i => i.object.type === 'Mesh')
+      const meshIntersects = allIntersects.filter((i: any) => i.object.type === 'Mesh')
       if (meshIntersects.length > 0) {
         intersects = [meshIntersects[0]]
       }
@@ -552,7 +549,6 @@ export class EnhancedBrushService {
       mesh.geometry.computeVertexNormals()
     }
     
-    const vector = new ThreeJS.Vector3()
     const normal = new ThreeJS.Vector3()
     
     // Simplified curvature estimation using normal variation
@@ -685,13 +681,31 @@ export class EnhancedBrushService {
     
     // For each segment, check if it has vertices in common with selection
     dentalModel.segments.forEach(segment => {
-      if (!segment.originalVertices || segment.originalVertices.length === 0) return
-      
-      // Check if any of the segment's vertices are in the selection
-      const hasOverlap = segment.originalVertices.some(v => selectedSet.has(v))
-      
-      if (hasOverlap) {
-        affectedSegments.push(segment)
+      // Check the segment's mesh geometry for vertex indices that match
+      // Since originalVertices is Vector3[] (positions), we check the mesh geometry instead
+      if (segment.mesh && segment.mesh.geometry) {
+        const geometry = segment.mesh.geometry
+        const index = geometry.index
+        
+        if (index) {
+          // Indexed geometry - check if any indices match
+          const indexArray = index.array
+          const hasOverlap = Array.from(indexArray).some((idx: number) => selectedSet.has(idx))
+          
+          if (hasOverlap) {
+            affectedSegments.push(segment)
+          }
+        } else {
+          // Non-indexed geometry - check position attribute
+          // Since we can't map positions to original indices easily, 
+          // we'll include the segment if it has geometry (conservative approach)
+          const positions = geometry.getAttribute('position')
+          if (positions && positions.count > 0) {
+            // For non-indexed geometry, we can't easily determine overlap
+            // So we'll be conservative and include it if the segment exists
+            affectedSegments.push(segment)
+          }
+        }
       }
     })
     
