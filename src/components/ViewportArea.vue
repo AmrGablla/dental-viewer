@@ -3,9 +3,9 @@
     <div ref="canvasContainer" class="canvas-container">
       <LoadingOverlay :isLoading="isLoading" :loadingMessage="loadingMessage" />
       
-      <!-- Movement Controls -->
+      <!-- Movement Controls: show whenever segments are selected -->
       <MovementControls
-        v-if="dentalModel && selectedSegments.length > 0 && currentMode !== 'rotate'"
+        v-if="dentalModel && selectedSegments.length > 0"
         :selectedSegments="selectedSegments"
         :totalMovementDistance="totalMovementDistance"
         @startDirectionalMove="handleStartDirectionalMove"
